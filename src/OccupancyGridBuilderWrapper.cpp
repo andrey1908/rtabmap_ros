@@ -193,8 +193,7 @@ void OccupancyGridBuilder::readParameters(const ros::NodeHandle& pnh)
 OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 			CommonDataSubscriber(false),
 			nodeId_(1),
-			lastOptimizedPoseTime_(0),
-			optimizedPosesBuffer_(ros::Duration(10000))
+			lastOptimizedPoseTime_(0)
 {
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
@@ -322,7 +321,7 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 	}
 	lastOptimizedPoseTime_ = optimizedPoses->header.stamp;
 	poses_.clear();
-	optimizedPosesBuffer_.clear();
+	optimizedPosesBuffers_.clear();
 
 	if (optimizedPoses->poses.size() == 0)
 	{
@@ -335,8 +334,14 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 	geometry_msgs::TransformStamped tf;
 	std::set<std::string> addedPosesFrames;
 	tf.header.frame_id = mapFrame;
+	std::set<int> clearedPosesBuffers;
 	for (const auto& pose: optimizedPoses->poses)
 	{
+		if (optimizedPosesBuffers_.count(pose.header.seq) == 0)
+		{
+			optimizedPosesBuffers_.emplace(pose.header.seq, ros::Duration(1000000));
+		}
+
 		tf.header.stamp = pose.header.stamp;
 		tf.child_frame_id = pose.header.frame_id;
 		tf.transform.translation.x = pose.pose.position.x;
@@ -346,7 +351,7 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 		tf.transform.rotation.y = pose.pose.orientation.y;
 		tf.transform.rotation.z = pose.pose.orientation.z;
 		tf.transform.rotation.w = pose.pose.orientation.w;
-		optimizedPosesBuffer_.setTransform(tf, "default");
+		optimizedPosesBuffers_.at(pose.header.seq).setTransform(tf, "default");
 
 		if (pose.header.frame_id != baseLinkFrame_ &&
 			addedPosesFrames.find(pose.header.frame_id) == addedPosesFrames.end())
@@ -355,7 +360,7 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 			tfListener_.lookupTransform(pose.header.frame_id, baseLinkFrame_, ros::Time(0), tfFromPoseToBaseLinkTF);
 			geometry_msgs::TransformStamped tfFromPoseToBaseLink;
 			transformStampedTFToMsg(tfFromPoseToBaseLinkTF, tfFromPoseToBaseLink);
-			optimizedPosesBuffer_.setTransform(tfFromPoseToBaseLink, "default", true);
+			optimizedPosesBuffers_.at(pose.header.seq).setTransform(tfFromPoseToBaseLink, "default", true);
 			addedPosesFrames.insert(pose.header.frame_id);
 		}
 	}
@@ -364,12 +369,19 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 	{
 		int nodeId = idTime.first;
 		ros::Time time = idTime.second;
-		try
+		for (const auto& optimizedPosesBuffer : optimizedPosesBuffers_)
 		{
-			geometry_msgs::TransformStamped tf = optimizedPosesBuffer_.lookupTransform(mapFrame_, baseLinkFrame_, time);
-			poses_[nodeId] = rtabmap_ros::transformFromGeometryMsg(tf.transform);
+			try
+			{
+				geometry_msgs::TransformStamped tf = optimizedPosesBuffer.second.lookupTransform(mapFrame_, baseLinkFrame_, time);
+				poses_[nodeId] = rtabmap_ros::transformFromGeometryMsg(tf.transform);
+			}
+			catch(...)
+			{
+				continue;
+			}
+			break;
 		}
-		catch(...) {}
 	}
 }
 
@@ -378,22 +390,27 @@ nav_msgs::OdometryConstPtr OccupancyGridBuilder::correctOdometry(nav_msgs::Odome
 	if (odomMsg->header.stamp <= lastOptimizedPoseTime_)
 	{
 		nav_msgs::OdometryPtr correctedOdomMsg(new nav_msgs::Odometry(*odomMsg));
-		try
+		for (const auto& optimizedPosesBuffer : optimizedPosesBuffers_)
 		{
-			geometry_msgs::TransformStamped tf = optimizedPosesBuffer_.lookupTransform(mapFrame_, baseLinkFrame_, odomMsg->header.stamp);
-			correctedOdomMsg->pose.pose.position.x = tf.transform.translation.x;
-			correctedOdomMsg->pose.pose.position.y = tf.transform.translation.y;
-			correctedOdomMsg->pose.pose.position.z = tf.transform.translation.z;
-			correctedOdomMsg->pose.pose.orientation.x = tf.transform.rotation.x;
-			correctedOdomMsg->pose.pose.orientation.y = tf.transform.rotation.y;
-			correctedOdomMsg->pose.pose.orientation.z = tf.transform.rotation.z;
-			correctedOdomMsg->pose.pose.orientation.w = tf.transform.rotation.w;
+			try
+			{
+				geometry_msgs::TransformStamped tf =
+					optimizedPosesBuffer.second.lookupTransform(mapFrame_, baseLinkFrame_, odomMsg->header.stamp);
+				correctedOdomMsg->pose.pose.position.x = tf.transform.translation.x;
+				correctedOdomMsg->pose.pose.position.y = tf.transform.translation.y;
+				correctedOdomMsg->pose.pose.position.z = tf.transform.translation.z;
+				correctedOdomMsg->pose.pose.orientation.x = tf.transform.rotation.x;
+				correctedOdomMsg->pose.pose.orientation.y = tf.transform.rotation.y;
+				correctedOdomMsg->pose.pose.orientation.z = tf.transform.rotation.z;
+				correctedOdomMsg->pose.pose.orientation.w = tf.transform.rotation.w;
+			}
+			catch(...)
+			{
+				continue;
+			}
+			return correctedOdomMsg;
 		}
-		catch(...)
-		{
-			return nav_msgs::OdometryConstPtr();
-		}
-		return correctedOdomMsg;
+		return nav_msgs::OdometryConstPtr();
 	}
 	return odomMsg;
 }

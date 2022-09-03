@@ -37,6 +37,7 @@
 #include <fstream>
 #include <map>
 #include <utility>
+#include <set>
 
 namespace rtabmap_ros {
 
@@ -140,7 +141,7 @@ private:
 	std::map<int, ros::Time> times_;
 
 	ros::Time lastOptimizedPoseTime_;
-	tf2_ros::Buffer optimizedPosesBuffer_;
+	std::map<int, tf2_ros::Buffer> optimizedPosesBuffers_;
 
 	UMutex mutex_;
 
