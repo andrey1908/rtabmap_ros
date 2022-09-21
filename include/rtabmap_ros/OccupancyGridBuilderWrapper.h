@@ -155,6 +155,7 @@ private:
 	float maxSemanticRangeSqr_;
 
 	bool needsLocalization_;
+	bool cacheLoadedMap_;
 
 	std::string mapFrame_;
 	std::string baseLinkFrame_;

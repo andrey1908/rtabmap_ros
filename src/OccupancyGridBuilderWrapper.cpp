@@ -140,6 +140,7 @@ void OccupancyGridBuilder::readParameters(const ros::NodeHandle& pnh)
 		maxSemanticRangeSqr_ = 0.;
 	}
 	pnh.param("needs_localization", needsLocalization_, true);
+	pnh.param("cache_loaded_map", cacheLoadedMap_, true);
 }
 
 OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
@@ -167,6 +168,10 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 		if (needsLocalization_)
 		{
 			poses_.clear();
+		}
+		if (cacheLoadedMap_)
+		{
+			occupancyGrid_.cacheCurrentMap();
 		}
 	}
 	setupCallbacks(nh, pnh, "DataSubscriber");
