@@ -3,54 +3,6 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <tf/transform_datatypes.h>
 
-bool writeMatBinary(std::fstream& fs, const cv::Mat& out_mat)
-{
-	if(!fs.is_open())
-	{
-		return false;
-	}
-	if (out_mat.rows == -1 || out_mat.cols == -1)
-	{
-		return false;
-	}
-	if(out_mat.empty())
-	{
-		int s = 0;
-		fs.write((const char*)(&s), sizeof(s));
-		return true;
-	}
-	int type = out_mat.type();
-	fs.write((const char*)(&out_mat.rows), sizeof(out_mat.rows));
-	fs.write((const char*)(&out_mat.cols), sizeof(out_mat.cols));
-	fs.write((const char*)(&type), sizeof(type));
-	fs.write((const char*)(out_mat.data), out_mat.elemSize() * out_mat.total());
-
-	return true;
-}
-
-bool readMatBinary(std::fstream& fs, cv::Mat& in_mat)
-{
-	if(!fs.is_open())
-	{
-		return false;
-	}
-	
-	int rows, cols, type;
-	fs.read((char*)(&rows), sizeof(rows));
-	if(rows == 0)
-	{
-		return true;
-	}
-	fs.read((char*)(&cols), sizeof(cols));
-	fs.read((char*)(&type), sizeof(type));
-
-	in_mat.release();
-	in_mat.create(rows, cols, type);
-	fs.read((char*)(in_mat.data), in_mat.elemSize() * in_mat.total());
-
-	return true;
-}
-
 namespace rtabmap_ros {
 
 rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, char** argv, const ros::NodeHandle& pnh)
@@ -192,7 +144,7 @@ void OccupancyGridBuilder::readParameters(const ros::NodeHandle& pnh)
 
 OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 			CommonDataSubscriber(false),
-			nodeId_(1),
+			nodeId_(0),
 			lastOptimizedPoseTime_(0)
 {
 	ros::NodeHandle nh;
@@ -236,6 +188,11 @@ void OccupancyGridBuilder::load()
 	UASSERT(fs.is_open());
 
 	UASSERT(fs.peek() != EOF);
+	int version;
+	fs.read((char*)(&version), sizeof(version));
+	UASSERT(version == 1);
+
+	UASSERT(fs.peek() != EOF);
 	float cellSize;
 	fs.read((char*)(&cellSize), sizeof(cellSize));
 	UASSERT(cellSize == occupancyGrid_.getCellSize());
@@ -244,29 +201,37 @@ void OccupancyGridBuilder::load()
 	while (fs.peek() != EOF)
 	{
 		int nodeId;
-		cv::Mat poseMat;
+		Eigen::Matrix4f eigenPose;
 		ros::Time time;
-		cv::Mat groundCells, obstacleCells, emptyCells;
+		int num_ground;
+		int num_empty;
+		int num_obstacles;
+		Eigen::Matrix3Xf points;
+		std::vector<int> colors;
 
 		fs.read((char*)(&nodeId), sizeof(nodeId));
-		readMatBinary(fs, poseMat);
+		fs.read((char*)(eigenPose.data()), eigenPose.size() * sizeof(eigenPose(0, 0)));
 		fs.read((char*)(&time.sec), sizeof(time.sec));
 		fs.read((char*)(&time.nsec), sizeof(time.nsec));
-		readMatBinary(fs, groundCells);
-		readMatBinary(fs, obstacleCells);
-		readMatBinary(fs, emptyCells);
+		fs.read((char*)(&num_ground), sizeof(num_ground));
+		fs.read((char*)(&num_empty), sizeof(num_empty));
+		fs.read((char*)(&num_obstacles), sizeof(num_obstacles));
+		points.resize(3, num_ground + num_empty + num_obstacles);
+		fs.read((char*)(points.data()), points.size() * sizeof(points(0, 0)));
+		colors.resize(num_ground + num_empty + num_obstacles);
+		fs.read((char*)(colors.data()), colors.size() * sizeof(colors[0]));
 
 		if (nodeId > maxNodeId)
 		{
 			maxNodeId = nodeId;
 		}
-		rtabmap::Transform pose(poseMat);
-		if (pose != rtabmap::Transform())
+		if (eigenPose != Eigen::Matrix4f::Zero())
 		{
+			rtabmap::Transform pose = rtabmap::Transform::fromEigen4f(eigenPose);
 			poses_[nodeId] = pose;
 		}
 		times_[nodeId] = time;
-		occupancyGrid_.addToCache(nodeId, groundCells, obstacleCells, emptyCells);
+		occupancyGrid_.addToCache(nodeId, num_ground, num_empty, num_obstacles, points, colors);
 	}
 	occupancyGrid_.update(poses_);
 	nodeId_ = maxNodeId + 1;
@@ -279,35 +244,45 @@ void OccupancyGridBuilder::save()
 	std::fstream fs(mapPath_, std::fstream::out | std::fstream::binary | std::fstream::trunc);
 	UASSERT(fs.is_open());
 
+	int version = 1;
+	fs.write((const char*)(&version), sizeof(version));
+
 	float cellSize = occupancyGrid_.getCellSize();
 	fs.write((const char*)(&cellSize), sizeof(cellSize));
 
-	const auto& cache = occupancyGrid_.getCache();
-	for (const auto& nodeIdGridCells : cache)
+	const auto& localMaps = occupancyGrid_.localMaps();
+	for (const auto& nodeIdLocalMap : localMaps)
 	{
-		int nodeId = nodeIdGridCells.first;
-		const auto& gridCells = nodeIdGridCells.second;
+		int nodeId = nodeIdLocalMap.first;
 		auto poseIt = poses_.find(nodeId);
 		auto timeIt = times_.find(nodeId);
+		const auto& localMap = nodeIdLocalMap.second;
+		int num_ground = localMap.num_ground;
+		int num_empty = localMap.num_empty;
+		int num_obstacles = localMap.num_obstacles;
+		const Eigen::Matrix3Xf& points = localMap.points;
+		const std::vector<int>& colors = localMap.colors;
+
 		UASSERT(timeIt != times_.end());
-		const cv::Mat& groundCells = gridCells.first.first;
-		const cv::Mat& obstacleCells = gridCells.first.second;
-		const cv::Mat& emptyCells = gridCells.second;
 
 		fs.write((const char*)(&nodeId), sizeof(nodeId));
 		if (poseIt == poses_.end())
 		{
-			writeMatBinary(fs, rtabmap::Transform().dataMatrix());
+			const Eigen::Matrix4f& nullEigenPose = Eigen::Matrix4f::Zero();
+			fs.write((const char*)(nullEigenPose.data()), nullEigenPose.size() * sizeof(nullEigenPose(0, 0)));
 		}
 		else
 		{
-			writeMatBinary(fs, poseIt->second.dataMatrix());
+			const Eigen::Matrix4f& eigenPose = poseIt->second.toEigen4f();
+			fs.write((const char*)(eigenPose.data()), eigenPose.size() * sizeof(eigenPose(0, 0)));
 		}
 		fs.write((const char*)(&timeIt->second.sec), sizeof(timeIt->second.sec));
 		fs.write((const char*)(&timeIt->second.nsec), sizeof(timeIt->second.nsec));
-		writeMatBinary(fs, groundCells);
-		writeMatBinary(fs, obstacleCells);
-		writeMatBinary(fs, emptyCells);
+		fs.write((const char*)(&num_ground), sizeof(num_ground));
+		fs.write((const char*)(&num_empty), sizeof(num_empty));
+		fs.write((const char*)(&num_obstacles), sizeof(num_obstacles));
+		fs.write((const char*)(points.data()), points.size() * sizeof(points(0, 0)));
+		fs.write((const char*)(colors.data()), colors.size() * sizeof(colors[0]));
 	}
 	fs.close();
 }
