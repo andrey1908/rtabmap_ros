@@ -208,9 +208,9 @@ void OccupancyGridBuilder::load()
 		int nodeId;
 		Eigen::Matrix4f eigenPose;
 		ros::Time time;
-		int num_ground;
-		int num_empty;
-		int num_obstacles;
+		int numGround;
+		int numEmpty;
+		int numObstacles;
 		Eigen::Matrix3Xf points;
 		std::vector<int> colors;
 
@@ -218,12 +218,12 @@ void OccupancyGridBuilder::load()
 		fs.read((char*)(eigenPose.data()), eigenPose.size() * sizeof(eigenPose(0, 0)));
 		fs.read((char*)(&time.sec), sizeof(time.sec));
 		fs.read((char*)(&time.nsec), sizeof(time.nsec));
-		fs.read((char*)(&num_ground), sizeof(num_ground));
-		fs.read((char*)(&num_empty), sizeof(num_empty));
-		fs.read((char*)(&num_obstacles), sizeof(num_obstacles));
-		points.resize(3, num_ground + num_empty + num_obstacles);
+		fs.read((char*)(&numGround), sizeof(numGround));
+		fs.read((char*)(&numEmpty), sizeof(numEmpty));
+		fs.read((char*)(&numObstacles), sizeof(numObstacles));
+		points.resize(3, numGround + numEmpty + numObstacles);
 		fs.read((char*)(points.data()), points.size() * sizeof(points(0, 0)));
-		colors.resize(num_ground + num_empty + num_obstacles);
+		colors.resize(numGround + numEmpty + numObstacles);
 		fs.read((char*)(colors.data()), colors.size() * sizeof(colors[0]));
 
 		if (nodeId > maxNodeId)
@@ -236,7 +236,7 @@ void OccupancyGridBuilder::load()
 			poses_[nodeId] = pose;
 		}
 		times_[nodeId] = time;
-		occupancyGrid_.addToCache(nodeId, num_ground, num_empty, num_obstacles, points, colors);
+		occupancyGrid_.addToCache(nodeId, numGround, numEmpty, numObstacles, points, colors);
 	}
 	occupancyGrid_.update(poses_);
 	nodeId_ = maxNodeId + 1;
@@ -262,9 +262,9 @@ void OccupancyGridBuilder::save()
 		auto poseIt = poses_.find(nodeId);
 		auto timeIt = times_.find(nodeId);
 		const auto& localMap = nodeIdLocalMap.second;
-		int num_ground = localMap.num_ground;
-		int num_empty = localMap.num_empty;
-		int num_obstacles = localMap.num_obstacles;
+		int numGround = localMap.numGround;
+		int numEmpty = localMap.numEmpty;
+		int numObstacles = localMap.numObstacles;
 		const Eigen::Matrix3Xf& points = localMap.points;
 		const std::vector<int>& colors = localMap.colors;
 
@@ -283,9 +283,9 @@ void OccupancyGridBuilder::save()
 		}
 		fs.write((const char*)(&timeIt->second.sec), sizeof(timeIt->second.sec));
 		fs.write((const char*)(&timeIt->second.nsec), sizeof(timeIt->second.nsec));
-		fs.write((const char*)(&num_ground), sizeof(num_ground));
-		fs.write((const char*)(&num_empty), sizeof(num_empty));
-		fs.write((const char*)(&num_obstacles), sizeof(num_obstacles));
+		fs.write((const char*)(&numGround), sizeof(numGround));
+		fs.write((const char*)(&numEmpty), sizeof(numEmpty));
+		fs.write((const char*)(&numObstacles), sizeof(numObstacles));
 		fs.write((const char*)(points.data()), points.size() * sizeof(points(0, 0)));
 		fs.write((const char*)(colors.data()), colors.size() * sizeof(colors[0]));
 	}
