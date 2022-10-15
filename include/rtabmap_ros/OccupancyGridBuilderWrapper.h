@@ -121,7 +121,7 @@ private:
 										const std::vector<rtabmap::CameraModel>& cameraModels,
 										pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud);
 
-	void processNewSignature(const rtabmap::Signature& signature, ros::Time stamp, std::string frame_id);
+	void processNewSignature(const rtabmap::Signature& signature, std::string frame_id);
 
 	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature);
 	nav_msgs::OccupancyGrid getOccupancyGridMap();
@@ -134,7 +134,7 @@ private:
 
 	tf::TransformListener tfListener_;
 
-	int nodeId_ = 1;
+	int nodeId_;
 	rtabmap::OccupancyGrid occupancyGrid_;
 
 	std::map<int, rtabmap::Transform> poses_;

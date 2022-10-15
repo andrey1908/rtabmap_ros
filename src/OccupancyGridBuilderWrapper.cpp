@@ -426,6 +426,7 @@ void OccupancyGridBuilder::commonDepthCallback(
 	UASSERT(isSubscribedToOdom());
 	UASSERT(isSubscribedToRGB());
 	UASSERT(isSubscribedToDepth());
+
 	std::unique_ptr<rtabmap::Signature> signaturePtr;
 	if (isSubscribedToScan3d())
 	{
@@ -437,7 +438,7 @@ void OccupancyGridBuilder::commonDepthCallback(
 		signaturePtr = createSignature(correctedOdomMsg, imageMsgs, depthMsgs, cameraInfoMsgs,
 														  localKeyPoints, localPoints3d, localDescriptors);
 	}
-	processNewSignature(*signaturePtr, odomMsg->header.stamp, odomMsg->header.frame_id);
+	processNewSignature(*signaturePtr, odomMsg->header.frame_id);
 }
 
 void OccupancyGridBuilder::commonLaserScanCallback(
@@ -464,8 +465,9 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 	UDEBUG("\n\nReceived new data");
 	UASSERT(isSubscribedToOdom());
 	UASSERT(isSubscribedToScan3d());
+
 	std::unique_ptr<rtabmap::Signature> signaturePtr = createSignature(correctedOdomMsg, scan3dMsg);
-	processNewSignature(*signaturePtr, odomMsg->header.stamp, odomMsg->header.frame_id);
+	processNewSignature(*signaturePtr, odomMsg->header.frame_id);
 }
 
 std::unique_ptr<rtabmap::Signature> OccupancyGridBuilder::createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
@@ -609,11 +611,11 @@ std::unique_ptr<rtabmap::LaserScan> OccupancyGridBuilder::addRGBToLaserScan(cons
 	return scanRGB;
 }
 
-void OccupancyGridBuilder::processNewSignature(const rtabmap::Signature& signature, ros::Time stamp, std::string frame_id)
+void OccupancyGridBuilder::processNewSignature(const rtabmap::Signature& signature, std::string frame_id)
 {
 	addSignatureToOccupancyGrid(signature);
 	nav_msgs::OccupancyGrid map = getOccupancyGridMap();
-	map.header.stamp = stamp;
+	map.header.stamp.fromSec(signature.sensorData().stamp());
 	map.header.frame_id = frame_id;
 	occupancyGridPub_.publish(map);
 	nodeId_++;
