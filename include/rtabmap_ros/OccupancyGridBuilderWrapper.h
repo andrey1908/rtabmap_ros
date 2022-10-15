@@ -121,9 +121,8 @@ private:
 										const std::vector<rtabmap::CameraModel>& cameraModels,
 										pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud);
 
-	void processNewSignature(const rtabmap::Signature& signature, std::string frame_id);
-
 	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature);
+	void publishOccupancyGridMaps(double stamp, const std::string& frame_id);
 	nav_msgs::OccupancyGrid getOccupancyGridMap();
 
 private:

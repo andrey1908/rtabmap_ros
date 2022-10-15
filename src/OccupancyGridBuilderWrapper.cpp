@@ -438,7 +438,8 @@ void OccupancyGridBuilder::commonDepthCallback(
 		signaturePtr = createSignature(correctedOdomMsg, imageMsgs, depthMsgs, cameraInfoMsgs,
 														  localKeyPoints, localPoints3d, localDescriptors);
 	}
-	processNewSignature(*signaturePtr, odomMsg->header.frame_id);
+	addSignatureToOccupancyGrid(*signaturePtr);
+	publishOccupancyGridMaps(signaturePtr->sensorData().stamp(), odomMsg->header.frame_id);
 }
 
 void OccupancyGridBuilder::commonLaserScanCallback(
@@ -467,7 +468,8 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 	UASSERT(isSubscribedToScan3d());
 
 	std::unique_ptr<rtabmap::Signature> signaturePtr = createSignature(correctedOdomMsg, scan3dMsg);
-	processNewSignature(*signaturePtr, odomMsg->header.frame_id);
+	addSignatureToOccupancyGrid(*signaturePtr);
+	publishOccupancyGridMaps(signaturePtr->sensorData().stamp(), odomMsg->header.frame_id);
 }
 
 std::unique_ptr<rtabmap::Signature> OccupancyGridBuilder::createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
@@ -611,11 +613,21 @@ std::unique_ptr<rtabmap::LaserScan> OccupancyGridBuilder::addRGBToLaserScan(cons
 	return scanRGB;
 }
 
-void OccupancyGridBuilder::processNewSignature(const rtabmap::Signature& signature, std::string frame_id)
+void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature& signature)
 {
-	addSignatureToOccupancyGrid(signature);
+	cv::Mat groundCells, obstacleCells, emptyCells;
+	cv::Point3f viewPoint;
+	occupancyGrid_.createLocalMap(signature, groundCells, obstacleCells, emptyCells, viewPoint);
+	occupancyGrid_.addToCache(nodeId_, groundCells, obstacleCells, emptyCells);
+	poses_[nodeId_] = signature.getPose();
+	times_[nodeId_] = ros::Time(signature.getStamp());
+	occupancyGrid_.update(poses_);
+}
+
+void OccupancyGridBuilder::publishOccupancyGridMaps(double stamp, const std::string& frame_id)
+{
 	nav_msgs::OccupancyGrid map = getOccupancyGridMap();
-	map.header.stamp.fromSec(signature.sensorData().stamp());
+	map.header.stamp.fromSec(stamp);
 	map.header.frame_id = frame_id;
 	occupancyGridPub_.publish(map);
 	nodeId_++;
@@ -637,17 +649,6 @@ void OccupancyGridBuilder::processNewSignature(const rtabmap::Signature& signatu
 		}
 	}
 	coloredOccupancyGridPub_.publish(coloredMap);
-}
-
-void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature& signature)
-{
-	cv::Mat groundCells, obstacleCells, emptyCells;
-	cv::Point3f viewPoint;
-	occupancyGrid_.createLocalMap(signature, groundCells, obstacleCells, emptyCells, viewPoint);
-	occupancyGrid_.addToCache(nodeId_, groundCells, obstacleCells, emptyCells);
-	poses_[nodeId_] = signature.getPose();
-	times_[nodeId_] = ros::Time(signature.getStamp());
-	occupancyGrid_.update(poses_);
 }
 
 nav_msgs::OccupancyGrid OccupancyGridBuilder::getOccupancyGridMap()
