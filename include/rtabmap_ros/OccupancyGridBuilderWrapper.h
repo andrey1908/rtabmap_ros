@@ -1,42 +1,27 @@
-#ifndef OCCUPANCYGRIDBUILDERNODE_H_
-#define OCCUPANCYGRIDBUILDERNODE_H_
+#pragma once
 
 #include <ros/ros.h>
-#include <message_filters/subscriber.h>
-#include <message_filters/synchronizer.h>
-#include <message_filters/sync_policies/approximate_time.h>
+#include <tf/transform_listener.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/OccupancyGrid.h>
-#include <pcl/filters/passthrough.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include <nav_msgs/Path.h>
 
 #include <rtabmap/core/OccupancyGrid.h>
 #include <rtabmap/core/LaserScan.h>
 #include <rtabmap/core/Transform.h>
-#include <rtabmap/core/SensorData.h>
 #include <rtabmap/core/Signature.h>
 #include <rtabmap/utilite/UStl.h>
-#include <rtabmap/utilite/UFile.h>
-#include <rtabmap/utilite/ULogger.h>
-#include <rtabmap/core/DBDriver.h>
-#include <rtabmap/core/Compression.h>
-#include <rtabmap/utilite/UThread.h>
 #include <rtabmap/utilite/UMutex.h>
-#include "rtabmap_ros/CommonDataSubscriber.h"
-#include "rtabmap_ros/MsgConversion.h"
-#include <colored_occupancy_grid/ColoredOccupancyGrid.h>
-#include "time_measurer/time_measurer.h"
 
-#include <nav_msgs/Path.h>
+#include "rtabmap_ros/CommonDataSubscriber.h"
+
+#include <colored_occupancy_grid/ColoredOccupancyGrid.h>
 
 #include <memory>
-#include <list>
 #include <vector>
 #include <string>
-#include <fstream>
 #include <map>
-#include <utility>
 #include <set>
 
 namespace rtabmap_ros {
@@ -128,7 +113,6 @@ private:
 private:
 	ros::Publisher occupancyGridPub_;
 	ros::Publisher coloredOccupancyGridPub_;
-	ros::Publisher coloredCloudPub_;
 	ros::Subscriber optimizedPosesSub_;
 
 	tf::TransformListener tfListener_;
@@ -161,5 +145,3 @@ private:
 };
 
 }
-
-#endif /* OCCUPANCYGRIDBUILDERNODE_H_ */

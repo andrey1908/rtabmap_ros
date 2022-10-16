@@ -43,13 +43,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cv_bridge/cv_bridge.h>
 
 #include <rtabmap/core/Transform.h>
-#include <rtabmap/core/Link.h>
 #include <rtabmap/core/Signature.h>
 #include <rtabmap/core/OdometryInfo.h>
-#include <rtabmap/core/Statistics.h>
 #include <rtabmap/core/StereoCameraModel.h>
 
-#include <rtabmap_ros/Link.h>
 #include <rtabmap_ros/KeyPoint.h>
 #include <rtabmap_ros/Point2f.h>
 #include <rtabmap_ros/Point3f.h>
@@ -81,12 +78,6 @@ rtabmap::SensorData rgbdImageFromROS(const rtabmap_ros::RGBDImageConstPtr & imag
 // copy data
 void compressedMatToBytes(const cv::Mat & compressed, std::vector<unsigned char> & bytes);
 cv::Mat compressedMatFromBytes(const std::vector<unsigned char> & bytes, bool copy = true);
-
-void infoFromROS(const rtabmap_ros::Info & info, rtabmap::Statistics & stat);
-void infoToROS(const rtabmap::Statistics & stats, rtabmap_ros::Info & info);
-
-rtabmap::Link linkFromROS(const rtabmap_ros::Link & msg);
-void linkToROS(const rtabmap::Link & link, rtabmap_ros::Link & msg);
 
 cv::KeyPoint keypointFromROS(const rtabmap_ros::KeyPoint & msg);
 void keypointToROS(const cv::KeyPoint & kpt, rtabmap_ros::KeyPoint & msg);
@@ -137,30 +128,6 @@ rtabmap::StereoCameraModel stereoCameraModelFromROS(
 		const std::string & frameId,
 		tf::TransformListener & listener,
 		double waitForTransform);
-
-void mapDataFromROS(
-		const rtabmap_ros::MapData & msg,
-		std::map<int, rtabmap::Transform> & poses,
-		std::multimap<int, rtabmap::Link> & links,
-		std::map<int, rtabmap::Signature> & signatures,
-		rtabmap::Transform & mapToOdom);
-void mapDataToROS(
-		const std::map<int, rtabmap::Transform> & poses,
-		const std::multimap<int, rtabmap::Link> & links,
-		const std::map<int, rtabmap::Signature> & signatures,
-		const rtabmap::Transform & mapToOdom,
-		rtabmap_ros::MapData & msg);
-
-void mapGraphFromROS(
-		const rtabmap_ros::MapGraph & msg,
-		std::map<int, rtabmap::Transform> & poses,
-		std::multimap<int, rtabmap::Link> & links,
-		rtabmap::Transform & mapToOdom);
-void mapGraphToROS(
-		const std::map<int, rtabmap::Transform> & poses,
-		const std::multimap<int, rtabmap::Link> & links,
-		const rtabmap::Transform & mapToOdom,
-		rtabmap_ros::MapGraph & msg);
 
 rtabmap::Signature nodeDataFromROS(const rtabmap_ros::NodeData & msg);
 void nodeDataToROS(const rtabmap::Signature & signature, rtabmap_ros::NodeData & msg);

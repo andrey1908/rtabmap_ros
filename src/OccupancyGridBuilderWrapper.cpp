@@ -3,6 +3,15 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <tf/transform_datatypes.h>
 
+#include <rtabmap/core/SensorData.h>
+#include <rtabmap/core/util3d_transforms.h>
+#include <rtabmap/utilite/UFile.h>
+#include <rtabmap/utilite/ULogger.h>
+
+#include "rtabmap_ros/MsgConversion.h"
+
+#include "time_measurer/time_measurer.h"
+
 namespace rtabmap_ros {
 
 rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, char** argv, const ros::NodeHandle& pnh)
@@ -156,7 +165,6 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 	occupancyGrid_.parseParameters(parameters);
 	occupancyGridPub_ = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);
 	coloredOccupancyGridPub_ = nh.advertise<colored_occupancy_grid::ColoredOccupancyGrid>("colored_grid_map", 1);
-	coloredCloudPub_ = nh.advertise<sensor_msgs::PointCloud2>("colored_cloud", 1);
 	if (mapPath_.empty())
 	{
 		loadMap_ = false;
@@ -527,10 +535,6 @@ std::unique_ptr<rtabmap::Signature> OccupancyGridBuilder::createSignature(const 
 
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud(new pcl::PointCloud<pcl::PointXYZRGB>());
 	std::unique_ptr<rtabmap::LaserScan> scanRGB = addRGBToLaserScan(scan, rgb, cameraModels, coloredCloud);
-	sensor_msgs::PointCloud2 coloredCloudMsg;
-	pcl::toROSMsg(*coloredCloud, coloredCloudMsg);
-	coloredCloudMsg.header = scan3dMsg.header;
-	coloredCloudPub_.publish(coloredCloudMsg);
 
 	rtabmap::SensorData data;
 	data.setStamp(odomMsg->header.stamp.toSec());
