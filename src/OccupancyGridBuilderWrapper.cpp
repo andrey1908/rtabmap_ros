@@ -130,24 +130,6 @@ void OccupancyGridBuilder::readParameters(const ros::NodeHandle& pnh)
 	pnh.param("map_path", mapPath_, std::string(""));
 	pnh.param("load_map", loadMap_, false);
 	pnh.param("save_map", saveMap_, false);
-	pnh.param("min_semantic_range", minSemanticRange_, (float)0);
-	pnh.param("max_semantic_range", maxSemanticRange_, (float)0);
-	if (minSemanticRange_ > 0.)
-	{
-		minSemanticRangeSqr_ = minSemanticRange_ * minSemanticRange_;
-	}
-	else
-	{
-		minSemanticRangeSqr_ = 0.;
-	}
-	if (maxSemanticRange_ > 0.)
-	{
-		maxSemanticRangeSqr_ = maxSemanticRange_ * maxSemanticRange_;
-	}
-	else
-	{
-		maxSemanticRangeSqr_ = 0.;
-	}
 	pnh.param("needs_localization", needsLocalization_, true);
 	pnh.param("cache_loaded_map", cacheLoadedMap_, true);
 }
@@ -244,7 +226,14 @@ void OccupancyGridBuilder::load()
 			poses_[nodeId] = pose;
 		}
 		times_[nodeId] = time;
-		occupancyGrid_.addToCache(nodeId, numGround, numEmpty, numObstacles, points, colors);
+
+		rtabmap::OccupancyGrid::LocalMap localMap;
+		localMap.numGround = numGround;
+		localMap.numEmpty = numEmpty;
+		localMap.numObstacles = numObstacles;
+		localMap.points = std::move(points);
+		localMap.colors = std::move(colors);
+		occupancyGrid_.addLocalMap(nodeId, std::move(localMap));
 	}
 	occupancyGrid_.update(poses_);
 	nodeId_ = maxNodeId + 1;
@@ -362,7 +351,7 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 			try
 			{
 				geometry_msgs::TransformStamped tf = optimizedPosesBuffer.second.lookupTransform(mapFrame_, baseLinkFrame_, time);
-				poses_[nodeId] = rtabmap_ros::transformFromGeometryMsg(tf.transform);
+				poses_[nodeId] = transformFromGeometryMsg(tf.transform);
 			}
 			catch(...)
 			{
@@ -433,21 +422,19 @@ void OccupancyGridBuilder::commonDepthCallback(
 	UDEBUG("\n\nReceived new data");
 	UASSERT(isSubscribedToOdom());
 	UASSERT(isSubscribedToRGB());
-	UASSERT(isSubscribedToDepth());
 
-	std::unique_ptr<rtabmap::Signature> signaturePtr;
+	rtabmap::Signature signature;
 	if (isSubscribedToScan3d())
 	{
-		signaturePtr = createSignature(correctedOdomMsg, imageMsgs, depthMsgs, cameraInfoMsgs, scan3dMsg,
-														  localKeyPoints, localPoints3d, localDescriptors);
+		signature = createSignature(correctedOdomMsg, scan3dMsg, imageMsgs, depthMsgs, cameraInfoMsgs);
 	}
 	else
 	{
-		signaturePtr = createSignature(correctedOdomMsg, imageMsgs, depthMsgs, cameraInfoMsgs,
-														  localKeyPoints, localPoints3d, localDescriptors);
+		UASSERT(isSubscribedToDepth());
+		signature = createSignature(correctedOdomMsg, sensor_msgs::PointCloud2(), imageMsgs, depthMsgs, cameraInfoMsgs);
 	}
-	addSignatureToOccupancyGrid(*signaturePtr);
-	publishOccupancyGridMaps(signaturePtr->sensorData().stamp(), odomMsg->header.frame_id);
+	addSignatureToOccupancyGrid(signature);
+	publishOccupancyGridMaps(signature.sensorData().stamp(), odomMsg->header.frame_id);
 }
 
 void OccupancyGridBuilder::commonLaserScanCallback(
@@ -475,157 +462,55 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 	UASSERT(isSubscribedToOdom());
 	UASSERT(isSubscribedToScan3d());
 
-	std::unique_ptr<rtabmap::Signature> signaturePtr = createSignature(correctedOdomMsg, scan3dMsg);
-	addSignatureToOccupancyGrid(*signaturePtr);
-	publishOccupancyGridMaps(signaturePtr->sensorData().stamp(), odomMsg->header.frame_id);
+	rtabmap::Signature signature = createSignature(correctedOdomMsg, scan3dMsg,
+		std::vector<cv_bridge::CvImageConstPtr>(),
+		std::vector<cv_bridge::CvImageConstPtr>(),
+		std::vector<sensor_msgs::CameraInfo>());
+	addSignatureToOccupancyGrid(signature);
+	publishOccupancyGridMaps(signature.sensorData().stamp(), odomMsg->header.frame_id);
 }
 
-std::unique_ptr<rtabmap::Signature> OccupancyGridBuilder::createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
-														 const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-														 const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
-														 const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
-														 const std::vector<std::vector<rtabmap_ros::KeyPoint>>& localKeyPointsMsgs,
-														 const std::vector<std::vector<rtabmap_ros::Point3f>>& localPoints3dMsgs,
-														 const std::vector<cv::Mat>& localDescriptorsMsgs)
-{
-	cv::Mat rgb;
-	cv::Mat depth;
-	std::vector<rtabmap::CameraModel> cameraModels;
-	std::vector<cv::KeyPoint> keypoints;
-	std::vector<cv::Point3f> points;
-	cv::Mat descriptors;
-	bool convertionOk = rtabmap_ros::convertRGBDMsgs(imageMsgs, depthMsgs, cameraInfoMsgs, odomMsg->child_frame_id, "", ros::Time(0),
-													 rgb, depth, cameraModels, tfListener_, 0,
-													 localKeyPointsMsgs, localPoints3dMsgs, localDescriptorsMsgs,
-													 &keypoints, &points, &descriptors);
-	UASSERT(convertionOk);
-	rtabmap::SensorData data;
-	data.setStamp(odomMsg->header.stamp.toSec());
-	data.setId(nodeId_);
-	data.setRGBDImage(rgb, depth, cameraModels);
-	std::unique_ptr<rtabmap::Signature> signaturePtr(new rtabmap::Signature(data));
-	signaturePtr->setPose(rtabmap_ros::transformFromPoseMsg(odomMsg->pose.pose));
-	return signaturePtr;
-}
-
-std::unique_ptr<rtabmap::Signature> OccupancyGridBuilder::createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
-														 const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-														 const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
-														 const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
+rtabmap::Signature OccupancyGridBuilder::createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
 														 const sensor_msgs::PointCloud2& scan3dMsg,
-														 const std::vector<std::vector<rtabmap_ros::KeyPoint>>& localKeyPointsMsgs,
-														 const std::vector<std::vector<rtabmap_ros::Point3f>>& localPoints3dMsgs,
-														 const std::vector<cv::Mat>& localDescriptorsMsgs)
+														 const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
+														 const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
+														 const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs)
 {
 	rtabmap::LaserScan scan;
-	bool convertionOk = rtabmap_ros::convertScan3dMsg(scan3dMsg, odomMsg->child_frame_id, "", ros::Time(0), scan, tfListener_, 0);
-	UASSERT(convertionOk);
+	if (scan3dMsg.data.size())
+	{
+		bool convertionOk = convertScan3dMsg(scan3dMsg, odomMsg->child_frame_id, "", ros::Time(0), scan, tfListener_, 0.0);
+		UASSERT(convertionOk);
+	}
 
 	cv::Mat rgb;
 	cv::Mat depth;
 	std::vector<rtabmap::CameraModel> cameraModels;
-	std::vector<cv::KeyPoint> keypoints;
-	std::vector<cv::Point3f> points;
-	cv::Mat descriptors;
-	convertionOk = rtabmap_ros::convertRGBDMsgs(imageMsgs, depthMsgs, cameraInfoMsgs, odomMsg->child_frame_id, "", ros::Time(0),
-													 rgb, depth, cameraModels, tfListener_, 0,
-													 localKeyPointsMsgs, localPoints3dMsgs, localDescriptorsMsgs,
-													 &keypoints, &points, &descriptors);
-	UASSERT(convertionOk);
+	if (cameraInfoMsgs.size())
+	{
+		bool convertionOk = convertRGBDMsgs(imageMsgs, depthMsgs, cameraInfoMsgs, odomMsg->child_frame_id, "", ros::Time(0),
+			rgb, depth, cameraModels, tfListener_, 0.0);
+		UASSERT(convertionOk);
+	}
 
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud(new pcl::PointCloud<pcl::PointXYZRGB>());
-	std::unique_ptr<rtabmap::LaserScan> scanRGB = addRGBToLaserScan(scan, rgb, cameraModels, coloredCloud);
-
-	rtabmap::SensorData data;
-	data.setStamp(odomMsg->header.stamp.toSec());
-	data.setId(nodeId_);
-	data.setRGBDImage(rgb, depth, cameraModels);
-	data.setLaserScan(*scanRGB);
-	std::unique_ptr<rtabmap::Signature> signaturePtr(new rtabmap::Signature(data));
-	signaturePtr->setPose(rtabmap_ros::transformFromPoseMsg(odomMsg->pose.pose));
-	return signaturePtr;
-}
-
-std::unique_ptr<rtabmap::Signature> OccupancyGridBuilder::createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
-														 const sensor_msgs::PointCloud2& scan3dMsg)
-{
-	rtabmap::LaserScan scan;
-	bool convertionOk = rtabmap_ros::convertScan3dMsg(scan3dMsg, odomMsg->child_frame_id, "", ros::Time(0), scan, tfListener_, 0);
-	UASSERT(convertionOk);
 	rtabmap::SensorData data;
 	data.setStamp(odomMsg->header.stamp.toSec());
 	data.setId(nodeId_);
 	data.setLaserScan(scan);
-	std::unique_ptr<rtabmap::Signature> signaturePtr(new rtabmap::Signature(data));
-	signaturePtr->setPose(rtabmap_ros::transformFromPoseMsg(odomMsg->pose.pose));
-	return signaturePtr;
-}
-
-std::unique_ptr<rtabmap::LaserScan> OccupancyGridBuilder::addRGBToLaserScan(const rtabmap::LaserScan& scan, const cv::Mat& rgb,
-											 const std::vector<rtabmap::CameraModel>& cameraModels,
-											 pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud)
-{
-	cv::Mat scanRGB_data = cv::Mat(1, scan.size(),
-		CV_32FC(rtabmap::LaserScan::channels(rtabmap::LaserScan::Format::kXYZRGB)));
-	UASSERT(scan.format() == rtabmap::LaserScan::Format::kXYZ || scan.format() == rtabmap::LaserScan::Format::kXYZI);
-	UASSERT(rgb.type() == CV_8UC3);
-	rtabmap::Transform camera2LaserScan = cameraModels[0].localTransform().inverse() * scan.localTransform();
-	coloredCloud->clear();
-	for (int i = 0; i < scan.size(); i++)
-	{
-		float* ptr = scanRGB_data.ptr<float>(0, i);
-		ptr[0] = scan.field(i, 0);
-		ptr[1] = scan.field(i, 1);
-		ptr[2] = scan.field(i, 2);
-
-		cv::Point3f cameraPoint = rtabmap::util3d::transformPoint(*(cv::Point3f*)(scan.data().ptr<float>(0, i)), camera2LaserScan);
-		int u, v;
-		cameraModels[0].reproject(cameraPoint.x, cameraPoint.y, cameraPoint.z, u, v);
-		float cameraPointRangeSqr = cameraPoint.x * cameraPoint.x + cameraPoint.y * cameraPoint.y +
-			cameraPoint.z * cameraPoint.z;
-		if (cameraModels[0].inFrame(u, v) && cameraPoint.z > 0 &&
-			(minSemanticRangeSqr_ == 0. || cameraPointRangeSqr > minSemanticRangeSqr_) &&
-			(maxSemanticRangeSqr_ == 0. || cameraPointRangeSqr < maxSemanticRangeSqr_))
-		{
-			int* ptrInt = (int*)ptr;
-			std::uint8_t b, g, r;
-			const std::uint8_t* bgrColor = rgb.ptr<std::uint8_t>(v, u);
-			b = std::max(bgrColor[0], (std::uint8_t)1);
-			g = std::max(bgrColor[1], (std::uint8_t)1);
-			r = std::max(bgrColor[2], (std::uint8_t)1);
-			ptrInt[3] = int(b) | (int(g) << 8) | (int(r) << 16);
-
-			pcl::PointXYZRGB coloredPoint;
-			coloredPoint.x = ptr[0];
-			coloredPoint.y = ptr[1];
-			coloredPoint.z = ptr[2];
-			coloredPoint.r = r;
-			coloredPoint.g = g;
-			coloredPoint.b = b;
-			coloredCloud->push_back(coloredPoint);
-		}
-		else
-		{
-			int* ptrInt = (int*)ptr;
-			ptrInt[3] = 0;
-		}
-	}
-
-	std::unique_ptr<rtabmap::LaserScan> scanRGB =
-		std::unique_ptr<rtabmap::LaserScan>(new rtabmap::LaserScan(scanRGB_data, scan.maxPoints(), scan.rangeMax(),
-		rtabmap::LaserScan::Format::kXYZRGB, scan.localTransform()));
-	return scanRGB;
+	data.setRGBDImage(rgb, depth, cameraModels);
+	rtabmap::Signature signature(data);
+	signature.setPose(transformFromPoseMsg(odomMsg->pose.pose));
+	return signature;
 }
 
 void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature& signature)
 {
-	cv::Mat groundCells, obstacleCells, emptyCells;
-	cv::Point3f viewPoint;
-	occupancyGrid_.createLocalMap(signature, groundCells, obstacleCells, emptyCells, viewPoint);
-	occupancyGrid_.addToCache(nodeId_, groundCells, obstacleCells, emptyCells);
+	rtabmap::OccupancyGrid::LocalMap localMap = occupancyGrid_.createLocalMap(signature);
+	occupancyGrid_.addLocalMap(nodeId_, std::move(localMap));
 	poses_[nodeId_] = signature.getPose();
 	times_[nodeId_] = ros::Time(signature.getStamp());
 	occupancyGrid_.update(poses_);
+	nodeId_++;
 }
 
 void OccupancyGridBuilder::publishOccupancyGridMaps(double stamp, const std::string& frame_id)
@@ -634,7 +519,6 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(double stamp, const std::str
 	map.header.stamp.fromSec(stamp);
 	map.header.frame_id = frame_id;
 	occupancyGridPub_.publish(map);
-	nodeId_++;
 
 	colored_occupancy_grid::ColoredOccupancyGrid coloredMap;
 	coloredMap.header = map.header;

@@ -1541,7 +1541,7 @@ bool convertRGBDMsgs(
 		std::vector<cv::Point3f> * localPoints3d,
 		cv::Mat * localDescriptors)
 {
-	UASSERT(!cameraInfoMsgs.empty()>0 &&
+	UASSERT(!cameraInfoMsgs.empty() &&
 			(cameraInfoMsgs.size() == imageMsgs.size() || imageMsgs.empty()) &&
 			(cameraInfoMsgs.size() == depthMsgs.size() || depthMsgs.empty()));
 

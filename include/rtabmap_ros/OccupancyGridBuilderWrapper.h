@@ -84,27 +84,11 @@ private:
 				const rtabmap_ros::UserDataConstPtr& userDataMsg,
 				const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg) {};
 
-	std::unique_ptr<rtabmap::Signature> createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
-									   const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-									   const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
-									   const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
-									   const std::vector<std::vector<rtabmap_ros::KeyPoint>>& localKeyPointsMsgs,
-									   const std::vector<std::vector<rtabmap_ros::Point3f>>& localPoints3dMsgs,
-									   const std::vector<cv::Mat>& localDescriptorsMsgs);
-	std::unique_ptr<rtabmap::Signature> createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
-									   const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-									   const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
-									   const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
+	rtabmap::Signature createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
 									   const sensor_msgs::PointCloud2& scan3dMsg,
-									   const std::vector<std::vector<rtabmap_ros::KeyPoint>>& localKeyPointsMsgs,
-									   const std::vector<std::vector<rtabmap_ros::Point3f>>& localPoints3dMsgs,
-									   const std::vector<cv::Mat>& localDescriptorsMsgs);
-	std::unique_ptr<rtabmap::Signature> createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
-									   const sensor_msgs::PointCloud2& scan3dMsg);
-
-	std::unique_ptr<rtabmap::LaserScan> addRGBToLaserScan(const rtabmap::LaserScan& scan, const cv::Mat& rgb,
-										const std::vector<rtabmap::CameraModel>& cameraModels,
-										pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud);
+									   const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
+									   const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
+									   const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
 
 	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature);
 	void publishOccupancyGridMaps(double stamp, const std::string& frame_id);
@@ -131,11 +115,6 @@ private:
 	std::string mapPath_;
 	bool loadMap_;
 	bool saveMap_;
-
-	float minSemanticRange_;
-	float maxSemanticRange_;
-	float minSemanticRangeSqr_;
-	float maxSemanticRangeSqr_;
 
 	bool needsLocalization_;
 	bool cacheLoadedMap_;
