@@ -27,7 +27,7 @@ rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, cha
 	{
 		if(UFile::exists(configPath.c_str()))
 		{
-			ROS_INFO( "%s: Loading parameters from %s", ros::this_node::getName().c_str(), configPath.c_str());
+			ROS_INFO("%s: Loading parameters from %s", ros::this_node::getName().c_str(), configPath.c_str());
 			rtabmap::ParametersMap allParameters;
 			rtabmap::Parameters::readINI(configPath.c_str(), allParameters);
 			// only update odometry parameters
@@ -42,40 +42,67 @@ rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, cha
 		}
 		else
 		{
-			ROS_ERROR( "Config file \"%s\" not found!", configPath.c_str());
+			ROS_ERROR("Config file \"%s\" not found!", configPath.c_str());
 		}
 	}
 
 	for(rtabmap::ParametersMap::iterator iter=parameters.begin(); iter!=parameters.end(); ++iter)
 	{
+		if (!pnh.hasParam(iter->first))
+		{
+			continue;
+		}
+
 		std::string vStr;
 		bool vBool;
-		int vInt;
 		double vDouble;
-		if(pnh.getParam(iter->first, vStr))
+		int vInt;
+
+		std::string sType = rtabmap::Parameters::getType(iter->first);
+		if (sType == "string")
 		{
-			ROS_INFO( "Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), vStr.c_str());
+			if (!pnh.getParam(iter->first, vStr))
+			{
+				ROS_FATAL("Could not get parameter %s. This parameter does not appear to be string type.", iter->first.c_str());
+			}
 			iter->second = vStr;
+			ROS_INFO("Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), vStr.c_str());
 		}
-		else if(pnh.getParam(iter->first, vBool))
+		else if (sType == "bool")
 		{
-			ROS_INFO( "Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), uBool2Str(vBool).c_str());
+			if (!pnh.getParam(iter->first, vBool))
+			{
+				ROS_FATAL("Could not get parameter %s. This parameter does not appear to be bool type.", iter->first.c_str());
+			}
 			iter->second = uBool2Str(vBool);
+			ROS_INFO("Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.c_str());
 		}
-		else if(pnh.getParam(iter->first, vDouble))
+		else if (sType == "float" || sType == "double")
 		{
-			ROS_INFO( "Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), uNumber2Str(vDouble).c_str());
+			if (!pnh.getParam(iter->first, vDouble))
+			{
+				ROS_FATAL("Could not get parameter %s. This parameter does not appear to be double type.", iter->first.c_str());
+			}
 			iter->second = uNumber2Str(vDouble);
+			ROS_INFO("Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.c_str());
 		}
-		else if(pnh.getParam(iter->first, vInt))
+		else if (sType == "int")
 		{
-			ROS_INFO( "Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), uNumber2Str(vInt).c_str());
+			if (!pnh.getParam(iter->first, vInt))
+			{
+				ROS_FATAL("Could not get parameter %s. This parameter does not appear to be int type.", iter->first.c_str());
+			}
 			iter->second = uNumber2Str(vInt);
+			ROS_INFO("Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.c_str());
+		}
+		else
+		{
+			UASSERT_MSG(false, uFormat("Unknown parameter type '%s' in parameters list", sType.c_str()).c_str());
 		}
 
 		if(iter->first.compare(rtabmap::Parameters::kVisMinInliers()) == 0 && atoi(iter->second.c_str()) < 8)
 		{
-			ROS_WARN( "Parameter min_inliers must be >= 8, setting to 8...");
+			ROS_WARN("Parameter min_inliers must be >= 8, setting to 8...");
 			iter->second = uNumber2Str(8);
 		}
 	}
@@ -86,7 +113,7 @@ rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, cha
 		rtabmap::ParametersMap::iterator jter = parameters.find(iter->first);
 		if(jter!=parameters.end())
 		{
-			ROS_INFO( "Update %s parameter \"%s\"=\"%s\" from arguments", ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.c_str());
+			ROS_INFO("Update %s parameter \"%s\"=\"%s\" from arguments", ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.c_str());
 			jter->second = iter->second;
 		}
 	}
@@ -103,19 +130,19 @@ rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, cha
 			{
 				// can be migrated
 				parameters.at(iter->second.second) = vStr;
-				ROS_WARN( "%s: Parameter name changed: \"%s\" -> \"%s\". Please update your launch file accordingly. Value \"%s\" is still set to the new parameter name.",
+				ROS_WARN("%s: Parameter name changed: \"%s\" -> \"%s\". Please update your launch file accordingly. Value \"%s\" is still set to the new parameter name.",
 						ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.second.c_str(), vStr.c_str());
 			}
 			else
 			{
 				if(iter->second.second.empty())
 				{
-					ROS_ERROR( "%s: Parameter \"%s\" doesn't exist anymore!",
+					ROS_ERROR("%s: Parameter \"%s\" doesn't exist anymore!",
 							ros::this_node::getName().c_str(), iter->first.c_str());
 				}
 				else
 				{
-					ROS_ERROR( "%s: Parameter \"%s\" doesn't exist anymore! You may look at this similar parameter: \"%s\"",
+					ROS_ERROR("%s: Parameter \"%s\" doesn't exist anymore! You may look at this similar parameter: \"%s\"",
 							ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.second.c_str());
 				}
 			}
@@ -125,7 +152,7 @@ rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, cha
 	return parameters;
 }
 
-void OccupancyGridBuilder::readParameters(const ros::NodeHandle& pnh)
+void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 {
 	pnh.param("map_path", mapPath_, std::string(""));
 	pnh.param("load_map", loadMap_, false);
@@ -142,7 +169,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
 	rtabmap::ParametersMap parameters = readRtabmapParameters(argc, argv, pnh);
-	readParameters(pnh);
+	readRtabmapRosParameters(pnh);
 
 	occupancyGrid_.parseParameters(parameters);
 	occupancyGridPub_ = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);

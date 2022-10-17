@@ -33,7 +33,7 @@ public:
 
 private:
 	rtabmap::ParametersMap readRtabmapParameters(int argc, char** argv, const ros::NodeHandle& pnh);
-	void readParameters(const ros::NodeHandle& pnh);
+	void readRtabmapRosParameters(const ros::NodeHandle& pnh);
 
 	void load();
 	void loadAssembledOccupancyGrid();
