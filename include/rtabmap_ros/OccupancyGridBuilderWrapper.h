@@ -36,11 +36,7 @@ private:
 	void readRtabmapRosParameters(const ros::NodeHandle& pnh);
 
 	void load();
-	void loadAssembledOccupancyGrid();
-	void loadOccupancyGridCache();
 	void save();
-	void saveAssembledOccupancyGrid();
-	void saveOccupancyGridCache();
 
 	void updatePoses(const nav_msgs::Path::ConstPtr& optimizedPoses);
 	nav_msgs::OdometryConstPtr correctOdometry(nav_msgs::OdometryConstPtr odomMsg);
@@ -90,7 +86,7 @@ private:
 									   const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
 									   const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
 
-	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature);
+	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature, bool temporary = false);
 	void publishOccupancyGridMaps(double stamp, const std::string& frame_id);
 	nav_msgs::OccupancyGrid getOccupancyGridMap();
 

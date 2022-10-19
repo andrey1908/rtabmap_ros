@@ -530,14 +530,21 @@ rtabmap::Signature OccupancyGridBuilder::createSignature(const nav_msgs::Odometr
 	return signature;
 }
 
-void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature& signature)
+void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature& signature, bool temporary /* false */)
 {
 	rtabmap::OccupancyGrid::LocalMap localMap = occupancyGrid_.createLocalMap(signature);
-	occupancyGrid_.addLocalMap(nodeId_, std::move(localMap));
-	poses_[nodeId_] = signature.getPose();
-	times_[nodeId_] = ros::Time(signature.getStamp());
-	occupancyGrid_.update(poses_);
-	nodeId_++;
+	if (temporary)
+	{
+		occupancyGrid_.addTemporaryLocalMap(signature.getPose(), std::move(localMap));
+	}
+	else
+	{
+		occupancyGrid_.addLocalMap(nodeId_, std::move(localMap));
+		poses_[nodeId_] = signature.getPose();
+		times_[nodeId_] = ros::Time(signature.getStamp());
+		occupancyGrid_.update(poses_);
+		nodeId_++;
+	}
 }
 
 void OccupancyGridBuilder::publishOccupancyGridMaps(double stamp, const std::string& frame_id)
