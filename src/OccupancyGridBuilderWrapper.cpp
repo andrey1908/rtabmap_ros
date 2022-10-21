@@ -186,6 +186,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 		if (needsLocalization_)
 		{
 			poses_.clear();
+			occupancyGrid_.updatePoses(poses_);
 		}
 		if (cacheLoadedMap_)
 		{
