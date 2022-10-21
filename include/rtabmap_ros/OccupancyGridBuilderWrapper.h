@@ -87,7 +87,7 @@ private:
 									   const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
 
 	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature, bool temporary = false);
-	void publishOccupancyGridMaps(double stamp, const std::string& frame_id);
+	void publishOccupancyGridMaps(ros::Time stamp, const std::string& frame_id);
 	nav_msgs::OccupancyGrid getOccupancyGridMap();
 
 private:
@@ -102,6 +102,8 @@ private:
 
 	std::map<int, rtabmap::Transform> poses_;
 	std::map<int, ros::Time> times_;
+
+	std::list<ros::Time> temporaryTimes_;
 
 	ros::Time lastOptimizedPoseTime_;
 	std::map<int, tf2_ros::Buffer> optimizedPosesBuffers_;

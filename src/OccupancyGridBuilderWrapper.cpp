@@ -338,6 +338,7 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 
 	if (optimizedPoses->poses.size() == 0)
 	{
+		occupancyGrid_.updatePoses(poses_);
 		return;
 	}
 
@@ -397,7 +398,25 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 		}
 	}
 
-	occupancyGrid_.updatePoses(poses_);
+	std::list<rtabmap::Transform> temporaryPoses;
+	for (const auto& temporaryTime: temporaryTimes_)
+	{
+		for (const auto& optimizedPosesBuffer : optimizedPosesBuffers_)
+		{
+			try
+			{
+				geometry_msgs::TransformStamped tf = optimizedPosesBuffer.second.lookupTransform(mapFrame_, baseLinkFrame_, temporaryTime);
+				temporaryPoses.push_back(transformFromGeometryMsg(tf.transform));
+			}
+			catch (...)
+			{
+				continue;
+			}
+			break;
+		}
+	}
+
+	occupancyGrid_.updatePoses(poses_, temporaryPoses);
 }
 
 nav_msgs::OdometryConstPtr OccupancyGridBuilder::correctOdometry(nav_msgs::OdometryConstPtr odomMsg)
@@ -472,7 +491,7 @@ void OccupancyGridBuilder::commonDepthCallback(
 		signature = createSignature(correctedOdomMsg, sensor_msgs::PointCloud2(), imageMsgs, depthMsgs, cameraInfoMsgs);
 	}
 	addSignatureToOccupancyGrid(signature, temporaryMapping_);
-	publishOccupancyGridMaps(signature.sensorData().stamp(), odomMsg->header.frame_id);
+	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), odomMsg->header.frame_id);
 }
 
 void OccupancyGridBuilder::commonLaserScanCallback(
@@ -505,7 +524,7 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 		std::vector<cv_bridge::CvImageConstPtr>(),
 		std::vector<sensor_msgs::CameraInfo>());
 	addSignatureToOccupancyGrid(signature, temporaryMapping_);
-	publishOccupancyGridMaps(signature.sensorData().stamp(), odomMsg->header.frame_id);
+	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), odomMsg->header.frame_id);
 }
 
 rtabmap::Signature OccupancyGridBuilder::createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
@@ -532,7 +551,7 @@ rtabmap::Signature OccupancyGridBuilder::createSignature(const nav_msgs::Odometr
 	}
 
 	rtabmap::SensorData data;
-	data.setStamp(odomMsg->header.stamp.toSec());
+	data.setStamp(odomMsg->header.stamp.sec, odomMsg->header.stamp.nsec);
 	data.setId(nodeId_);
 	data.setLaserScan(scan);
 	data.setRGBDImage(rgb, depth, cameraModels);
@@ -547,20 +566,25 @@ void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature&
 	if (temporary)
 	{
 		occupancyGrid_.addTemporaryLocalMap(signature.getPose(), std::move(localMap));
+		temporaryTimes_.push_back(ros::Time(signature.getSec(), signature.getNSec()));
+		if (temporaryTimes_.size() > occupancyGrid_.getMaxTemporaryLocalMaps())
+		{
+			temporaryTimes_.pop_front();
+		}
 	}
 	else
 	{
 		occupancyGrid_.addLocalMap(nodeId_, signature.getPose(), std::move(localMap));
 		poses_[nodeId_] = signature.getPose();
-		times_[nodeId_] = ros::Time(signature.getStamp());
+		times_[nodeId_] = ros::Time(signature.getSec(), signature.getNSec());
 		nodeId_++;
 	}
 }
 
-void OccupancyGridBuilder::publishOccupancyGridMaps(double stamp, const std::string& frame_id)
+void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::string& frame_id)
 {
 	nav_msgs::OccupancyGrid map = getOccupancyGridMap();
-	map.header.stamp.fromSec(stamp);
+	map.header.stamp = stamp;
 	map.header.frame_id = frame_id;
 	occupancyGridPub_.publish(map);
 
