@@ -247,9 +247,10 @@ void OccupancyGridBuilder::load()
 		{
 			maxNodeId = nodeId;
 		}
+		rtabmap::Transform pose;
 		if (eigenPose != Eigen::Matrix4f::Zero())
 		{
-			rtabmap::Transform pose = rtabmap::Transform::fromEigen4f(eigenPose);
+			pose = rtabmap::Transform::fromEigen4f(eigenPose);
 			poses_[nodeId] = pose;
 		}
 		times_[nodeId] = time;
@@ -260,9 +261,15 @@ void OccupancyGridBuilder::load()
 		localMap.numObstacles = numObstacles;
 		localMap.points = std::move(points);
 		localMap.colors = std::move(colors);
-		occupancyGrid_.addLocalMap(nodeId, std::move(localMap));
+		if (eigenPose != Eigen::Matrix4f::Zero())
+		{
+			occupancyGrid_.addLocalMap(nodeId, pose, std::move(localMap));
+		}
+		else
+		{
+			occupancyGrid_.addLocalMap(nodeId, std::move(localMap));
+		}
 	}
-	occupancyGrid_.update(poses_);
 	nodeId_ = maxNodeId + 1;
 	fs.close();
 }
@@ -387,6 +394,8 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 			break;
 		}
 	}
+
+	occupancyGrid_.updatePoses(poses_);
 }
 
 nav_msgs::OdometryConstPtr OccupancyGridBuilder::correctOdometry(nav_msgs::OdometryConstPtr odomMsg)
@@ -539,10 +548,9 @@ void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature&
 	}
 	else
 	{
-		occupancyGrid_.addLocalMap(nodeId_, std::move(localMap));
+		occupancyGrid_.addLocalMap(nodeId_, signature.getPose(), std::move(localMap));
 		poses_[nodeId_] = signature.getPose();
 		times_[nodeId_] = ros::Time(signature.getStamp());
-		occupancyGrid_.update(poses_);
 		nodeId_++;
 	}
 }
