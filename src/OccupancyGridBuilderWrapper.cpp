@@ -159,6 +159,7 @@ void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 	pnh.param("save_map", saveMap_, false);
 	pnh.param("needs_localization", needsLocalization_, true);
 	pnh.param("cache_loaded_map", cacheLoadedMap_, true);
+	pnh.param("temporary_mapping", temporaryMapping_, false);
 }
 
 OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
@@ -469,7 +470,7 @@ void OccupancyGridBuilder::commonDepthCallback(
 		UASSERT(isSubscribedToDepth());
 		signature = createSignature(correctedOdomMsg, sensor_msgs::PointCloud2(), imageMsgs, depthMsgs, cameraInfoMsgs);
 	}
-	addSignatureToOccupancyGrid(signature);
+	addSignatureToOccupancyGrid(signature, temporaryMapping_);
 	publishOccupancyGridMaps(signature.sensorData().stamp(), odomMsg->header.frame_id);
 }
 
@@ -502,7 +503,7 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 		std::vector<cv_bridge::CvImageConstPtr>(),
 		std::vector<cv_bridge::CvImageConstPtr>(),
 		std::vector<sensor_msgs::CameraInfo>());
-	addSignatureToOccupancyGrid(signature);
+	addSignatureToOccupancyGrid(signature, temporaryMapping_);
 	publishOccupancyGridMaps(signature.sensorData().stamp(), odomMsg->header.frame_id);
 }
 

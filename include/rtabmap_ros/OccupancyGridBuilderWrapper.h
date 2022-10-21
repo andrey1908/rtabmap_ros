@@ -115,6 +115,8 @@ private:
 	bool needsLocalization_;
 	bool cacheLoadedMap_;
 
+	bool temporaryMapping_;
+
 	std::string mapFrame_;
 	std::string baseLinkFrame_;
 };
