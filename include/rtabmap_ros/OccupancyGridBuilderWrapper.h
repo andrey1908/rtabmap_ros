@@ -6,6 +6,8 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Path.h>
+#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/TransformStamped.h>
 
 #include <rtabmap/core/OccupancyGrid.h>
 #include <rtabmap/core/LaserScan.h>
@@ -39,6 +41,8 @@ private:
 	void save();
 
 	void updatePoses(const nav_msgs::Path::ConstPtr& optimizedPoses);
+	bool getPose(geometry_msgs::Pose& pose, ros::Time time,
+		const ros::Duration maxAllowedDistance, const geometry_msgs::Pose* oldPose);
 	nav_msgs::OdometryConstPtr correctOdometry(nav_msgs::OdometryConstPtr odomMsg);
 
 	virtual void commonDepthCallback(
@@ -103,10 +107,12 @@ private:
 	std::map<int, rtabmap::Transform> poses_;
 	std::map<int, ros::Time> times_;
 
+	std::list<rtabmap::Transform> temporaryPoses_;
 	std::list<ros::Time> temporaryTimes_;
 
 	ros::Time lastOptimizedPoseTime_;
 	std::map<int, tf2_ros::Buffer> optimizedPosesBuffers_;
+	std::unique_ptr<geometry_msgs::TransformStamped> odometryCorrectonTransform_;
 
 	UMutex mutex_;
 

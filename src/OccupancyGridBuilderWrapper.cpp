@@ -1,7 +1,7 @@
 #include "rtabmap_ros/OccupancyGridBuilderWrapper.h"
 
-#include <geometry_msgs/TransformStamped.h>
 #include <tf/transform_datatypes.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include <rtabmap/core/SensorData.h>
 #include <rtabmap/core/util3d_transforms.h>
@@ -332,32 +332,19 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 	{
 		return;
 	}
-	lastOptimizedPoseTime_ = optimizedPoses->header.stamp;
-	poses_.clear();
-	optimizedPosesBuffers_.clear();
 
-	if (optimizedPoses->poses.size() == 0)
-	{
-		occupancyGrid_.updatePoses(poses_);
-		return;
-	}
+	lastOptimizedPoseTime_ = optimizedPoses->header.stamp;
+	optimizedPosesBuffers_.clear();
+	odometryCorrectonTransform_.reset();
 
 	const std::string& mapFrame = optimizedPoses->header.frame_id;
 	UASSERT(mapFrame == mapFrame_);
 
-	geometry_msgs::TransformStamped tf;
 	std::set<std::string> addedPosesFrames;
-	tf.header.frame_id = mapFrame;
-	std::set<int> clearedPosesBuffers;
 	for (const auto& pose: optimizedPoses->poses)
 	{
-		if (optimizedPosesBuffers_.count(pose.header.seq) == 0)
-		{
-			optimizedPosesBuffers_.emplace(pose.header.seq, ros::Duration(1000000));
-		}
-
+		geometry_msgs::TransformStamped tf;
 		tf.header.stamp = pose.header.stamp;
-		tf.child_frame_id = pose.header.frame_id;
 		tf.transform.translation.x = pose.pose.position.x;
 		tf.transform.translation.y = pose.pose.position.y;
 		tf.transform.translation.z = pose.pose.position.z;
@@ -365,17 +352,40 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 		tf.transform.rotation.y = pose.pose.orientation.y;
 		tf.transform.rotation.z = pose.pose.orientation.z;
 		tf.transform.rotation.w = pose.pose.orientation.w;
-		optimizedPosesBuffers_.at(pose.header.seq).setTransform(tf, "default");
 
-		if (pose.header.frame_id != baseLinkFrame_ &&
-			addedPosesFrames.find(pose.header.frame_id) == addedPosesFrames.end())
+		if (pose.header.frame_id.empty())
 		{
-			tf::StampedTransform tfFromPoseToBaseLinkTF;
-			tfListener_.lookupTransform(pose.header.frame_id, baseLinkFrame_, ros::Time(0), tfFromPoseToBaseLinkTF);
-			geometry_msgs::TransformStamped tfFromPoseToBaseLink;
-			transformStampedTFToMsg(tfFromPoseToBaseLinkTF, tfFromPoseToBaseLink);
-			optimizedPosesBuffers_.at(pose.header.seq).setTransform(tfFromPoseToBaseLink, "default", true);
-			addedPosesFrames.insert(pose.header.frame_id);
+			if (odometryCorrectonTransform_ == nullptr)
+			{
+				odometryCorrectonTransform_ = std::make_unique<geometry_msgs::TransformStamped>();
+				odometryCorrectonTransform_->header.stamp = ros::Time();
+			}
+			if (tf.header.stamp > odometryCorrectonTransform_->header.stamp)
+			{
+				*odometryCorrectonTransform_ = tf;
+			}
+		}
+		else
+		{
+			tf.header.frame_id = mapFrame;
+			tf.child_frame_id = pose.header.frame_id;
+
+			if (optimizedPosesBuffers_.count(pose.header.seq) == 0)
+			{
+				optimizedPosesBuffers_.emplace(pose.header.seq, ros::Duration(1000000));
+			}
+			optimizedPosesBuffers_.at(pose.header.seq).setTransform(tf, "default");
+
+			if (tf.child_frame_id != baseLinkFrame_ &&
+				addedPosesFrames.count(tf.child_frame_id) == 0)
+			{
+				tf::StampedTransform tfFromPoseToBaseLinkTF;
+				tfListener_.lookupTransform(pose.header.frame_id, baseLinkFrame_, ros::Time(0), tfFromPoseToBaseLinkTF);
+				geometry_msgs::TransformStamped tfFromPoseToBaseLink;
+				transformStampedTFToMsg(tfFromPoseToBaseLinkTF, tfFromPoseToBaseLink);
+				optimizedPosesBuffers_.at(pose.header.seq).setTransform(tfFromPoseToBaseLink, "default", true);
+				addedPosesFrames.insert(pose.header.frame_id);
+			}
 		}
 	}
 
@@ -383,40 +393,77 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 	{
 		int nodeId = idTime.first;
 		ros::Time time = idTime.second;
-		for (const auto& optimizedPosesBuffer : optimizedPosesBuffers_)
+		geometry_msgs::Pose pose;
+		std::unique_ptr<geometry_msgs::Pose> oldPose;
+		if (poses_.count(nodeId))
 		{
-			try
-			{
-				geometry_msgs::TransformStamped tf = optimizedPosesBuffer.second.lookupTransform(mapFrame_, baseLinkFrame_, time);
-				poses_[nodeId] = transformFromGeometryMsg(tf.transform);
-			}
-			catch(...)
-			{
-				continue;
-			}
-			break;
+			oldPose = std::make_unique<geometry_msgs::Pose>();
+			transformToPoseMsg(poses_.at(nodeId), *oldPose);
+		}
+		bool found = getPose(pose, time, ros::Duration(1, 0), oldPose.get());
+		if (found)
+		{
+			poses_[nodeId] = transformFromPoseMsg(pose);
+		}
+		else
+		{
+			poses_.erase(nodeId);
 		}
 	}
 
-	std::list<rtabmap::Transform> temporaryPoses;
-	for (const auto& temporaryTime: temporaryTimes_)
+	auto temporaryPoseIt = temporaryPoses_.begin();
+	auto temporaryTimeIt = temporaryTimes_.begin();
+	for (; temporaryPoseIt != temporaryPoses_.end(); ++temporaryPoseIt, ++temporaryTimeIt)
 	{
-		for (const auto& optimizedPosesBuffer : optimizedPosesBuffers_)
+		geometry_msgs::Pose pose;
+		geometry_msgs::Pose oldPose;
+		transformToPoseMsg(*temporaryPoseIt, oldPose);
+		bool found = getPose(pose, *temporaryTimeIt, ros::Duration(1, 0), &oldPose);
+		UASSERT(found);
+		*temporaryPoseIt = transformFromPoseMsg(pose);
+	}
+
+	occupancyGrid_.updatePoses(poses_, temporaryPoses_);
+}
+
+bool OccupancyGridBuilder::getPose(geometry_msgs::Pose& pose, ros::Time time,
+		const ros::Duration maxAllowedDistance, const geometry_msgs::Pose* oldPose)
+{
+	for (const auto& optimizedPosesBuffer : optimizedPosesBuffers_)
+	{
+		try
 		{
-			try
-			{
-				geometry_msgs::TransformStamped tf = optimizedPosesBuffer.second.lookupTransform(mapFrame_, baseLinkFrame_, temporaryTime);
-				temporaryPoses.push_back(transformFromGeometryMsg(tf.transform));
-			}
-			catch (...)
-			{
-				continue;
-			}
-			break;
+			geometry_msgs::Transform tf = optimizedPosesBuffer.second.lookupTransform(mapFrame_, baseLinkFrame_, time).transform;
+			pose.position.x = tf.translation.x;
+			pose.position.y = tf.translation.y;
+			pose.position.z = tf.translation.z;
+			pose.orientation.x = tf.rotation.x;
+			pose.orientation.y = tf.rotation.y;
+			pose.orientation.z = tf.rotation.z;
+			pose.orientation.w = tf.rotation.w;
+			return true;
+		}
+		catch (...)
+		{
+			continue;
 		}
 	}
 
-	occupancyGrid_.updatePoses(poses_, temporaryPoses);
+	if (odometryCorrectonTransform_ == nullptr)
+	{
+		return false;
+	}
+	if (oldPose == nullptr)
+	{
+		return false;
+	}
+	ros::Duration distance = time - odometryCorrectonTransform_->header.stamp;
+	if (distance < ros::Duration() || distance > maxAllowedDistance)
+	{
+		return false;
+	}
+	tf2::doTransform(*oldPose, pose, *odometryCorrectonTransform_);
+	return true;
 }
 
 nav_msgs::OdometryConstPtr OccupancyGridBuilder::correctOdometry(nav_msgs::OdometryConstPtr odomMsg)
@@ -424,27 +471,10 @@ nav_msgs::OdometryConstPtr OccupancyGridBuilder::correctOdometry(nav_msgs::Odome
 	if (odomMsg->header.stamp <= lastOptimizedPoseTime_)
 	{
 		nav_msgs::OdometryPtr correctedOdomMsg(new nav_msgs::Odometry(*odomMsg));
-		for (const auto& optimizedPosesBuffer : optimizedPosesBuffers_)
-		{
-			try
-			{
-				geometry_msgs::TransformStamped tf =
-					optimizedPosesBuffer.second.lookupTransform(mapFrame_, baseLinkFrame_, odomMsg->header.stamp);
-				correctedOdomMsg->pose.pose.position.x = tf.transform.translation.x;
-				correctedOdomMsg->pose.pose.position.y = tf.transform.translation.y;
-				correctedOdomMsg->pose.pose.position.z = tf.transform.translation.z;
-				correctedOdomMsg->pose.pose.orientation.x = tf.transform.rotation.x;
-				correctedOdomMsg->pose.pose.orientation.y = tf.transform.rotation.y;
-				correctedOdomMsg->pose.pose.orientation.z = tf.transform.rotation.z;
-				correctedOdomMsg->pose.pose.orientation.w = tf.transform.rotation.w;
-			}
-			catch(...)
-			{
-				continue;
-			}
-			return correctedOdomMsg;
-		}
-		return nav_msgs::OdometryConstPtr();
+		bool found = getPose(correctedOdomMsg->pose.pose, odomMsg->header.stamp,
+			ros::Duration(1, 0), &odomMsg->pose.pose);
+		UASSERT(found);
+		return correctedOdomMsg;
 	}
 	return odomMsg;
 }
@@ -470,10 +500,6 @@ void OccupancyGridBuilder::commonDepthCallback(
 		baseLinkFrame_ = odomMsg->child_frame_id;
 	}
 	nav_msgs::OdometryConstPtr correctedOdomMsg = correctOdometry(odomMsg);
-	if (correctedOdomMsg == nullptr)
-	{
-		return;
-	}
 
 	MEASURE_BLOCK_TIME(commonDepthCallback);
 	UDEBUG("\n\nReceived new data");
@@ -509,10 +535,6 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 		baseLinkFrame_ = odomMsg->child_frame_id;
 	}
 	nav_msgs::OdometryConstPtr correctedOdomMsg = correctOdometry(odomMsg);
-	if (correctedOdomMsg == nullptr)
-	{
-		return;
-	}
 
 	MEASURE_BLOCK_TIME(commonLaserScanCallback);
 	UDEBUG("\n\nReceived new data");
@@ -566,9 +588,11 @@ void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature&
 	if (temporary)
 	{
 		occupancyGrid_.addTemporaryLocalMap(signature.getPose(), std::move(localMap));
+		temporaryPoses_.push_back(signature.getPose());
 		temporaryTimes_.push_back(ros::Time(signature.getSec(), signature.getNSec()));
 		if (temporaryTimes_.size() > occupancyGrid_.getMaxTemporaryLocalMaps())
 		{
+			temporaryPoses_.pop_front();
 			temporaryTimes_.pop_front();
 		}
 	}
