@@ -19,6 +19,8 @@ RUN useradd -m ${USER} --uid=${UID} && \
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     git \
+    vim \
+    tmux \
     ros-noetic-rtabmap ros-noetic-rtabmap-ros && \
     apt-get remove -y ros-noetic-rtabmap ros-noetic-rtabmap-ros && \
     rm -rf /var/lib/apt/lists/*
