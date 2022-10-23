@@ -120,8 +120,8 @@ private:
 	bool loadMap_;
 	bool saveMap_;
 
-	bool needsLocalization_;
 	bool cacheLoadedMap_;
+	bool needsLocalization_;
 
 	bool temporaryMapping_;
 

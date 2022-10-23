@@ -157,8 +157,8 @@ void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 	pnh.param("map_path", mapPath_, std::string(""));
 	pnh.param("load_map", loadMap_, false);
 	pnh.param("save_map", saveMap_, false);
-	pnh.param("needs_localization", needsLocalization_, true);
 	pnh.param("cache_loaded_map", cacheLoadedMap_, true);
+	pnh.param("needs_localization", needsLocalization_, true);
 	pnh.param("temporary_mapping", temporaryMapping_, false);
 }
 
@@ -183,14 +183,14 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 	if (loadMap_)
 	{
 		load();
+		if (cacheLoadedMap_)
+		{
+			occupancyGrid_.cacheCurrentMap();
+		}
 		if (needsLocalization_)
 		{
 			poses_.clear();
 			occupancyGrid_.updatePoses(poses_);
-		}
-		if (cacheLoadedMap_)
-		{
-			occupancyGrid_.cacheCurrentMap();
 		}
 	}
 	setupCallbacks(nh, pnh, "DataSubscriber");
