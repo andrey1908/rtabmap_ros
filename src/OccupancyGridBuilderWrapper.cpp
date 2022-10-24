@@ -426,7 +426,13 @@ void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimized
 		geometry_msgs::Pose oldPose;
 		transformToPoseMsg(*temporaryPoseIt, oldPose);
 		bool found = getPose(pose, *temporaryTimeIt, ros::Duration(1, 0), &oldPose);
-		UASSERT(found);
+		if (found == false)
+		{
+			occupancyGrid_.clearTemporaryLocalMaps();
+			temporaryPoses_.clear();
+			temporaryTimes_.clear();
+			break;
+		}
 		*temporaryPoseIt = transformFromPoseMsg(pose);
 	}
 
@@ -480,7 +486,12 @@ nav_msgs::OdometryConstPtr OccupancyGridBuilder::correctOdometry(nav_msgs::Odome
 		nav_msgs::OdometryPtr correctedOdomMsg(new nav_msgs::Odometry(*odomMsg));
 		bool found = getPose(correctedOdomMsg->pose.pose, odomMsg->header.stamp,
 			ros::Duration(1, 0), &odomMsg->pose.pose);
-		UASSERT(found);
+		if (found == false) {
+			occupancyGrid_.clearTemporaryLocalMaps();
+			temporaryPoses_.clear();
+			temporaryTimes_.clear();
+			return nullptr;
+		}
 		return correctedOdomMsg;
 	}
 	return odomMsg;
@@ -507,6 +518,10 @@ void OccupancyGridBuilder::commonDepthCallback(
 		baseLinkFrame_ = odomMsg->child_frame_id;
 	}
 	nav_msgs::OdometryConstPtr correctedOdomMsg = correctOdometry(odomMsg);
+	if (correctedOdomMsg == nullptr)
+	{
+		return;
+	}
 
 	MEASURE_BLOCK_TIME(commonDepthCallback);
 	UDEBUG("\n\nReceived new data");
@@ -543,6 +558,10 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 		baseLinkFrame_ = odomMsg->child_frame_id;
 	}
 	nav_msgs::OdometryConstPtr correctedOdomMsg = correctOdometry(odomMsg);
+	if (correctedOdomMsg == nullptr)
+	{
+		return;
+	}
 
 	MEASURE_BLOCK_TIME(commonLaserScanCallback);
 	UDEBUG("\n\nReceived new data");
