@@ -91,12 +91,15 @@ private:
 									   const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
 
 	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature, bool temporary = false);
-	void publishOccupancyGridMaps(ros::Time stamp, const std::string& frame_id);
 	nav_msgs::OccupancyGrid getOccupancyGridMap();
+	void publishOccupancyGridMaps(ros::Time stamp, const std::string& frame_id);
+
+	void publishLastDilatedSemantic(ros::Time stamp, const std::string& frame_id);
 
 private:
 	ros::Publisher occupancyGridPub_;
 	ros::Publisher coloredOccupancyGridPub_;
+	ros::Publisher dilatedSemanticPub_;
 	ros::Subscriber optimizedPosesSub_;
 
 	tf::TransformListener tfListener_;

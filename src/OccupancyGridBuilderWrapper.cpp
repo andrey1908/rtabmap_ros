@@ -3,6 +3,12 @@
 #include <tf/transform_datatypes.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
+#include <std_msgs/Header.h>
+#include <sensor_msgs/Image.h>
+
+#include <sensor_msgs/image_encodings.h>
+#include <cv_bridge/cv_bridge.h>
+
 #include <rtabmap/core/SensorData.h>
 #include <rtabmap/core/util3d_transforms.h>
 #include <rtabmap/utilite/UFile.h>
@@ -175,6 +181,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 	occupancyGrid_.parseParameters(parameters);
 	occupancyGridPub_ = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);
 	coloredOccupancyGridPub_ = nh.advertise<colored_occupancy_grid::ColoredOccupancyGrid>("colored_grid_map", 1);
+	dilatedSemanticPub_ = nh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
 	if (mapPath_.empty())
 	{
 		loadMap_ = false;
@@ -518,6 +525,7 @@ void OccupancyGridBuilder::commonDepthCallback(
 	}
 	addSignatureToOccupancyGrid(signature, temporaryMapping_);
 	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), odomMsg->header.frame_id);
+	publishLastDilatedSemantic(ros::Time(signature.getSec(), signature.getNSec()), imageMsgs[0]->header.frame_id);
 }
 
 void OccupancyGridBuilder::commonLaserScanCallback(
@@ -656,6 +664,23 @@ nav_msgs::OccupancyGrid OccupancyGridBuilder::getOccupancyGridMap()
 
 	memcpy(map.data.data(), pixels.data, map.info.width * map.info.height);
 	return map;
+}
+
+void OccupancyGridBuilder::publishLastDilatedSemantic(ros::Time stamp, const std::string& frame_id)
+{
+	const cv::Mat lastDilatedSemantic = occupancyGrid_.lastDilatedSemantic();
+	if (lastDilatedSemantic.empty())
+	{
+		return;
+	}
+
+	std_msgs::Header header;
+	header.stamp = stamp;
+	header.frame_id = frame_id;
+	cv_bridge::CvImage cv_bridge(header, sensor_msgs::image_encodings::BGR8, lastDilatedSemantic);
+	sensor_msgs::Image lastDilatedSemanticMsg;
+	cv_bridge.toImageMsg(lastDilatedSemanticMsg);
+	dilatedSemanticPub_.publish(lastDilatedSemanticMsg);
 }
 
 }
