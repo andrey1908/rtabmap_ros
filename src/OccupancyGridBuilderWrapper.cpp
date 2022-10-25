@@ -354,6 +354,7 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 			}
 			trajectoryBuffer.setTransform(pose, "default");
 			if (pose.child_frame_id != baseLinkFrame_ &&
+				!baseLinkFrame_.empty() &&
 				addedStaticTransformToBaseLink == false)
 			{
 				tf::StampedTransform toBaseLinkTF;
@@ -434,7 +435,7 @@ std::optional<rtabmap::Transform> OccupancyGridBuilder::getPose(ros::Time time,
 		const rtabmap::Transform* odometryPose /* nullptr */, ros::Duration maxDistance /* (0, 0) */,
 		bool defaultIdentityOdometryCorrection /* false */)
 {
-	if (time <= lastOptimizationResultsTime_)
+	if (time <= lastOptimizationResultsTime_ && !mapFrame_.empty() && !baseLinkFrame_.empty())
 	{
 		for (const auto& trajectoryBuffer : trajectoryBuffers_)
 		{
