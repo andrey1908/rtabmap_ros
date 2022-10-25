@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(rtabmap_ros)
 
+set(CMAKE_CXX_STANDARD 17)
+
 # Policy CMP0043 introduced in cmake version 3.0 IGNORES the use of COMPILE_DEFINITIONS suffixed variables, e.g. COMPILE_DEFINITIONS_DEBUG
 # Set to OLD behavior until minimum cmake version >= 2.8.10 (version that COMPILE_DEFINITIONS can be set by generator expressions instead)
 if (POLICY CMP0043)
@@ -19,7 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
              cv_bridge roscpp rospy sensor_msgs std_msgs std_srvs nav_msgs geometry_msgs visualization_msgs
              image_transport tf tf_conversions tf2_ros eigen_conversions laser_geometry pcl_conversions 
              pcl_ros nodelet dynamic_reconfigure message_filters class_loader rosgraph_msgs
-             genmsg stereo_msgs move_base_msgs image_geometry pluginlib colored_occupancy_grid
+             genmsg stereo_msgs move_base_msgs image_geometry pluginlib colored_occupancy_grid optimization_results_msgs
 )
 
 # Optional components

@@ -8,6 +8,7 @@
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <optimization_results_msgs/OptimizationResults.h>
 
 #include <rtabmap/core/OccupancyGrid.h>
 #include <rtabmap/core/LaserScan.h>
@@ -25,6 +26,7 @@
 #include <string>
 #include <map>
 #include <set>
+#include <optional>
 
 namespace rtabmap_ros {
 
@@ -40,57 +42,60 @@ private:
 	void load();
 	void save();
 
-	void updatePoses(const nav_msgs::Path::ConstPtr& optimizedPoses);
-	bool getPose(geometry_msgs::Pose& pose, ros::Time time,
-		const ros::Duration maxAllowedDistance, const geometry_msgs::Pose* oldPose);
-	nav_msgs::OdometryConstPtr correctOdometry(nav_msgs::OdometryConstPtr odomMsg);
+	void updatePoses(const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults);
+	std::optional<rtabmap::Transform> getPose(ros::Time time,
+		const rtabmap::Transform* odometryPose = nullptr, ros::Duration maxDistance = ros::Duration(0, 0),
+		bool defaultIdentityOdometryCorrection = false);
 
 	virtual void commonDepthCallback(
-				const nav_msgs::OdometryConstPtr& odomMsg,
-				const rtabmap_ros::UserDataConstPtr& userDataMsg,
-				const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-				const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
-				const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
-				const sensor_msgs::LaserScan& scanMsg,
-				const sensor_msgs::PointCloud2& scan3dMsg,
-				const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
-				const std::vector<rtabmap_ros::GlobalDescriptor>& globalDescriptorMsgs = std::vector<rtabmap_ros::GlobalDescriptor>(),
-				const std::vector<std::vector<rtabmap_ros::KeyPoint>>& localKeyPoints = std::vector<std::vector<rtabmap_ros::KeyPoint>>(),
-				const std::vector<std::vector<rtabmap_ros::Point3f>>& localPoints3d = std::vector<std::vector<rtabmap_ros::Point3f>>(),
-				const std::vector<cv::Mat>& localDescriptors = std::vector<cv::Mat>());
+			const nav_msgs::OdometryConstPtr& odomMsg,
+			const rtabmap_ros::UserDataConstPtr& userDataMsg,
+			const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
+			const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
+			const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
+			const sensor_msgs::LaserScan& scanMsg,
+			const sensor_msgs::PointCloud2& scan3dMsg,
+			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
+			const std::vector<rtabmap_ros::GlobalDescriptor>& globalDescriptorMsgs = std::vector<rtabmap_ros::GlobalDescriptor>(),
+			const std::vector<std::vector<rtabmap_ros::KeyPoint>>& localKeyPoints = std::vector<std::vector<rtabmap_ros::KeyPoint>>(),
+			const std::vector<std::vector<rtabmap_ros::Point3f>>& localPoints3d = std::vector<std::vector<rtabmap_ros::Point3f>>(),
+			const std::vector<cv::Mat>& localDescriptors = std::vector<cv::Mat>());
 	virtual void commonStereoCallback(
-				const nav_msgs::OdometryConstPtr& odomMsg,
-				const rtabmap_ros::UserDataConstPtr& userDataMsg,
-				const cv_bridge::CvImageConstPtr& leftImageMsg,
-				const cv_bridge::CvImageConstPtr& rightImageMsg,
-				const sensor_msgs::CameraInfo& leftCamInfoMsg,
-				const sensor_msgs::CameraInfo& rightCamInfoMsg,
-				const sensor_msgs::LaserScan& scanMsg,
-				const sensor_msgs::PointCloud2& scan3dMsg,
-				const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
-				const std::vector<rtabmap_ros::GlobalDescriptor>& globalDescriptorMsgs = std::vector<rtabmap_ros::GlobalDescriptor>(),
-				const std::vector<rtabmap_ros::KeyPoint>& localKeyPoints = std::vector<rtabmap_ros::KeyPoint>(),
-				const std::vector<rtabmap_ros::Point3f>& localPoints3d = std::vector<rtabmap_ros::Point3f>(),
-				const cv::Mat& localDescriptors = cv::Mat()) {};
+			const nav_msgs::OdometryConstPtr& odomMsg,
+			const rtabmap_ros::UserDataConstPtr& userDataMsg,
+			const cv_bridge::CvImageConstPtr& leftImageMsg,
+			const cv_bridge::CvImageConstPtr& rightImageMsg,
+			const sensor_msgs::CameraInfo& leftCamInfoMsg,
+			const sensor_msgs::CameraInfo& rightCamInfoMsg,
+			const sensor_msgs::LaserScan& scanMsg,
+			const sensor_msgs::PointCloud2& scan3dMsg,
+			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
+			const std::vector<rtabmap_ros::GlobalDescriptor>& globalDescriptorMsgs = std::vector<rtabmap_ros::GlobalDescriptor>(),
+			const std::vector<rtabmap_ros::KeyPoint>& localKeyPoints = std::vector<rtabmap_ros::KeyPoint>(),
+			const std::vector<rtabmap_ros::Point3f>& localPoints3d = std::vector<rtabmap_ros::Point3f>(),
+			const cv::Mat& localDescriptors = cv::Mat()) {};
 	virtual void commonLaserScanCallback(
-				const nav_msgs::OdometryConstPtr& odomMsg,
-				const rtabmap_ros::UserDataConstPtr& userDataMsg,
-				const sensor_msgs::LaserScan& scanMsg,
-				const sensor_msgs::PointCloud2& scan3dMsg,
-				const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
-				const rtabmap_ros::GlobalDescriptor& globalDescriptor = rtabmap_ros::GlobalDescriptor());
+			const nav_msgs::OdometryConstPtr& odomMsg,
+			const rtabmap_ros::UserDataConstPtr& userDataMsg,
+			const sensor_msgs::LaserScan& scanMsg,
+			const sensor_msgs::PointCloud2& scan3dMsg,
+			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
+			const rtabmap_ros::GlobalDescriptor& globalDescriptor = rtabmap_ros::GlobalDescriptor());
 	virtual void commonOdomCallback(
-				const nav_msgs::OdometryConstPtr& odomMsg,
-				const rtabmap_ros::UserDataConstPtr& userDataMsg,
-				const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg) {};
+			const nav_msgs::OdometryConstPtr& odomMsg,
+			const rtabmap_ros::UserDataConstPtr& userDataMsg,
+			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg) {};
 
-	rtabmap::Signature createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
-									   const sensor_msgs::PointCloud2& scan3dMsg,
-									   const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-									   const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
-									   const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
+	rtabmap::Signature createSignature(
+			const rtabmap::Transform& pose,
+			const ros::Time& time,
+			const sensor_msgs::PointCloud2& scan3dMsg,
+			const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
+			const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
+			const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
 
-	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature, bool temporary = false);
+	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
+			const rtabmap::Transform& odometryPose, bool temporary = false);
 	nav_msgs::OccupancyGrid getOccupancyGridMap();
 	void publishOccupancyGridMaps(ros::Time stamp, const std::string& frame_id);
 
@@ -100,22 +105,24 @@ private:
 	ros::Publisher occupancyGridPub_;
 	ros::Publisher coloredOccupancyGridPub_;
 	ros::Publisher dilatedSemanticPub_;
-	ros::Subscriber optimizedPosesSub_;
+	ros::Subscriber optimizationResultsSub_;
 
 	tf::TransformListener tfListener_;
 
 	int nodeId_;
 	rtabmap::OccupancyGrid occupancyGrid_;
 
+	std::map<int, rtabmap::Transform> odometryPoses_;
 	std::map<int, rtabmap::Transform> poses_;
 	std::map<int, ros::Time> times_;
 
+	std::list<rtabmap::Transform> temporaryOdometryPoses_;
 	std::list<rtabmap::Transform> temporaryPoses_;
 	std::list<ros::Time> temporaryTimes_;
 
-	ros::Time lastOptimizedPoseTime_;
-	std::map<int, tf2_ros::Buffer> optimizedPosesBuffers_;
-	std::unique_ptr<geometry_msgs::TransformStamped> odometryCorrectonTransform_;
+	ros::Time lastOptimizationResultsTime_;
+	std::list<tf2_ros::Buffer> trajectoryBuffers_;
+	std::unique_ptr<geometry_msgs::TransformStamped> odometryCorrection_;
 
 	UMutex mutex_;
 
@@ -129,6 +136,7 @@ private:
 	bool temporaryMapping_;
 
 	std::string mapFrame_;
+	std::string odomFrame_;
 	std::string baseLinkFrame_;
 };
 

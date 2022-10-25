@@ -170,8 +170,7 @@ void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 
 OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 			CommonDataSubscriber(false),
-			nodeId_(0),
-			lastOptimizedPoseTime_(0)
+			nodeId_(0)
 {
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
@@ -201,7 +200,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 		}
 	}
 	setupCallbacks(nh, pnh, "DataSubscriber");
-	optimizedPosesSub_ = nh.subscribe("optimized_poses", 1, &OccupancyGridBuilder::updatePoses, this);
+	optimizationResultsSub_ = nh.subscribe("optimization_results", 1, &OccupancyGridBuilder::updatePoses, this);
 }
 
 OccupancyGridBuilder::~OccupancyGridBuilder()
@@ -332,260 +331,236 @@ void OccupancyGridBuilder::save()
 	fs.close();
 }
 
-void OccupancyGridBuilder::updatePoses(const nav_msgs::Path::ConstPtr& optimizedPoses)
+void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults)
 {
 	UScopeMutex lock(mutex_);
-	if (mapFrame_.empty())
+	lastOptimizationResultsTime_ = optimizationResults->header.stamp;
+	poses_.clear();
+	trajectoryBuffers_.clear();
+	odometryCorrection_.reset();
+
+	int trajectory_counter = 0;
+	for (const auto& trajectory : optimizationResults->trajectories)
 	{
-		return;
+		trajectoryBuffers_.emplace_back(ros::Duration(1000000));
+		tf2_ros::Buffer& trajectoryBuffer = *trajectoryBuffers_.rbegin();
+		bool addedStaticTransformToBaseLink = false;
+		for (const geometry_msgs::TransformStamped& pose : trajectory.poses)
+		{
+			UASSERT(mapFrame_.empty() || mapFrame_ == pose.header.frame_id);
+			if (mapFrame_.empty())
+			{
+				mapFrame_ = pose.header.frame_id;
+			}
+			trajectoryBuffer.setTransform(pose, "default");
+			if (pose.child_frame_id != baseLinkFrame_ &&
+				addedStaticTransformToBaseLink == false)
+			{
+				tf::StampedTransform toBaseLinkTF;
+				tfListener_.lookupTransform(pose.child_frame_id, baseLinkFrame_, ros::Time(0), toBaseLinkTF);
+				geometry_msgs::TransformStamped toBaseLink;
+				transformStampedTFToMsg(toBaseLinkTF, toBaseLink);
+				trajectoryBuffer.setTransform(toBaseLink, "default", true);
+				addedStaticTransformToBaseLink = true;
+			}
+		}
+		trajectory_counter++;
 	}
 
-	lastOptimizedPoseTime_ = optimizedPoses->header.stamp;
-	optimizedPosesBuffers_.clear();
-	odometryCorrectonTransform_.reset();
-
-	const std::string& mapFrame = optimizedPoses->header.frame_id;
-	UASSERT(mapFrame == mapFrame_);
-
-	std::set<std::string> addedPosesFrames;
-	for (const auto& pose: optimizedPoses->poses)
+	const geometry_msgs::TransformStamped& odometryCorrection = optimizationResults->odometry_correction;
+	UASSERT((mapFrame_.empty() || odometryCorrection.header.frame_id.empty() ||
+			mapFrame_ == odometryCorrection.header.frame_id) &&
+			(odomFrame_.empty() || odometryCorrection.child_frame_id.empty() ||
+			odomFrame_ == odometryCorrection.child_frame_id));
+	if (!optimizationResults->odometry_correction.header.frame_id.empty())
 	{
-		geometry_msgs::TransformStamped tf;
-		tf.header.stamp = pose.header.stamp;
-		tf.transform.translation.x = pose.pose.position.x;
-		tf.transform.translation.y = pose.pose.position.y;
-		tf.transform.translation.z = pose.pose.position.z;
-		tf.transform.rotation.x = pose.pose.orientation.x;
-		tf.transform.rotation.y = pose.pose.orientation.y;
-		tf.transform.rotation.z = pose.pose.orientation.z;
-		tf.transform.rotation.w = pose.pose.orientation.w;
-
-		if (pose.header.frame_id.empty())
+		if (mapFrame_.empty())
 		{
-			if (odometryCorrectonTransform_ == nullptr)
-			{
-				odometryCorrectonTransform_ = std::make_unique<geometry_msgs::TransformStamped>();
-				odometryCorrectonTransform_->header.stamp = ros::Time();
-			}
-			if (tf.header.stamp > odometryCorrectonTransform_->header.stamp)
-			{
-				*odometryCorrectonTransform_ = tf;
-			}
+			mapFrame_ = optimizationResults->odometry_correction.header.frame_id;
+		}
+		if (odometryCorrection_)
+		{
+			*odometryCorrection_ = odometryCorrection;
 		}
 		else
 		{
-			tf.header.frame_id = mapFrame;
-			tf.child_frame_id = pose.header.frame_id;
-
-			if (optimizedPosesBuffers_.count(pose.header.seq) == 0)
-			{
-				optimizedPosesBuffers_.emplace(pose.header.seq, ros::Duration(1000000));
-			}
-			optimizedPosesBuffers_.at(pose.header.seq).setTransform(tf, "default");
-
-			if (tf.child_frame_id != baseLinkFrame_ &&
-				addedPosesFrames.count(tf.child_frame_id) == 0)
-			{
-				tf::StampedTransform tfFromPoseToBaseLinkTF;
-				tfListener_.lookupTransform(pose.header.frame_id, baseLinkFrame_, ros::Time(0), tfFromPoseToBaseLinkTF);
-				geometry_msgs::TransformStamped tfFromPoseToBaseLink;
-				transformStampedTFToMsg(tfFromPoseToBaseLinkTF, tfFromPoseToBaseLink);
-				optimizedPosesBuffers_.at(pose.header.seq).setTransform(tfFromPoseToBaseLink, "default", true);
-				addedPosesFrames.insert(pose.header.frame_id);
-			}
+			odometryCorrection_ = std::make_unique<geometry_msgs::TransformStamped>(odometryCorrection);
 		}
+	}
+	else
+	{
+		odometryCorrection_.reset();
 	}
 
 	for (const auto& idTime: times_)
 	{
 		int nodeId = idTime.first;
 		ros::Time time = idTime.second;
-		geometry_msgs::Pose pose;
-		std::unique_ptr<geometry_msgs::Pose> oldPose;
-		if (poses_.count(nodeId))
+		const rtabmap::Transform* odometryPose = nullptr;
+		if (odometryPoses_.count(nodeId))
 		{
-			oldPose = std::make_unique<geometry_msgs::Pose>();
-			transformToPoseMsg(poses_.at(nodeId), *oldPose);
+			odometryPose = &odometryPoses_.at(nodeId);
 		}
-		bool found = getPose(pose, time, ros::Duration(1, 0), oldPose.get());
-		if (found)
+		std::optional<rtabmap::Transform> pose = getPose(time, nullptr);
+		if (pose.has_value())
 		{
-			poses_[nodeId] = transformFromPoseMsg(pose);
-		}
-		else
-		{
-			poses_.erase(nodeId);
+			poses_[nodeId] = *pose;
 		}
 	}
 
-	auto temporaryPoseIt = temporaryPoses_.begin();
-	auto temporaryTimeIt = temporaryTimes_.begin();
-	for (; temporaryPoseIt != temporaryPoses_.end(); ++temporaryPoseIt, ++temporaryTimeIt)
+	if (optimizationResults->header.stamp == ros::Time())
 	{
-		geometry_msgs::Pose pose;
-		geometry_msgs::Pose oldPose;
-		transformToPoseMsg(*temporaryPoseIt, oldPose);
-		bool found = getPose(pose, *temporaryTimeIt, ros::Duration(1, 0), &oldPose);
-		if (found == false)
+		occupancyGrid_.clearTemporaryLocalMaps();
+		temporaryOdometryPoses_.clear();
+		temporaryPoses_.clear();
+		temporaryTimes_.clear();
+	}
+	else
+	{
+		auto temporaryOdometryPoseIt = temporaryOdometryPoses_.begin();
+		auto temporaryPoseIt = temporaryPoses_.begin();
+		auto temporaryTimeIt = temporaryTimes_.begin();
+		for (; temporaryOdometryPoseIt != temporaryOdometryPoses_.end(); ++temporaryOdometryPoseIt, ++temporaryPoseIt, ++temporaryTimeIt)
 		{
-			occupancyGrid_.clearTemporaryLocalMaps();
-			temporaryPoses_.clear();
-			temporaryTimes_.clear();
-			break;
+			std::optional<rtabmap::Transform> pose = getPose(*temporaryTimeIt, &(*temporaryOdometryPoseIt), ros::Duration(1, 0));
+			UASSERT(pose.has_value());
+			*temporaryPoseIt = *pose;
 		}
-		*temporaryPoseIt = transformFromPoseMsg(pose);
 	}
 
 	occupancyGrid_.updatePoses(poses_, temporaryPoses_);
 }
 
-bool OccupancyGridBuilder::getPose(geometry_msgs::Pose& pose, ros::Time time,
-		const ros::Duration maxAllowedDistance, const geometry_msgs::Pose* oldPose)
+std::optional<rtabmap::Transform> OccupancyGridBuilder::getPose(ros::Time time,
+		const rtabmap::Transform* odometryPose /* nullptr */, ros::Duration maxDistance /* (0, 0) */,
+		bool defaultIdentityOdometryCorrection /* false */)
 {
-	for (const auto& optimizedPosesBuffer : optimizedPosesBuffers_)
+	if (time <= lastOptimizationResultsTime_)
 	{
-		try
+		for (const auto& trajectoryBuffer : trajectoryBuffers_)
 		{
-			geometry_msgs::Transform tf = optimizedPosesBuffer.second.lookupTransform(mapFrame_, baseLinkFrame_, time).transform;
-			pose.position.x = tf.translation.x;
-			pose.position.y = tf.translation.y;
-			pose.position.z = tf.translation.z;
-			pose.orientation.x = tf.rotation.x;
-			pose.orientation.y = tf.rotation.y;
-			pose.orientation.z = tf.rotation.z;
-			pose.orientation.w = tf.rotation.w;
-			return true;
+			try
+			{
+				geometry_msgs::TransformStamped pose = trajectoryBuffer.lookupTransform(mapFrame_, baseLinkFrame_, time);
+				return std::optional<rtabmap::Transform>(transformFromGeometryMsg(pose.transform));
+			}
+			catch (...)
+			{
+				continue;
+			}
 		}
-		catch (...)
+	}
+	else if ((odometryCorrection_ || defaultIdentityOdometryCorrection) && odometryPose &&
+		(maxDistance == ros::Duration(0, 0) || time - lastOptimizationResultsTime_ <= maxDistance))
+	{
+		if (odometryCorrection_ == nullptr)
 		{
-			continue;
+			return std::optional<rtabmap::Transform>(*odometryPose);
 		}
+		rtabmap::Transform pose = transformFromGeometryMsg(odometryCorrection_->transform) * (*odometryPose);
+		return std::optional<rtabmap::Transform>(pose);
 	}
-
-	if (odometryCorrectonTransform_ == nullptr)
-	{
-		return false;
-	}
-	if (oldPose == nullptr)
-	{
-		return false;
-	}
-	ros::Duration distance = time - odometryCorrectonTransform_->header.stamp;
-	if (distance < ros::Duration() || distance > maxAllowedDistance)
-	{
-		return false;
-	}
-	tf2::doTransform(*oldPose, pose, *odometryCorrectonTransform_);
-	return true;
-}
-
-nav_msgs::OdometryConstPtr OccupancyGridBuilder::correctOdometry(nav_msgs::OdometryConstPtr odomMsg)
-{
-	if (odomMsg->header.stamp <= lastOptimizedPoseTime_)
-	{
-		nav_msgs::OdometryPtr correctedOdomMsg(new nav_msgs::Odometry(*odomMsg));
-		bool found = getPose(correctedOdomMsg->pose.pose, odomMsg->header.stamp,
-			ros::Duration(1, 0), &odomMsg->pose.pose);
-		if (found == false) {
-			occupancyGrid_.clearTemporaryLocalMaps();
-			temporaryPoses_.clear();
-			temporaryTimes_.clear();
-			return nullptr;
-		}
-		return correctedOdomMsg;
-	}
-	return odomMsg;
+	return std::optional<rtabmap::Transform>();
 }
 
 void OccupancyGridBuilder::commonDepthCallback(
-				const nav_msgs::OdometryConstPtr& odomMsg,
-				const rtabmap_ros::UserDataConstPtr& userDataMsg,
-				const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-				const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
-				const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
-				const sensor_msgs::LaserScan& scanMsg,
-				const sensor_msgs::PointCloud2& scan3dMsg,
-				const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
-				const std::vector<rtabmap_ros::GlobalDescriptor>& globalDescriptorMsgs /* std::vector<rtabmap_ros::GlobalDescriptor>() */,
-				const std::vector<std::vector<rtabmap_ros::KeyPoint>>& localKeyPoints /* std::vector<std::vector<rtabmap_ros::KeyPoint>>() */,
-				const std::vector<std::vector<rtabmap_ros::Point3f>>& localPoints3d /* std::vector<std::vector<rtabmap_ros::Point3f>>() */,
-				const std::vector<cv::Mat>& localDescriptors /* std::vector<cv::Mat>() */)
+		const nav_msgs::OdometryConstPtr& odomMsg,
+		const rtabmap_ros::UserDataConstPtr& userDataMsg,
+		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
+		const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
+		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
+		const sensor_msgs::LaserScan& scanMsg,
+		const sensor_msgs::PointCloud2& scan3dMsg,
+		const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
+		const std::vector<rtabmap_ros::GlobalDescriptor>& globalDescriptorMsgs /* std::vector<rtabmap_ros::GlobalDescriptor>() */,
+		const std::vector<std::vector<rtabmap_ros::KeyPoint>>& localKeyPoints /* std::vector<std::vector<rtabmap_ros::KeyPoint>>() */,
+		const std::vector<std::vector<rtabmap_ros::Point3f>>& localPoints3d /* std::vector<std::vector<rtabmap_ros::Point3f>>() */,
+		const std::vector<cv::Mat>& localDescriptors /* std::vector<cv::Mat>() */)
 {
 	UScopeMutex lock(mutex_);
-	if (mapFrame_.empty())
-	{
-		mapFrame_ = odomMsg->header.frame_id;
-		baseLinkFrame_ = odomMsg->child_frame_id;
-	}
-	nav_msgs::OdometryConstPtr correctedOdomMsg = correctOdometry(odomMsg);
-	if (correctedOdomMsg == nullptr)
-	{
-		return;
-	}
-
 	MEASURE_BLOCK_TIME(commonDepthCallback);
 	UDEBUG("\n\nReceived new data");
 	UASSERT(isSubscribedToOdom());
 	UASSERT(isSubscribedToRGB());
-
+	if (odomFrame_.empty())
+	{
+		odomFrame_ = odomMsg->header.frame_id;
+		baseLinkFrame_ = odomMsg->child_frame_id;
+	}
+	rtabmap::Transform pose = transformFromPoseMsg(odomMsg->pose.pose);
+	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &pose, ros::Duration(0, 0), true);
+	UASSERT(correctedPose.has_value());
 	rtabmap::Signature signature;
 	if (isSubscribedToScan3d())
 	{
-		signature = createSignature(correctedOdomMsg, scan3dMsg, imageMsgs, depthMsgs, cameraInfoMsgs);
+		signature = createSignature(
+			*correctedPose,
+			odomMsg->header.stamp,
+			scan3dMsg,
+			imageMsgs,
+			depthMsgs,
+			cameraInfoMsgs);
 	}
 	else
 	{
 		UASSERT(isSubscribedToDepth());
-		signature = createSignature(correctedOdomMsg, sensor_msgs::PointCloud2(), imageMsgs, depthMsgs, cameraInfoMsgs);
+		signature = createSignature(
+			*correctedPose,
+			odomMsg->header.stamp,
+			sensor_msgs::PointCloud2(),
+			imageMsgs,
+			depthMsgs,
+			cameraInfoMsgs);
 	}
-	addSignatureToOccupancyGrid(signature, temporaryMapping_);
-	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), odomMsg->header.frame_id);
+	addSignatureToOccupancyGrid(signature, pose, temporaryMapping_);
+	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), !mapFrame_.empty() ? mapFrame_ : odomFrame_);
 	publishLastDilatedSemantic(ros::Time(signature.getSec(), signature.getNSec()), imageMsgs[0]->header.frame_id);
 }
 
 void OccupancyGridBuilder::commonLaserScanCallback(
-			const nav_msgs::OdometryConstPtr& odomMsg,
-			const rtabmap_ros::UserDataConstPtr& userDataMsg,
-			const sensor_msgs::LaserScan& scanMsg,
-			const sensor_msgs::PointCloud2& scan3dMsg,
-			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
-			const rtabmap_ros::GlobalDescriptor& globalDescriptor /* rtabmap_ros::GlobalDescriptor() */)
+		const nav_msgs::OdometryConstPtr& odomMsg,
+		const rtabmap_ros::UserDataConstPtr& userDataMsg,
+		const sensor_msgs::LaserScan& scanMsg,
+		const sensor_msgs::PointCloud2& scan3dMsg,
+		const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
+		const rtabmap_ros::GlobalDescriptor& globalDescriptor /* rtabmap_ros::GlobalDescriptor() */)
 {
 	UScopeMutex lock(mutex_);
-	if (mapFrame_.empty())
-	{
-		mapFrame_ = odomMsg->header.frame_id;
-		baseLinkFrame_ = odomMsg->child_frame_id;
-	}
-	nav_msgs::OdometryConstPtr correctedOdomMsg = correctOdometry(odomMsg);
-	if (correctedOdomMsg == nullptr)
-	{
-		return;
-	}
-
 	MEASURE_BLOCK_TIME(commonLaserScanCallback);
 	UDEBUG("\n\nReceived new data");
 	UASSERT(isSubscribedToOdom());
 	UASSERT(isSubscribedToScan3d());
-
-	rtabmap::Signature signature = createSignature(correctedOdomMsg, scan3dMsg,
+	if (odomFrame_.empty())
+	{
+		odomFrame_ = odomMsg->header.frame_id;
+		baseLinkFrame_ = odomMsg->child_frame_id;
+	}
+	rtabmap::Transform pose = transformFromPoseMsg(odomMsg->pose.pose);
+	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &pose, ros::Duration(0, 0), true);
+	UASSERT(correctedPose.has_value());
+	rtabmap::Signature signature = createSignature(
+		*correctedPose,
+		odomMsg->header.stamp,
+		scan3dMsg,
 		std::vector<cv_bridge::CvImageConstPtr>(),
 		std::vector<cv_bridge::CvImageConstPtr>(),
 		std::vector<sensor_msgs::CameraInfo>());
-	addSignatureToOccupancyGrid(signature, temporaryMapping_);
-	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), odomMsg->header.frame_id);
+	addSignatureToOccupancyGrid(signature, pose, temporaryMapping_);
+	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), !mapFrame_.empty() ? mapFrame_ : odomFrame_);
 }
 
-rtabmap::Signature OccupancyGridBuilder::createSignature(const nav_msgs::OdometryConstPtr& odomMsg,
-														 const sensor_msgs::PointCloud2& scan3dMsg,
-														 const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-														 const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
-														 const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs)
+rtabmap::Signature OccupancyGridBuilder::createSignature(
+		const rtabmap::Transform& pose,
+		const ros::Time& time,
+		const sensor_msgs::PointCloud2& scan3dMsg,
+		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
+		const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
+		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs)
 {
 	rtabmap::LaserScan scan;
 	if (scan3dMsg.data.size())
 	{
-		bool convertionOk = convertScan3dMsg(scan3dMsg, odomMsg->child_frame_id, "", ros::Time(0), scan, tfListener_, 0.0);
+		bool convertionOk = convertScan3dMsg(scan3dMsg, baseLinkFrame_, "", ros::Time(0), scan, tfListener_, 0.0);
 		UASSERT(convertionOk);
 	}
 
@@ -594,31 +569,34 @@ rtabmap::Signature OccupancyGridBuilder::createSignature(const nav_msgs::Odometr
 	std::vector<rtabmap::CameraModel> cameraModels;
 	if (cameraInfoMsgs.size())
 	{
-		bool convertionOk = convertRGBDMsgs(imageMsgs, depthMsgs, cameraInfoMsgs, odomMsg->child_frame_id, "", ros::Time(0),
+		bool convertionOk = convertRGBDMsgs(imageMsgs, depthMsgs, cameraInfoMsgs, baseLinkFrame_, "", ros::Time(0),
 			rgb, depth, cameraModels, tfListener_, 0.0);
 		UASSERT(convertionOk);
 	}
 
 	rtabmap::SensorData data;
-	data.setStamp(odomMsg->header.stamp.sec, odomMsg->header.stamp.nsec);
+	data.setStamp(time.sec, time.nsec);
 	data.setId(nodeId_);
 	data.setLaserScan(scan);
 	data.setRGBDImage(rgb, depth, cameraModels);
 	rtabmap::Signature signature(data);
-	signature.setPose(transformFromPoseMsg(odomMsg->pose.pose));
+	signature.setPose(pose);
 	return signature;
 }
 
-void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature& signature, bool temporary /* false */)
+void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
+		const rtabmap::Transform& odometryPose, bool temporary /* false */)
 {
 	rtabmap::OccupancyGrid::LocalMap localMap = occupancyGrid_.createLocalMap(signature);
 	if (temporary)
 	{
 		occupancyGrid_.addTemporaryLocalMap(signature.getPose(), std::move(localMap));
+		temporaryOdometryPoses_.push_back(odometryPose);
 		temporaryPoses_.push_back(signature.getPose());
 		temporaryTimes_.push_back(ros::Time(signature.getSec(), signature.getNSec()));
 		if (temporaryTimes_.size() > occupancyGrid_.getMaxTemporaryLocalMaps())
 		{
+			temporaryOdometryPoses_.pop_front();
 			temporaryPoses_.pop_front();
 			temporaryTimes_.pop_front();
 		}
@@ -626,6 +604,7 @@ void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature&
 	else
 	{
 		occupancyGrid_.addLocalMap(nodeId_, signature.getPose(), std::move(localMap));
+		odometryPoses_[nodeId_] = odometryPose;
 		poses_[nodeId_] = signature.getPose();
 		times_[nodeId_] = ros::Time(signature.getSec(), signature.getNSec());
 		nodeId_++;
