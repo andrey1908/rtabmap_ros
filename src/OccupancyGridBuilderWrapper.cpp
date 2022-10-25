@@ -345,7 +345,7 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 		trajectoryBuffers_.emplace_back(ros::Duration(1000000));
 		tf2_ros::Buffer& trajectoryBuffer = *trajectoryBuffers_.rbegin();
 		bool addedStaticTransformToBaseLink = false;
-		for (const geometry_msgs::TransformStamped& pose : trajectory.poses)
+		for (const geometry_msgs::TransformStamped& pose : trajectory.global_poses)
 		{
 			UASSERT(mapFrame_.empty() || mapFrame_ == pose.header.frame_id);
 			if (mapFrame_.empty())
@@ -367,24 +367,23 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 		trajectory_counter++;
 	}
 
-	const geometry_msgs::TransformStamped& odometryCorrection = optimizationResults->odometry_correction;
-	UASSERT((mapFrame_.empty() || odometryCorrection.header.frame_id.empty() ||
-			mapFrame_ == odometryCorrection.header.frame_id) &&
-			(odomFrame_.empty() || odometryCorrection.child_frame_id.empty() ||
-			odomFrame_ == odometryCorrection.child_frame_id));
-	if (!optimizationResults->odometry_correction.header.frame_id.empty())
+	UASSERT((mapFrame_.empty() || optimizationResults->map_to_odom.header.frame_id.empty() ||
+			mapFrame_ == optimizationResults->map_to_odom.header.frame_id) &&
+			(odomFrame_.empty() || optimizationResults->map_to_odom.child_frame_id.empty() ||
+			odomFrame_ == optimizationResults->map_to_odom.child_frame_id));
+	if (!optimizationResults->map_to_odom.header.frame_id.empty())
 	{
 		if (mapFrame_.empty())
 		{
-			mapFrame_ = optimizationResults->odometry_correction.header.frame_id;
+			mapFrame_ = optimizationResults->map_to_odom.header.frame_id;
 		}
 		if (odometryCorrection_)
 		{
-			*odometryCorrection_ = odometryCorrection;
+			*odometryCorrection_ = optimizationResults->map_to_odom;
 		}
 		else
 		{
-			odometryCorrection_ = std::make_unique<geometry_msgs::TransformStamped>(odometryCorrection);
+			odometryCorrection_ = std::make_unique<geometry_msgs::TransformStamped>(optimizationResults->map_to_odom);
 		}
 	}
 	else
@@ -482,6 +481,8 @@ void OccupancyGridBuilder::commonDepthCallback(
 	UDEBUG("\n\nReceived new data");
 	UASSERT(isSubscribedToOdom());
 	UASSERT(isSubscribedToRGB());
+	UASSERT(odomFrame_.empty() ||
+			(odomFrame_ == odomMsg->header.frame_id && baseLinkFrame_ == odomMsg->child_frame_id));
 	if (odomFrame_.empty())
 	{
 		odomFrame_ = odomMsg->header.frame_id;
@@ -530,6 +531,8 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 	UDEBUG("\n\nReceived new data");
 	UASSERT(isSubscribedToOdom());
 	UASSERT(isSubscribedToScan3d());
+	UASSERT(odomFrame_.empty() ||
+			(odomFrame_ == odomMsg->header.frame_id && baseLinkFrame_ == odomMsg->child_frame_id));
 	if (odomFrame_.empty())
 	{
 		odomFrame_ = odomMsg->header.frame_id;
