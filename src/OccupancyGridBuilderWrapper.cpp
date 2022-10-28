@@ -179,7 +179,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 
 	occupancyGrid_.parseParameters(parameters);
 	occupancyGridPub_ = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);
-	coloredOccupancyGridPub_ = nh.advertise<colored_occupancy_grid::ColoredOccupancyGrid>("colored_grid_map", 1);
+	coloredoccupancyGridPub_ = nh.advertise<colored_occupancy_grid::ColoredOccupancyGrid>("colored_grid_map", 1);
 	dilatedSemanticPub_ = nh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
 	if (mapPath_.empty())
 	{
@@ -195,8 +195,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 		}
 		if (needsLocalization_)
 		{
-			poses_.clear();
-			occupancyGrid_.updatePoses(poses_);
+			occupancyGrid_.updatePoses({});
 		}
 	}
 	setupCallbacks(nh, pnh, "DataSubscriber");
@@ -225,7 +224,7 @@ void OccupancyGridBuilder::load()
 	UASSERT(fs.peek() != EOF);
 	float cellSize;
 	fs.read((char*)(&cellSize), sizeof(cellSize));
-	UASSERT(cellSize == occupancyGrid_.getCellSize());
+	UASSERT(cellSize == occupancyGrid_.cellSize());
 
 	int maxNodeId = 0;
 	while (fs.peek() != EOF)
@@ -259,7 +258,6 @@ void OccupancyGridBuilder::load()
 		if (eigenPose != Eigen::Matrix4f::Zero())
 		{
 			pose = rtabmap::Transform::fromEigen4f(eigenPose);
-			poses_[nodeId] = pose;
 		}
 		times_[nodeId] = time;
 
@@ -291,16 +289,16 @@ void OccupancyGridBuilder::save()
 	int version = 1;
 	fs.write((const char*)(&version), sizeof(version));
 
-	float cellSize = occupancyGrid_.getCellSize();
+	float cellSize = occupancyGrid_.cellSize();
 	fs.write((const char*)(&cellSize), sizeof(cellSize));
 
-	const auto& localMaps = occupancyGrid_.localMaps();
-	for (const auto& nodeIdLocalMap : localMaps)
+	const auto& nodes = occupancyGrid_.nodes();
+	for (const auto& entry : nodes)
 	{
-		int nodeId = nodeIdLocalMap.first;
-		auto poseIt = poses_.find(nodeId);
+		int nodeId = entry.first;
+		const std::optional<rtabmap::Transform>& pose = entry.second.localPose;
 		auto timeIt = times_.find(nodeId);
-		const auto& localMap = nodeIdLocalMap.second;
+		const auto& localMap = entry.second.localMap;
 		int numGround = localMap.numGround;
 		int numEmpty = localMap.numEmpty;
 		int numObstacles = localMap.numObstacles;
@@ -310,15 +308,15 @@ void OccupancyGridBuilder::save()
 		UASSERT(timeIt != times_.end());
 
 		fs.write((const char*)(&nodeId), sizeof(nodeId));
-		if (poseIt == poses_.end())
+		if (pose.has_value())
 		{
-			const Eigen::Matrix4f& nullEigenPose = Eigen::Matrix4f::Zero();
-			fs.write((const char*)(nullEigenPose.data()), nullEigenPose.size() * sizeof(nullEigenPose(0, 0)));
+			const Eigen::Matrix4f& eigenPose = pose->toEigen4f();
+			fs.write((const char*)(eigenPose.data()), eigenPose.size() * sizeof(eigenPose(0, 0)));
 		}
 		else
 		{
-			const Eigen::Matrix4f& eigenPose = poseIt->second.toEigen4f();
-			fs.write((const char*)(eigenPose.data()), eigenPose.size() * sizeof(eigenPose(0, 0)));
+			const Eigen::Matrix4f& nullEigenPose = Eigen::Matrix4f::Zero();
+			fs.write((const char*)(nullEigenPose.data()), nullEigenPose.size() * sizeof(nullEigenPose(0, 0)));
 		}
 		fs.write((const char*)(&timeIt->second.sec), sizeof(timeIt->second.sec));
 		fs.write((const char*)(&timeIt->second.nsec), sizeof(timeIt->second.nsec));
@@ -335,7 +333,6 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 {
 	UScopeMutex lock(mutex_);
 	lastOptimizationResultsTime_ = optimizationResults->header.stamp;
-	poses_.clear();
 	trajectoryBuffers_.clear();
 	odometryCorrection_.reset();
 
@@ -392,43 +389,38 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 		odometryCorrection_.reset();
 	}
 
+	std::map<int, rtabmap::Transform> updatedPoses;
 	for (const auto& idTime: times_)
 	{
 		int nodeId = idTime.first;
 		ros::Time time = idTime.second;
-		const rtabmap::Transform* odometryPose = nullptr;
-		if (odometryPoses_.count(nodeId))
-		{
-			odometryPose = &odometryPoses_.at(nodeId);
-		}
-		std::optional<rtabmap::Transform> pose = getPose(time, nullptr);
+		std::optional<rtabmap::Transform> pose = getPose(time);
 		if (pose.has_value())
 		{
-			poses_[nodeId] = *pose;
+			updatedPoses[nodeId] = *pose;
 		}
 	}
 
+	std::list<rtabmap::Transform> updatedTemporaryPoses;
 	if (optimizationResults->header.stamp == ros::Time())
 	{
-		occupancyGrid_.clearTemporaryLocalMaps();
+		occupancyGrid_.resetTemporaryMap();
 		temporaryOdometryPoses_.clear();
-		temporaryPoses_.clear();
 		temporaryTimes_.clear();
 	}
 	else
 	{
 		auto temporaryOdometryPoseIt = temporaryOdometryPoses_.begin();
-		auto temporaryPoseIt = temporaryPoses_.begin();
 		auto temporaryTimeIt = temporaryTimes_.begin();
-		for (; temporaryOdometryPoseIt != temporaryOdometryPoses_.end(); ++temporaryOdometryPoseIt, ++temporaryPoseIt, ++temporaryTimeIt)
+		for (; temporaryOdometryPoseIt != temporaryOdometryPoses_.end(); ++temporaryOdometryPoseIt, ++temporaryTimeIt)
 		{
 			std::optional<rtabmap::Transform> pose = getPose(*temporaryTimeIt, &(*temporaryOdometryPoseIt), ros::Duration(1, 0));
 			UASSERT(pose.has_value());
-			*temporaryPoseIt = *pose;
+			updatedTemporaryPoses.push_back(*pose);
 		}
 	}
 
-	occupancyGrid_.updatePoses(poses_, temporaryPoses_);
+	occupancyGrid_.updatePoses(updatedPoses, updatedTemporaryPoses);
 }
 
 std::optional<rtabmap::Transform> OccupancyGridBuilder::getPose(ros::Time time,
@@ -489,8 +481,8 @@ void OccupancyGridBuilder::commonDepthCallback(
 		odomFrame_ = odomMsg->header.frame_id;
 		baseLinkFrame_ = odomMsg->child_frame_id;
 	}
-	rtabmap::Transform pose = transformFromPoseMsg(odomMsg->pose.pose);
-	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &pose, ros::Duration(0, 0), true);
+	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
+	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(0, 0), true);
 	UASSERT(correctedPose.has_value());
 	rtabmap::Signature signature;
 	if (isSubscribedToScan3d())
@@ -514,7 +506,7 @@ void OccupancyGridBuilder::commonDepthCallback(
 			depthMsgs,
 			cameraInfoMsgs);
 	}
-	addSignatureToOccupancyGrid(signature, pose, temporaryMapping_);
+	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping_);
 	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), !mapFrame_.empty() ? mapFrame_ : odomFrame_);
 	publishLastDilatedSemantic(ros::Time(signature.getSec(), signature.getNSec()), imageMsgs[0]->header.frame_id);
 }
@@ -539,8 +531,8 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 		odomFrame_ = odomMsg->header.frame_id;
 		baseLinkFrame_ = odomMsg->child_frame_id;
 	}
-	rtabmap::Transform pose = transformFromPoseMsg(odomMsg->pose.pose);
-	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &pose, ros::Duration(0, 0), true);
+	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
+	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(0, 0), true);
 	UASSERT(correctedPose.has_value());
 	rtabmap::Signature signature = createSignature(
 		*correctedPose,
@@ -549,7 +541,7 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 		std::vector<cv_bridge::CvImageConstPtr>(),
 		std::vector<cv_bridge::CvImageConstPtr>(),
 		std::vector<sensor_msgs::CameraInfo>());
-	addSignatureToOccupancyGrid(signature, pose, temporaryMapping_);
+	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping_);
 	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), !mapFrame_.empty() ? mapFrame_ : odomFrame_);
 }
 
@@ -596,20 +588,16 @@ void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature&
 	{
 		occupancyGrid_.addTemporaryLocalMap(signature.getPose(), std::move(localMap));
 		temporaryOdometryPoses_.push_back(odometryPose);
-		temporaryPoses_.push_back(signature.getPose());
 		temporaryTimes_.push_back(ros::Time(signature.getSec(), signature.getNSec()));
-		if (temporaryTimes_.size() > occupancyGrid_.getMaxTemporaryLocalMaps())
+		if (temporaryTimes_.size() > occupancyGrid_.maxTemporaryLocalMaps())
 		{
 			temporaryOdometryPoses_.pop_front();
-			temporaryPoses_.pop_front();
 			temporaryTimes_.pop_front();
 		}
 	}
 	else
 	{
 		occupancyGrid_.addLocalMap(nodeId_, signature.getPose(), std::move(localMap));
-		odometryPoses_[nodeId_] = odometryPose;
-		poses_[nodeId_] = signature.getPose();
 		times_[nodeId_] = ros::Time(signature.getSec(), signature.getNSec());
 		nodeId_++;
 	}
@@ -617,55 +605,59 @@ void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature&
 
 void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::string& frame_id)
 {
-	nav_msgs::OccupancyGrid map = getOccupancyGridMap();
-	map.header.stamp = stamp;
-	map.header.frame_id = frame_id;
-	occupancyGridPub_.publish(map);
+	nav_msgs::OccupancyGrid occupancyGridMap = getOccupancyGridMap();
+	occupancyGridMap.header.stamp = stamp;
+	occupancyGridMap.header.frame_id = frame_id;
+	occupancyGridPub_.publish(occupancyGridMap);
 
-	colored_occupancy_grid::ColoredOccupancyGrid coloredMap;
-	coloredMap.header = map.header;
-	coloredMap.info = map.info;
-	coloredMap.data = map.data;
+	colored_occupancy_grid::ColoredOccupancyGrid coloredGridMap;
+	coloredGridMap.header = occupancyGridMap.header;
+	coloredGridMap.info = occupancyGridMap.info;
+	coloredGridMap.data = occupancyGridMap.data;
 	float xMin, yMin;
-	cv::Mat colors = occupancyGrid_.getColors(xMin, yMin);
-	for (int h = 0; h < colors.rows; h++)
+	rtabmap::OccupancyGrid::ColorsMap colorsMap = occupancyGrid_.getColorsMap(xMin, yMin);
+	for (int h = 0; h < colorsMap.rows(); h++)
 	{
-		for (int w = 0; w < colors.cols; w++)
+		for (int w = 0; w < colorsMap.cols(); w++)
 		{
-			cv::Vec3b color = colors.at<cv::Vec3b>(h, w);
-			coloredMap.b.push_back(color[0]);
-			coloredMap.g.push_back(color[1]);
-			coloredMap.r.push_back(color[2]);
+			int color = colorsMap(h, w);
+			if (color == -1)
+			{
+				color = 0;
+			}
+			coloredGridMap.b.push_back(color & 0xFF);
+			coloredGridMap.g.push_back((color >> 8) && 0xFF);
+			coloredGridMap.r.push_back((color >> 16) && 0xFF);
 		}
 	}
-	coloredOccupancyGridPub_.publish(coloredMap);
+	coloredoccupancyGridPub_.publish(coloredGridMap);
 }
 
 nav_msgs::OccupancyGrid OccupancyGridBuilder::getOccupancyGridMap()
 {
-	float gridCellSize = occupancyGrid_.getCellSize();
 	float xMin, yMin;
-	cv::Mat pixels = occupancyGrid_.getMap(xMin, yMin);
-	UASSERT(!pixels.empty());
+	rtabmap::OccupancyGrid::OccupancyMap occupancyMap =
+		occupancyGrid_.getOccupancyMap(xMin, yMin);
+	UASSERT(occupancyMap.size());
 
-	nav_msgs::OccupancyGrid map;
-	map.info.resolution = gridCellSize;
-	map.info.origin.position.x = 0.0;
-	map.info.origin.position.y = 0.0;
-	map.info.origin.position.z = 0.0;
-	map.info.origin.orientation.x = 0.0;
-	map.info.origin.orientation.y = 0.0;
-	map.info.origin.orientation.z = 0.0;
-	map.info.origin.orientation.w = 1.0;
+	nav_msgs::OccupancyGrid occupancyGridMap;
+	occupancyGridMap.info.resolution = occupancyGrid_.cellSize();
+	occupancyGridMap.info.origin.position.x = 0.0;
+	occupancyGridMap.info.origin.position.y = 0.0;
+	occupancyGridMap.info.origin.position.z = 0.0;
+	occupancyGridMap.info.origin.orientation.x = 0.0;
+	occupancyGridMap.info.origin.orientation.y = 0.0;
+	occupancyGridMap.info.origin.orientation.z = 0.0;
+	occupancyGridMap.info.origin.orientation.w = 1.0;
 
-	map.info.width = pixels.cols;
-	map.info.height = pixels.rows;
-	map.info.origin.position.x = xMin;
-	map.info.origin.position.y = yMin;
-	map.data.resize(map.info.width * map.info.height);
+	occupancyGridMap.info.width = occupancyMap.cols();
+	occupancyGridMap.info.height = occupancyMap.rows();
+	occupancyGridMap.info.origin.position.x = xMin;
+	occupancyGridMap.info.origin.position.y = yMin;
+	occupancyGridMap.data.resize(occupancyMap.size());
 
-	memcpy(map.data.data(), pixels.data, map.info.width * map.info.height);
-	return map;
+	memcpy(occupancyGridMap.data.data(), occupancyMap.data(), occupancyMap.size());
+	return occupancyGridMap;
 }
 
 void OccupancyGridBuilder::publishLastDilatedSemantic(ros::Time stamp, const std::string& frame_id)

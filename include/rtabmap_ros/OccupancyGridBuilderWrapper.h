@@ -103,7 +103,7 @@ private:
 
 private:
 	ros::Publisher occupancyGridPub_;
-	ros::Publisher coloredOccupancyGridPub_;
+	ros::Publisher coloredoccupancyGridPub_;
 	ros::Publisher dilatedSemanticPub_;
 	ros::Subscriber optimizationResultsSub_;
 
@@ -112,12 +112,9 @@ private:
 	int nodeId_;
 	rtabmap::OccupancyGrid occupancyGrid_;
 
-	std::map<int, rtabmap::Transform> odometryPoses_;
-	std::map<int, rtabmap::Transform> poses_;
 	std::map<int, ros::Time> times_;
 
 	std::list<rtabmap::Transform> temporaryOdometryPoses_;
-	std::list<rtabmap::Transform> temporaryPoses_;
 	std::list<ros::Time> temporaryTimes_;
 
 	ros::Time lastOptimizationResultsTime_;
