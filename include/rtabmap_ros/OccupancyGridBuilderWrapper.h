@@ -96,14 +96,14 @@ private:
 
 	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
 			const rtabmap::Transform& odometryPose, bool temporary = false);
-	nav_msgs::OccupancyGrid getOccupancyGridMap();
+	nav_msgs::OccupancyGrid getOccupancyGrid();
 	void publishOccupancyGridMaps(ros::Time stamp, const std::string& frame_id);
 
 	void publishLastDilatedSemantic(ros::Time stamp, const std::string& frame_id);
 
 private:
 	ros::Publisher occupancyGridPub_;
-	ros::Publisher coloredoccupancyGridPub_;
+	ros::Publisher coloredOccupancyGridPub_;
 	ros::Publisher dilatedSemanticPub_;
 	ros::Subscriber optimizationResultsSub_;
 
