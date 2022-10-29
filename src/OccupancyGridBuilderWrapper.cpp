@@ -634,8 +634,8 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::
 				color = 0;
 			}
 			coloredGridMap.b.push_back(color & 0xFF);
-			coloredGridMap.g.push_back((color >> 8) && 0xFF);
-			coloredGridMap.r.push_back((color >> 16) && 0xFF);
+			coloredGridMap.g.push_back((color >> 8) & 0xFF);
+			coloredGridMap.r.push_back((color >> 16) & 0xFF);
 		}
 	}
 	coloredoccupancyGridPub_.publish(coloredGridMap);
