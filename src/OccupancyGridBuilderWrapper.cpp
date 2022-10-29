@@ -25,7 +25,7 @@ rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, cha
 	std::string configPath;
 	pnh.param("config_path", configPath, configPath);
 
-	//parameters
+	// parameters
 	rtabmap::ParametersMap parameters;
 	uInsert(parameters, rtabmap::Parameters::getDefaultParameters());
 
@@ -402,7 +402,7 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 	}
 
 	std::list<rtabmap::Transform> updatedTemporaryPoses;
-	if (optimizationResults->header.stamp == ros::Time())
+	if (trajectoryBuffers_.size() == 0)
 	{
 		occupancyGrid_.resetTemporaryMap();
 		temporaryOdometryPoses_.clear();
@@ -443,7 +443,7 @@ std::optional<rtabmap::Transform> OccupancyGridBuilder::getPose(ros::Time time,
 		}
 	}
 	else if ((odometryCorrection_ || defaultIdentityOdometryCorrection) && odometryPose &&
-		(maxDistance == ros::Duration(0, 0) || time - lastOptimizationResultsTime_ <= maxDistance))
+		(maxDistance == ros::Duration(-1, 0) || time - lastOptimizationResultsTime_ <= maxDistance))
 	{
 		if (odometryCorrection_ == nullptr)
 		{
@@ -482,8 +482,12 @@ void OccupancyGridBuilder::commonDepthCallback(
 		baseLinkFrame_ = odomMsg->child_frame_id;
 	}
 	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
-	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(0, 0), true);
-	UASSERT(correctedPose.has_value());
+	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(-1, 0), true);
+	UASSERT(correctedPose.has_value() || odomMsg->header.stamp <= lastOptimizationResultsTime_);
+	if (!correctedPose.has_value() && odomMsg->header.stamp <= lastOptimizationResultsTime_)
+	{
+		return;
+	}
 	rtabmap::Signature signature;
 	if (isSubscribedToScan3d())
 	{
@@ -532,8 +536,12 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 		baseLinkFrame_ = odomMsg->child_frame_id;
 	}
 	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
-	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(0, 0), true);
-	UASSERT(correctedPose.has_value());
+	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(-1, 0), true);
+	UASSERT(correctedPose.has_value() || odomMsg->header.stamp <= lastOptimizationResultsTime_);
+	if (!correctedPose.has_value() && odomMsg->header.stamp <= lastOptimizationResultsTime_)
+	{
+		return;
+	}
 	rtabmap::Signature signature = createSignature(
 		*correctedPose,
 		odomMsg->header.stamp,
