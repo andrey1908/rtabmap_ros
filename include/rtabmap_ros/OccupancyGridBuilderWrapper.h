@@ -30,7 +30,7 @@
 
 namespace rtabmap_ros {
 
-class OccupancyGridBuilder : public CommonDataSubscriber {
+class OccupancyGridBuilder {
 public:
 	OccupancyGridBuilder(int argc, char** argv);
 	~OccupancyGridBuilder();
@@ -47,61 +47,34 @@ private:
 		const rtabmap::Transform* odometryPose = nullptr, ros::Duration maxDistance = ros::Duration(0, 0),
 		bool defaultIdentityOdometryCorrection = false);
 
-	virtual void commonDepthCallback(
-			const nav_msgs::OdometryConstPtr& odomMsg,
-			const rtabmap_ros::UserDataConstPtr& userDataMsg,
-			const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-			const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
-			const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
-			const sensor_msgs::LaserScan& scanMsg,
-			const sensor_msgs::PointCloud2& scan3dMsg,
-			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
-			const std::vector<rtabmap_ros::GlobalDescriptor>& globalDescriptorMsgs = std::vector<rtabmap_ros::GlobalDescriptor>(),
-			const std::vector<std::vector<rtabmap_ros::KeyPoint>>& localKeyPoints = std::vector<std::vector<rtabmap_ros::KeyPoint>>(),
-			const std::vector<std::vector<rtabmap_ros::Point3f>>& localPoints3d = std::vector<std::vector<rtabmap_ros::Point3f>>(),
-			const std::vector<cv::Mat>& localDescriptors = std::vector<cv::Mat>());
-	virtual void commonStereoCallback(
-			const nav_msgs::OdometryConstPtr& odomMsg,
-			const rtabmap_ros::UserDataConstPtr& userDataMsg,
-			const cv_bridge::CvImageConstPtr& leftImageMsg,
-			const cv_bridge::CvImageConstPtr& rightImageMsg,
-			const sensor_msgs::CameraInfo& leftCamInfoMsg,
-			const sensor_msgs::CameraInfo& rightCamInfoMsg,
-			const sensor_msgs::LaserScan& scanMsg,
-			const sensor_msgs::PointCloud2& scan3dMsg,
-			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
-			const std::vector<rtabmap_ros::GlobalDescriptor>& globalDescriptorMsgs = std::vector<rtabmap_ros::GlobalDescriptor>(),
-			const std::vector<rtabmap_ros::KeyPoint>& localKeyPoints = std::vector<rtabmap_ros::KeyPoint>(),
-			const std::vector<rtabmap_ros::Point3f>& localPoints3d = std::vector<rtabmap_ros::Point3f>(),
-			const cv::Mat& localDescriptors = cv::Mat()) {};
-	virtual void commonLaserScanCallback(
-			const nav_msgs::OdometryConstPtr& odomMsg,
-			const rtabmap_ros::UserDataConstPtr& userDataMsg,
-			const sensor_msgs::LaserScan& scanMsg,
-			const sensor_msgs::PointCloud2& scan3dMsg,
-			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
-			const rtabmap_ros::GlobalDescriptor& globalDescriptor = rtabmap_ros::GlobalDescriptor());
-	virtual void commonOdomCallback(
-			const nav_msgs::OdometryConstPtr& odomMsg,
-			const rtabmap_ros::UserDataConstPtr& userDataMsg,
-			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg) {};
+	void commonRGBCallback(
+		const nav_msgs::OdometryConstPtr& odomMsg,
+		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
+		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
+		const sensor_msgs::LaserScan& scanMsg,
+		const sensor_msgs::PointCloud2& scan3dMsg);
+	void commonLaserScanCallback(
+		const nav_msgs::OdometryConstPtr& odomMsg,
+		const sensor_msgs::LaserScan& scanMsg,
+		const sensor_msgs::PointCloud2& scan3dMsg);
 
 	rtabmap::Signature createSignature(
-			const rtabmap::Transform& pose,
-			const ros::Time& time,
-			const sensor_msgs::PointCloud2& scan3dMsg,
-			const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-			const std::vector<cv_bridge::CvImageConstPtr>& depthMsgs,
-			const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
+		const rtabmap::Transform& pose,
+		const ros::Time& time,
+		const sensor_msgs::PointCloud2& scan3dMsg,
+		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
+		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
 
 	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
-			const rtabmap::Transform& odometryPose, bool temporary = false);
+		const rtabmap::Transform& odometryPose, bool temporary = false);
 	nav_msgs::OccupancyGrid getOccupancyGrid();
 	void publishOccupancyGridMaps(ros::Time stamp, const std::string& frame_id);
 
 	void publishLastDilatedSemantic(ros::Time stamp, const std::string& frame_id);
 
 private:
+	CommonDataSubscriber commonDataSubscriber_;
+
 	ros::Publisher occupancyGridPub_;
 	ros::Publisher coloredOccupancyGridPub_;
 	ros::Publisher dilatedSemanticPub_;

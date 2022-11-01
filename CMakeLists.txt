@@ -48,17 +48,6 @@ IF(WIN32)
 add_compile_options(-bigobj)
 ENDIF(WIN32)
 
-option(RTABMAP_SYNC_MULTI_RGBD "Build with multi RGBD camera synchronization support"  OFF)
-option(RTABMAP_SYNC_USER_DATA "Build with input user data support"  OFF)
-MESSAGE(STATUS "RTABMAP_SYNC_MULTI_RGBD = ${RTABMAP_SYNC_MULTI_RGBD}")
-MESSAGE(STATUS "RTABMAP_SYNC_USER_DATA  = ${RTABMAP_SYNC_USER_DATA}")
-IF(RTABMAP_SYNC_MULTI_RGBD)
-add_definitions("-DRTABMAP_SYNC_MULTI_RGBD")
-ENDIF(RTABMAP_SYNC_MULTI_RGBD)
-IF(RTABMAP_SYNC_USER_DATA)
-add_definitions("-DRTABMAP_SYNC_USER_DATA")
-ENDIF(RTABMAP_SYNC_USER_DATA)
-
 #Qt stuff
 # If librtabmap_gui.so is found, rtabmapviz will be built
 # If rviz is found, plugins will be built
@@ -212,22 +201,10 @@ SET(rtabmap_sync_lib_src
    src/impl/CommonDataSubscriberDepth.cpp
    src/impl/CommonDataSubscriberStereo.cpp
    src/impl/CommonDataSubscriberRGB.cpp
-   src/impl/CommonDataSubscriberRGBD.cpp
-   src/impl/CommonDataSubscriberRGBDX.cpp
    src/impl/CommonDataSubscriberScan.cpp
    src/impl/CommonDataSubscriberOdom.cpp
    # src/CoreWrapper.cpp  # we put CoreWrapper here instead of plugins lib to avoid long compilation time on plugins lib
 )
-IF(RTABMAP_SYNC_MULTI_RGBD)
-  SET(rtabmap_sync_lib_src
-    ${rtabmap_sync_lib_src}
-    src/impl/CommonDataSubscriberRGBD2.cpp
-    src/impl/CommonDataSubscriberRGBD3.cpp
-    src/impl/CommonDataSubscriberRGBD4.cpp
-    src/impl/CommonDataSubscriberRGBD5.cpp
-    src/impl/CommonDataSubscriberRGBD6.cpp
-  )
-ENDIF(RTABMAP_SYNC_MULTI_RGBD)
 
 SET(rtabmap_plugins_lib_src
    src/nodelets/rgbd_odometry.cpp
