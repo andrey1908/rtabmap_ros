@@ -544,6 +544,7 @@ rtabmap::Signature OccupancyGridBuilder::createSignature(
 	rtabmap::LaserScan scan;
 	if (scan3dMsg.data.size())
 	{
+		MEASURE_BLOCK_TIME(convertScan3dMsg);
 		bool convertionOk = convertScan3dMsg(scan3dMsg, baseLinkFrame_, "", ros::Time(0), scan, tfListener_, 0.0);
 		UASSERT(convertionOk);
 	}
@@ -552,6 +553,7 @@ rtabmap::Signature OccupancyGridBuilder::createSignature(
 	std::vector<rtabmap::CameraModel> cameraModels;
 	if (imageMsgs.size())
 	{
+		MEASURE_BLOCK_TIME(convertRGBMsgs);
 		bool convertionOk = convertRGBMsgs(imageMsgs, cameraInfoMsgs, baseLinkFrame_, "", ros::Time(0),
 			rgbs, cameraModels, tfListener_, 0.0);
 		UASSERT(convertionOk);
