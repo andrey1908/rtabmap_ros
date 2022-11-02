@@ -36,7 +36,7 @@ void CommonDataSubscriber::odomCallback(
 	commonOdomCallback_(odomMsg);
 }
 
-void CommonDataSubscriber::setupOdomCallbacks(
+void CommonDataSubscriber::setupOdomCallback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		int queueSize,

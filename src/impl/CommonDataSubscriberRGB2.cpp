@@ -111,7 +111,7 @@ void CommonDataSubscriber::rgb2OdomScan3dCallback(
 		{*cameraInfoMsg1, *cameraInfoMsg2}, scanMsg, *scan3dMsg);
 }
 
-void CommonDataSubscriber::setupRGB2Callbacks(
+void CommonDataSubscriber::setupRGB2Callback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		bool subscribeOdom,

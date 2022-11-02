@@ -57,7 +57,7 @@ void CommonDataSubscriber::stereoOdomCallback(
 	commonStereoCallback_(odomMsg, cv_bridge::toCvShare(leftImageMsg), cv_bridge::toCvShare(rightImageMsg), *leftCamInfoMsg, *rightCamInfoMsg, scanMsg, scan3dMsg);
 }
 
-void CommonDataSubscriber::setupStereoCallbacks(
+void CommonDataSubscriber::setupStereoCallback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		bool subscribeOdom,

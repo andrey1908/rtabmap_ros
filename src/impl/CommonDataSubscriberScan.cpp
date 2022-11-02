@@ -62,7 +62,7 @@ void CommonDataSubscriber::odomScan3dCallback(
 	commonLaserScanCallback_(odomMsg, scanMsg, *scan3dMsg);
 }
 
-void CommonDataSubscriber::setupScanCallbacks(
+void CommonDataSubscriber::setupScanCallback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		bool subscribeOdom,

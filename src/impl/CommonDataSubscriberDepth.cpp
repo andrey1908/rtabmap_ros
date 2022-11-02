@@ -105,7 +105,7 @@ void CommonDataSubscriber::depthOdomScan3dCallback(
 	commonDepthCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {cv_bridge::toCvShare(depthMsg)}, {*cameraInfoMsg}, {*depthCamInfoMsg}, scanMsg, *scan3dMsg);
 }
 
-void CommonDataSubscriber::setupDepthCallbacks(
+void CommonDataSubscriber::setupDepthCallback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		bool subscribeOdom,

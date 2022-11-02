@@ -93,7 +93,7 @@ void CommonDataSubscriber::rgbOdomScan3dCallback(
 	commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, scanMsg, *scan3dMsg);
 }
 
-void CommonDataSubscriber::setupRGBCallbacks(
+void CommonDataSubscriber::setupRGBCallback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		bool subscribeOdom,

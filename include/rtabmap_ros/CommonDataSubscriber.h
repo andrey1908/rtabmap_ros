@@ -107,26 +107,26 @@ public:
 	void setCommonDepthCallback(CommonDepthCallback commonDepthCallback);
 	void setCommonStereoCallback(CommonStereoCallback commonStereoCallback);
 
-	void setupCallbacks(
+	void setupCallback(
 			ros::NodeHandle & nh,
 			const std::string & name);
 
 private:
 	void warningLoop();
 	void callbackCalled() {callbackCalled_ = true;}
-	void setupOdomCallbacks(
+	void setupOdomCallback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		int queueSize,
 		bool approxSync);
-	void setupScanCallbacks(
+	void setupScanCallback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		bool subscribeOdom,
 		bool scan2dTopic,
 		int queueSize,
 		bool approxSync);
-	void setupRGBCallbacks(
+	void setupRGBCallback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		bool subscribeOdom,
@@ -134,7 +134,7 @@ private:
 		bool subscribeScan3d,
 		int queueSize,
 		bool approxSync);
-	void setupRGB2Callbacks(
+	void setupRGB2Callback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		bool subscribeOdom,
@@ -142,7 +142,7 @@ private:
 		bool subscribeScan3d,
 		int queueSize,
 		bool approxSync);
-	void setupDepthCallbacks(
+	void setupDepthCallback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		bool subscribeOdom,
@@ -150,7 +150,7 @@ private:
 		bool subscribeScan3d,
 		int queueSize,
 		bool approxSync);
-	void setupStereoCallbacks(
+	void setupStereoCallback(
 		ros::NodeHandle & nh,
 		ros::NodeHandle & pnh,
 		bool subscribeOdom,

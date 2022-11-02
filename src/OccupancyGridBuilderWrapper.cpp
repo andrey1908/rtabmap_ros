@@ -208,7 +208,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 			std::placeholders::_4, std::placeholders::_5, false));
 		commonDataSubscriber_.setCommonLaserScanCallback(std::bind(&OccupancyGridBuilder::commonLaserScanCallback,
 			this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, false));
-		commonDataSubscriber_.setupCallbacks(nh, "subscribe");
+		commonDataSubscriber_.setupCallback(nh, "subscribe");
 	}
 	if (temporaryMapping_)
 	{
@@ -217,7 +217,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 			std::placeholders::_4, std::placeholders::_5, true));
 		temporaryCommonDataSubscriber_.setCommonLaserScanCallback(std::bind(&OccupancyGridBuilder::commonLaserScanCallback,
 			this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, true));
-		temporaryCommonDataSubscriber_.setupCallbacks(nh, "temporary_subscribe");
+		temporaryCommonDataSubscriber_.setupCallback(nh, "temporary_subscribe");
 	}
 	optimizationResultsSub_ = nh.subscribe("optimization_results", 1, &OccupancyGridBuilder::updatePoses, this);
 }

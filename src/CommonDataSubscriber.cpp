@@ -122,7 +122,7 @@ void CommonDataSubscriber::setCommonStereoCallback(CommonStereoCallback commonSt
 	commonStereoCallback_ = std::move(commonStereoCallback);
 }
 
-void CommonDataSubscriber::setupCallbacks(
+void CommonDataSubscriber::setupCallback(
 		ros::NodeHandle & nh,
 		const std::string & name)
 {
@@ -181,7 +181,7 @@ void CommonDataSubscriber::setupCallbacks(
 
 	if(subscribedToStereo_)
 	{
-		setupStereoCallbacks(
+		setupStereoCallback(
 			nh,
 			pnh,
 			subscribedToOdom_,
@@ -190,7 +190,7 @@ void CommonDataSubscriber::setupCallbacks(
 	}
 	else if(subscribedToDepth_)
 	{
-		setupDepthCallbacks(
+		setupDepthCallback(
 			nh,
 			pnh,
 			subscribedToOdom_,
@@ -203,7 +203,7 @@ void CommonDataSubscriber::setupCallbacks(
 	{
 		if (rgbCameras_ == 1)
 		{
-			setupRGBCallbacks(
+			setupRGBCallback(
 				nh,
 				pnh,
 				subscribedToOdom_,
@@ -214,7 +214,7 @@ void CommonDataSubscriber::setupCallbacks(
 		}
 		else
 		{
-			setupRGB2Callbacks(
+			setupRGB2Callback(
 				nh,
 				pnh,
 				subscribedToOdom_,
@@ -226,7 +226,7 @@ void CommonDataSubscriber::setupCallbacks(
 	}
 	else if(subscribeScan2d || subscribeScan3d)
 	{
-		setupScanCallbacks(
+		setupScanCallback(
 			nh,
 			pnh,
 			subscribedToOdom_,
@@ -236,7 +236,7 @@ void CommonDataSubscriber::setupCallbacks(
 	}
 	else if(subscribedToOdom_)
 	{
-		setupOdomCallbacks(
+		setupOdomCallback(
 			nh,
 			pnh,
 			queueSize_,
