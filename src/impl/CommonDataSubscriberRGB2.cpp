@@ -122,11 +122,16 @@ void CommonDataSubscriber::setupRGB2Callbacks(
 {
 	ROS_INFO("Setup rgb2 callback");
 
-	std::string rgbPrefix = "rgb";
-	ros::NodeHandle rgb_nh(nh, rgbPrefix);
-	ros::NodeHandle rgb_pnh(pnh, rgbPrefix);
-	image_transport::ImageTransport rgb_it(rgb_nh);
-	image_transport::TransportHints hintsRgb("raw", ros::TransportHints(), rgb_pnh);
+	std::string rgb1Prefix = "rgb_1";
+	std::string rgb2Prefix = "rgb_2";
+	ros::NodeHandle rgb1_nh(nh, rgb1Prefix);
+	ros::NodeHandle rgb2_nh(nh, rgb2Prefix);
+	ros::NodeHandle rgb1_pnh(pnh, rgb1Prefix);
+	ros::NodeHandle rgb2_pnh(pnh, rgb2Prefix);
+	image_transport::ImageTransport rgb1_it(rgb1_nh);
+	image_transport::ImageTransport rgb2_it(rgb2_nh);
+	image_transport::TransportHints hintsRgb1("raw", ros::TransportHints(), rgb1_pnh);
+	image_transport::TransportHints hintsRgb2("raw", ros::TransportHints(), rgb2_pnh);
 
 	imageSubs_.resize(2);
 	imageSubs_[0] = std::make_unique<image_transport::SubscriberFilter>();
@@ -134,10 +139,10 @@ void CommonDataSubscriber::setupRGB2Callbacks(
 	cameraInfoSubs_.resize(2);
 	cameraInfoSubs_[0] = std::make_unique<message_filters::Subscriber<sensor_msgs::CameraInfo>>();
 	cameraInfoSubs_[1] = std::make_unique<message_filters::Subscriber<sensor_msgs::CameraInfo>>();
-	imageSubs_[0]->subscribe(rgb_it, rgb_nh.resolveName("image_1"), queueSize, hintsRgb);
-	imageSubs_[1]->subscribe(rgb_it, rgb_nh.resolveName("image_2"), queueSize, hintsRgb);
-	cameraInfoSubs_[0]->subscribe(rgb_nh, "camera_info_1", queueSize);
-	cameraInfoSubs_[1]->subscribe(rgb_nh, "camera_info_2", queueSize);
+	imageSubs_[0]->subscribe(rgb1_it, rgb1_nh.resolveName("image"), queueSize, hintsRgb1);
+	imageSubs_[1]->subscribe(rgb2_it, rgb2_nh.resolveName("image"), queueSize, hintsRgb2);
+	cameraInfoSubs_[0]->subscribe(rgb1_nh, "camera_info", queueSize);
+	cameraInfoSubs_[1]->subscribe(rgb2_nh, "camera_info", queueSize);
 	if(subscribeOdom)
 	{
 		odomSub_.subscribe(nh, "odom", queueSize);
