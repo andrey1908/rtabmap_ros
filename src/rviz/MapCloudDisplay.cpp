@@ -293,7 +293,7 @@ void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 			s.sensorData().uncompressData(fromDepth?&image:0, fromDepth?&depth:0, !fromDepth?&scan:0);
 
 			sensor_msgs::PointCloud2::Ptr cloudMsg(new sensor_msgs::PointCloud2);
-			if(fromDepth && !s.sensorData().imageRaw().empty() && !s.sensorData().depthOrRightRaw().empty())
+			if(fromDepth && !s.sensorData().image().empty() && !s.sensorData().depthOrRight().empty())
 			{
 				pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
 				pcl::IndicesPtr validIndices(new std::vector<int>);

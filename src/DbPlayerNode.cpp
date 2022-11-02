@@ -258,7 +258,7 @@ int main(int argc, char** argv)
 		camInfoB = camInfoA;
 
 		int type = -1;
-		if(!odom.data().depthRaw().empty() && (odom.data().depthRaw().type() == CV_32FC1 || odom.data().depthRaw().type() == CV_16UC1))
+		if(!odom.data().depth().empty() && (odom.data().depth().type() == CV_32FC1 || odom.data().depth().type() == CV_16UC1))
 		{
 			if(odom.data().cameraModels().size() > 1)
 			{
@@ -291,7 +291,7 @@ int main(int argc, char** argv)
 				if(depthCamInfoPub.getTopic().empty()) depthCamInfoPub = nh.advertise<sensor_msgs::CameraInfo>("depth_registered/camera_info", 1);
 			}
 		}
-		else if(!odom.data().rightRaw().empty() && odom.data().rightRaw().type() == CV_8U)
+		else if(!odom.data().right().empty() && odom.data().right().type() == CV_8U)
 		{
 			//stereo
 			if(odom.data().stereoCameraModel().isValidForProjection())
@@ -324,17 +324,17 @@ int main(int argc, char** argv)
 			if(imagePub.getTopic().empty()) imagePub = it.advertise("image", 1);
 		}
 
-		camInfoA.height = odom.data().imageRaw().rows;
-		camInfoA.width = odom.data().imageRaw().cols;
-		camInfoB.height = odom.data().depthOrRightRaw().rows;
-		camInfoB.width = odom.data().depthOrRightRaw().cols;
+		camInfoA.height = odom.data().image().rows;
+		camInfoA.width = odom.data().image().cols;
+		camInfoB.height = odom.data().depthOrRight().rows;
+		camInfoB.width = odom.data().depthOrRight().cols;
 
-		if(!odom.data().laserScanRaw().isEmpty())
+		if(!odom.data().laserScan().isEmpty())
 		{
-			if(scanPub.getTopic().empty() && odom.data().laserScanRaw().is2d())
+			if(scanPub.getTopic().empty() && odom.data().laserScan().is2d())
 			{
 				scanPub = nh.advertise<sensor_msgs::LaserScan>("scan", 1);
-				if(odom.data().laserScanRaw().angleIncrement() > 0.0f)
+				if(odom.data().laserScan().angleIncrement() > 0.0f)
 				{
 					ROS_INFO("Scan will be published.");
 				}
@@ -486,7 +486,7 @@ int main(int argc, char** argv)
 		if(imagePub.getNumSubscribers() || rgbPub.getNumSubscribers() || leftPub.getNumSubscribers())
 		{
 			cv_bridge::CvImage img;
-			if(odom.data().imageRaw().channels() == 1)
+			if(odom.data().image().channels() == 1)
 			{
 				img.encoding = sensor_msgs::image_encodings::MONO8;
 			}
@@ -494,7 +494,7 @@ int main(int argc, char** argv)
 			{
 				img.encoding = sensor_msgs::image_encodings::BGR8;
 			}
-			img.image = odom.data().imageRaw();
+			img.image = odom.data().image();
 			sensor_msgs::ImagePtr imageRosMsg = img.toImageMsg();
 			imageRosMsg->header.frame_id = cameraFrameId;
 			imageRosMsg->header.stamp = time;
@@ -514,10 +514,10 @@ int main(int argc, char** argv)
 			}
 		}
 
-		if(depthPub.getNumSubscribers() && !odom.data().depthRaw().empty() && type==0)
+		if(depthPub.getNumSubscribers() && !odom.data().depth().empty() && type==0)
 		{
 			cv_bridge::CvImage img;
-			if(odom.data().depthRaw().type() == CV_32FC1)
+			if(odom.data().depth().type() == CV_32FC1)
 			{
 				img.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
 			}
@@ -525,7 +525,7 @@ int main(int argc, char** argv)
 			{
 				img.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
 			}
-			img.image = odom.data().depthRaw();
+			img.image = odom.data().depth();
 			sensor_msgs::ImagePtr imageRosMsg = img.toImageMsg();
 			imageRosMsg->header.frame_id = cameraFrameId;
 			imageRosMsg->header.stamp = time;
@@ -534,11 +534,11 @@ int main(int argc, char** argv)
 			depthCamInfoPub.publish(camInfoB);
 		}
 
-		if(rightPub.getNumSubscribers() && !odom.data().rightRaw().empty() && type==1)
+		if(rightPub.getNumSubscribers() && !odom.data().right().empty() && type==1)
 		{
 			cv_bridge::CvImage img;
 			img.encoding = sensor_msgs::image_encodings::MONO8;
-			img.image = odom.data().rightRaw();
+			img.image = odom.data().right();
 			sensor_msgs::ImagePtr imageRosMsg = img.toImageMsg();
 			imageRosMsg->header.frame_id = cameraFrameId;
 			imageRosMsg->header.stamp = time;
@@ -547,9 +547,9 @@ int main(int argc, char** argv)
 			rightCamInfoPub.publish(camInfoB);
 		}
 
-		if(!odom.data().laserScanRaw().isEmpty())
+		if(!odom.data().laserScan().isEmpty())
 		{
-			if(scanPub.getNumSubscribers() && odom.data().laserScanRaw().is2d())
+			if(scanPub.getNumSubscribers() && odom.data().laserScan().is2d())
 			{
 				//inspired from pointcloud_to_laserscan package
 				sensor_msgs::LaserScan msg;
@@ -563,19 +563,19 @@ int main(int argc, char** argv)
 				msg.scan_time = 0;
 				msg.range_min = scanRangeMin;
 				msg.range_max = scanRangeMax;
-				if(odom.data().laserScanRaw().angleIncrement() > 0.0f)
+				if(odom.data().laserScan().angleIncrement() > 0.0f)
 				{
-					msg.angle_min = odom.data().laserScanRaw().angleMin();
-					msg.angle_max = odom.data().laserScanRaw().angleMax();
-					msg.angle_increment = odom.data().laserScanRaw().angleIncrement();
-					msg.range_min = odom.data().laserScanRaw().rangeMin();
-					msg.range_max = odom.data().laserScanRaw().rangeMax();
+					msg.angle_min = odom.data().laserScan().angleMin();
+					msg.angle_max = odom.data().laserScan().angleMax();
+					msg.angle_increment = odom.data().laserScan().angleIncrement();
+					msg.range_min = odom.data().laserScan().rangeMin();
+					msg.range_max = odom.data().laserScan().rangeMax();
 				}
 
 				uint32_t rangesSize = std::ceil((msg.angle_max - msg.angle_min) / msg.angle_increment);
 				msg.ranges.assign(rangesSize, 0.0);
 
-				const cv::Mat & scan = odom.data().laserScanRaw().data();
+				const cv::Mat & scan = odom.data().laserScan().data();
 				for (int i=0; i<scan.cols; ++i)
 				{
 					const float * ptr = scan.ptr<float>(0,i);
@@ -599,7 +599,7 @@ int main(int argc, char** argv)
 			else if(scanCloudPub.getNumSubscribers())
 			{
 				sensor_msgs::PointCloud2 msg;
-				pcl_conversions::moveFromPCL(*rtabmap::util3d::laserScanToPointCloud2(odom.data().laserScanRaw()), msg);
+				pcl_conversions::moveFromPCL(*rtabmap::util3d::laserScanToPointCloud2(odom.data().laserScan()), msg);
 				msg.header.frame_id = scanFrameId;
 				msg.header.stamp = time;
 				scanCloudPub.publish(msg);

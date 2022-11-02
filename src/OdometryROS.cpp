@@ -503,7 +503,7 @@ void OdometryROS::processData(SensorData & data, const std_msgs::Header & header
 	//NODELET_WARN("img callback: process image %f", stamp.toSec());
 
 	Transform groundTruth;
-	if(!data.imageRaw().empty() || !data.laserScanRaw().isEmpty())
+	if(!data.image().empty() || !data.laserScan().isEmpty())
 	{
 		if(previousStamp_>0.0 && previousStamp_ >= header.stamp.toSec())
 		{
@@ -533,7 +533,7 @@ void OdometryROS::processData(SensorData & data, const std_msgs::Header & header
 		{
 			groundTruth = getTransform(groundTruthFrameId_, groundTruthBaseFrameId_, header.stamp);
 
-			if(!data.imageRaw().empty() || !data.laserScanRaw().isEmpty())
+			if(!data.image().empty() || !data.laserScan().isEmpty())
 			{
 				if(odometry_->getPose().isIdentity())
 				{
@@ -804,7 +804,7 @@ void OdometryROS::processData(SensorData & data, const std_msgs::Header & header
 			odomLocalScanMap_.publish(cloudMsg);
 		}
 	}
-	else if(data.imageRaw().empty() && data.laserScanRaw().isEmpty() && !data.imu().empty())
+	else if(data.image().empty() && data.laserScan().isEmpty() && !data.imu().empty())
 	{
 		return;
 	}
@@ -879,7 +879,7 @@ void OdometryROS::processData(SensorData & data, const std_msgs::Header & header
 		odomInfoLitePub_.publish(infoMsg);
 	}
 
-	if(!data.imageRaw().empty() && odomRgbdImagePub_.getNumSubscribers())
+	if(!data.image().empty() && odomRgbdImagePub_.getNumSubscribers())
 	{
 		if(!header.frame_id.empty())
 		{
@@ -896,7 +896,7 @@ void OdometryROS::processData(SensorData & data, const std_msgs::Header & header
 
 	postProcessData(data, header);
 
-	if(!data.imageRaw().empty() || !data.laserScanRaw().isEmpty())
+	if(!data.image().empty() || !data.laserScan().isEmpty())
 	{
 		if(visParams_)
 		{

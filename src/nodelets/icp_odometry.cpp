@@ -704,7 +704,7 @@ protected:
 		if(filtered_scan_pub_.getNumSubscribers())
 		{
 			sensor_msgs::PointCloud2 msg;
-			pcl_conversions::fromPCL(*rtabmap::util3d::laserScanToPointCloud2(data.laserScanRaw()), msg);
+			pcl_conversions::fromPCL(*rtabmap::util3d::laserScanToPointCloud2(data.laserScan()), msg);
 			msg.header = header;
 			filtered_scan_pub_.publish(msg);
 		}
