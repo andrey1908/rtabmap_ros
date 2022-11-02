@@ -162,6 +162,11 @@ void CommonDataSubscriber::setupCallback(
 	}
 
 	pnh.param(name_ + "_rgb_cameras", rgbCameras_, rgbCameras_);
+	if (rgbCameras_ < 1 && subscribedToRGB_)
+	{
+		ROS_WARN("Less then 1 rgb camera. Do not use rgb.");
+		subscribedToRGB_ = false;
+	}
 	if (rgbCameras_ > 2)
 	{
 		ROS_WARN("Cannot synchronize more than 2 rgb cameras. Parameter rgb_cameras is set to 2.");
