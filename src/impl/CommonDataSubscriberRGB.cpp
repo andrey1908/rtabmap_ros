@@ -102,7 +102,7 @@ void CommonDataSubscriber::setupRGBCallbacks(
 		int queueSize,
 		bool approxSync)
 {
-	ROS_INFO("Setup rgb-only callback");
+	ROS_INFO("Setup rgb callback");
 
 	std::string rgbPrefix = "rgb";
 	ros::NodeHandle rgb_nh(nh, rgbPrefix);
@@ -110,8 +110,12 @@ void CommonDataSubscriber::setupRGBCallbacks(
 	image_transport::ImageTransport rgb_it(rgb_nh);
 	image_transport::TransportHints hintsRgb("raw", ros::TransportHints(), rgb_pnh);
 
-	imageSub_.subscribe(rgb_it, rgb_nh.resolveName("image"), queueSize, hintsRgb);
-	cameraInfoSub_.subscribe(rgb_nh, "camera_info", queueSize);
+	imageSubs_.resize(1);
+	imageSubs_[0] = std::make_unique<image_transport::SubscriberFilter>();
+	cameraInfoSubs_.resize(1);
+	cameraInfoSubs_[0] = std::make_unique<message_filters::Subscriber<sensor_msgs::CameraInfo>>();
+	imageSubs_[0]->subscribe(rgb_it, rgb_nh.resolveName("image"), queueSize, hintsRgb);
+	cameraInfoSubs_[0]->subscribe(rgb_nh, "camera_info", queueSize);
 	if(subscribeOdom)
 	{
 		odomSub_.subscribe(nh, "odom", queueSize);
@@ -131,30 +135,30 @@ void CommonDataSubscriber::setupRGBCallbacks(
 	{
 		if(subscribeScan2d)
 		{
-			SYNC_DECL4(CommonDataSubscriber, rgbOdomScan2d, approxSync, queueSize, odomSub_, imageSub_, cameraInfoSub_, scanSub_);
+			SYNC_DECL4(CommonDataSubscriber, rgbOdomScan2d, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scanSub_);
 		}
 		else if(subscribeScan3d)
 		{
-			SYNC_DECL4(CommonDataSubscriber, rgbOdomScan3d, approxSync, queueSize, odomSub_, imageSub_, cameraInfoSub_, scan3dSub_);
+			SYNC_DECL4(CommonDataSubscriber, rgbOdomScan3d, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scan3dSub_);
 		}
 		else
 		{
-			SYNC_DECL3(CommonDataSubscriber, rgbOdom, approxSync, queueSize, odomSub_, imageSub_, cameraInfoSub_);
+			SYNC_DECL3(CommonDataSubscriber, rgbOdom, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*cameraInfoSubs_[0]));
 		}
 	}
 	else
 	{
 		if(subscribeScan2d)
 		{
-			SYNC_DECL3(CommonDataSubscriber, rgbScan2d, approxSync, queueSize, imageSub_, cameraInfoSub_, scanSub_);
+			SYNC_DECL3(CommonDataSubscriber, rgbScan2d, approxSync, queueSize, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scanSub_);
 		}
 		else if(subscribeScan3d)
 		{
-			SYNC_DECL3(CommonDataSubscriber, rgbScan3d, approxSync, queueSize, imageSub_, cameraInfoSub_, scan3dSub_);
+			SYNC_DECL3(CommonDataSubscriber, rgbScan3d, approxSync, queueSize, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scan3dSub_);
 		}
 		else
 		{
-			SYNC_DECL2(CommonDataSubscriber, rgb, approxSync, queueSize, imageSub_, cameraInfoSub_);
+			SYNC_DECL2(CommonDataSubscriber, rgb, approxSync, queueSize, (*imageSubs_[0]), (*cameraInfoSubs_[0]));
 		}
 	}
 }

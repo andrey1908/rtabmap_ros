@@ -127,10 +127,18 @@ void CommonDataSubscriber::setupDepthCallbacks(
 	image_transport::TransportHints hintsRgb("raw", ros::TransportHints(), rgb_pnh);
 	image_transport::TransportHints hintsDepth("raw", ros::TransportHints(), depth_pnh);
 
-	imageSub_.subscribe(rgb_it, rgb_nh.resolveName("image"), queueSize, hintsRgb);
-	imageDepthSub_.subscribe(depth_it, depth_nh.resolveName("image"), queueSize, hintsDepth);
-	cameraInfoSub_.subscribe(rgb_nh, "camera_info", queueSize);
-	depthCamInfoSub_.subscribe(depth_nh, "camera_info", queueSize);
+	imageSubs_.resize(1);
+	imageSubs_[0] = std::make_unique<image_transport::SubscriberFilter>();
+	depthSubs_.resize(1);
+	depthSubs_[0] = std::make_unique<image_transport::SubscriberFilter>();
+	cameraInfoSubs_.resize(1);
+	cameraInfoSubs_[0] = std::make_unique<message_filters::Subscriber<sensor_msgs::CameraInfo>>();
+	depthCamInfoSubs_.resize(1);
+	depthCamInfoSubs_[0] = std::make_unique<message_filters::Subscriber<sensor_msgs::CameraInfo>>();
+	imageSubs_[0]->subscribe(rgb_it, rgb_nh.resolveName("image"), queueSize, hintsRgb);
+	depthSubs_[0]->subscribe(depth_it, depth_nh.resolveName("image"), queueSize, hintsDepth);
+	cameraInfoSubs_[0]->subscribe(rgb_nh, "camera_info", queueSize);
+	depthCamInfoSubs_[0]->subscribe(depth_nh, "camera_info", queueSize);
 	if(subscribeOdom)
 	{
 		odomSub_.subscribe(nh, "odom", queueSize);
@@ -150,30 +158,30 @@ void CommonDataSubscriber::setupDepthCallbacks(
 	{
 		if(subscribeScan2d)
 		{
-			SYNC_DECL6(CommonDataSubscriber, depthOdomScan2d, approxSync, queueSize, odomSub_, imageSub_, imageDepthSub_, cameraInfoSub_, depthCamInfoSub_, scanSub_);
+			SYNC_DECL6(CommonDataSubscriber, depthOdomScan2d, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*depthSubs_[0]), (*cameraInfoSubs_[0]), (*depthCamInfoSubs_[0]), scanSub_);
 		}
 		else if(subscribeScan3d)
 		{
-			SYNC_DECL6(CommonDataSubscriber, depthOdomScan3d, approxSync, queueSize, odomSub_, imageSub_, imageDepthSub_, cameraInfoSub_, depthCamInfoSub_, scan3dSub_);
+			SYNC_DECL6(CommonDataSubscriber, depthOdomScan3d, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*depthSubs_[0]), (*cameraInfoSubs_[0]), (*depthCamInfoSubs_[0]), scan3dSub_);
 		}
 		else
 		{
-			SYNC_DECL5(CommonDataSubscriber, depthOdom, approxSync, queueSize, odomSub_, imageSub_, imageDepthSub_, cameraInfoSub_, depthCamInfoSub_);
+			SYNC_DECL5(CommonDataSubscriber, depthOdom, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*depthSubs_[0]), (*cameraInfoSubs_[0]), (*depthCamInfoSubs_[0]));
 		}
 	}
 	else
 	{
 		if(subscribeScan2d)
 		{
-			SYNC_DECL5(CommonDataSubscriber, depthScan2d, approxSync, queueSize, imageSub_, imageDepthSub_, cameraInfoSub_, depthCamInfoSub_, scanSub_);
+			SYNC_DECL5(CommonDataSubscriber, depthScan2d, approxSync, queueSize, (*imageSubs_[0]), (*depthSubs_[0]), (*cameraInfoSubs_[0]), (*depthCamInfoSubs_[0]), scanSub_);
 		}
 		else if(subscribeScan3d)
 		{
-			SYNC_DECL5(CommonDataSubscriber, depthScan3d, approxSync, queueSize, imageSub_, imageDepthSub_, cameraInfoSub_, depthCamInfoSub_, scan3dSub_);
+			SYNC_DECL5(CommonDataSubscriber, depthScan3d, approxSync, queueSize, (*imageSubs_[0]), (*depthSubs_[0]), (*cameraInfoSubs_[0]), (*depthCamInfoSubs_[0]), scan3dSub_);
 		}
 		else
 		{
-			SYNC_DECL4(CommonDataSubscriber, depth, approxSync, queueSize, imageSub_, imageDepthSub_, cameraInfoSub_, depthCamInfoSub_);
+			SYNC_DECL4(CommonDataSubscriber, depth, approxSync, queueSize, (*imageSubs_[0]), (*depthSubs_[0]), (*cameraInfoSubs_[0]), (*depthCamInfoSubs_[0]));
 		}
 	}
 }

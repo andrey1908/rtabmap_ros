@@ -47,14 +47,14 @@ private:
 		const rtabmap::Transform* odometryPose = nullptr, ros::Duration maxDistance = ros::Duration(0, 0),
 		bool defaultIdentityOdometryCorrection = false);
 
+	void commonLaserScanCallback(
+		const nav_msgs::OdometryConstPtr& odomMsg,
+		const sensor_msgs::LaserScan& scanMsg,
+		const sensor_msgs::PointCloud2& scan3dMsg);
 	void commonRGBCallback(
 		const nav_msgs::OdometryConstPtr& odomMsg,
 		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
 		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
-		const sensor_msgs::LaserScan& scanMsg,
-		const sensor_msgs::PointCloud2& scan3dMsg);
-	void commonLaserScanCallback(
-		const nav_msgs::OdometryConstPtr& odomMsg,
 		const sensor_msgs::LaserScan& scanMsg,
 		const sensor_msgs::PointCloud2& scan3dMsg);
 

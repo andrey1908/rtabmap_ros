@@ -142,24 +142,31 @@ rtabmap::Transform getTransform(
 		tf::TransformListener & listener,
 		double waitForTransform);
 
-bool convertRGBDMsgs(
+bool convertRGBMsgs(
 		const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
-		const std::vector<cv_bridge::CvImageConstPtr> & depthMsgs,
 		const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
 		const std::string & frameId,
 		const std::string & odomFrameId,
 		const ros::Time & odomStamp,
-		cv::Mat & rgb,
-		cv::Mat & depth,
+		std::vector<cv::Mat> & rgbs,
 		std::vector<rtabmap::CameraModel> & cameraModels,
 		tf::TransformListener & listener,
-		double waitForTransform,
-		const std::vector<std::vector<rtabmap_ros::KeyPoint> > & localKeyPointsMsgs = std::vector<std::vector<rtabmap_ros::KeyPoint> >(),
-		const std::vector<std::vector<rtabmap_ros::Point3f> > & localPoints3dMsgs = std::vector<std::vector<rtabmap_ros::Point3f> >(),
-		const std::vector<cv::Mat> & localDescriptorsMsgs = std::vector<cv::Mat>(),
-		std::vector<cv::KeyPoint> * localKeyPoints = 0,
-		std::vector<cv::Point3f> * localPoints3d = 0,
-		cv::Mat * localDescriptors = 0);
+		double waitForTransform);
+
+bool convertRGBDMsgs(
+		const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
+		const std::vector<cv_bridge::CvImageConstPtr> & depthMsgs,
+		const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
+		const std::vector<sensor_msgs::CameraInfo> & depthCamInfoMsgs,
+		const std::string & frameId,
+		const std::string & odomFrameId,
+		const ros::Time & odomStamp,
+		std::vector<cv::Mat> & rgbs,
+		std::vector<cv::Mat> & depths,
+		std::vector<rtabmap::CameraModel> & cameraModels,
+		std::vector<rtabmap::CameraModel> & depthCameraModels,
+		tf::TransformListener & listener,
+		double waitForTransform);
 
 bool convertStereoMsg(
 		const cv_bridge::CvImageConstPtr& leftImageMsg,

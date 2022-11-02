@@ -42,7 +42,7 @@ void CommonDataSubscriber::setupOdomCallbacks(
 		int queueSize,
 		bool approxSync)
 {
-	ROS_INFO("Setup scan callback");
+	ROS_INFO("Setup odom callback");
 
 	odomSubOnly_ = nh.subscribe("odom", queueSize, &CommonDataSubscriber::odomCallback, this);
 	subscribedTopicsMsg_ =

@@ -462,6 +462,39 @@ std::optional<rtabmap::Transform> OccupancyGridBuilder::getPose(ros::Time time,
 	return std::optional<rtabmap::Transform>();
 }
 
+void OccupancyGridBuilder::commonLaserScanCallback(
+		const nav_msgs::OdometryConstPtr& odomMsg,
+		const sensor_msgs::LaserScan& scanMsg,
+		const sensor_msgs::PointCloud2& scan3dMsg)
+{
+	UScopeMutex lock(mutex_);
+	MEASURE_BLOCK_TIME(commonLaserScanCallback);
+	UDEBUG("\n\nReceived new data");
+	UASSERT(commonDataSubscriber_.isSubscribedToOdom());
+	UASSERT(commonDataSubscriber_.isSubscribedToScan3d());
+	UASSERT(odomFrame_.empty() ||
+			(odomFrame_ == odomMsg->header.frame_id && baseLinkFrame_ == odomMsg->child_frame_id));
+	if (odomFrame_.empty())
+	{
+		odomFrame_ = odomMsg->header.frame_id;
+		baseLinkFrame_ = odomMsg->child_frame_id;
+	}
+	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
+	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(-1, 0), true);
+	UASSERT(correctedPose.has_value() || odomMsg->header.stamp <= lastOptimizationResultsTime_);
+	if (!correctedPose.has_value() && odomMsg->header.stamp <= lastOptimizationResultsTime_)
+	{
+		return;
+	}
+	rtabmap::Signature signature = createSignature(
+		*correctedPose,
+		odomMsg->header.stamp,
+		scan3dMsg,
+		{}, {});
+	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping_);
+	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), !mapFrame_.empty() ? mapFrame_ : odomFrame_);
+}
+
 void OccupancyGridBuilder::commonRGBCallback(
 		const nav_msgs::OdometryConstPtr& odomMsg,
 		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
@@ -501,39 +534,6 @@ void OccupancyGridBuilder::commonRGBCallback(
 	publishLastDilatedSemantic(ros::Time(signature.getSec(), signature.getNSec()), imageMsgs[0]->header.frame_id);
 }
 
-void OccupancyGridBuilder::commonLaserScanCallback(
-		const nav_msgs::OdometryConstPtr& odomMsg,
-		const sensor_msgs::LaserScan& scanMsg,
-		const sensor_msgs::PointCloud2& scan3dMsg)
-{
-	UScopeMutex lock(mutex_);
-	MEASURE_BLOCK_TIME(commonLaserScanCallback);
-	UDEBUG("\n\nReceived new data");
-	UASSERT(commonDataSubscriber_.isSubscribedToOdom());
-	UASSERT(commonDataSubscriber_.isSubscribedToScan3d());
-	UASSERT(odomFrame_.empty() ||
-			(odomFrame_ == odomMsg->header.frame_id && baseLinkFrame_ == odomMsg->child_frame_id));
-	if (odomFrame_.empty())
-	{
-		odomFrame_ = odomMsg->header.frame_id;
-		baseLinkFrame_ = odomMsg->child_frame_id;
-	}
-	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
-	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(-1, 0), true);
-	UASSERT(correctedPose.has_value() || odomMsg->header.stamp <= lastOptimizationResultsTime_);
-	if (!correctedPose.has_value() && odomMsg->header.stamp <= lastOptimizationResultsTime_)
-	{
-		return;
-	}
-	rtabmap::Signature signature = createSignature(
-		*correctedPose,
-		odomMsg->header.stamp,
-		scan3dMsg,
-		{}, {});
-	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping_);
-	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), !mapFrame_.empty() ? mapFrame_ : odomFrame_);
-}
-
 rtabmap::Signature OccupancyGridBuilder::createSignature(
 		const rtabmap::Transform& pose,
 		const ros::Time& time,
@@ -548,13 +548,12 @@ rtabmap::Signature OccupancyGridBuilder::createSignature(
 		UASSERT(convertionOk);
 	}
 
-	cv::Mat rgb;
-	cv::Mat depth;
+	std::vector<cv::Mat> rgbs;
 	std::vector<rtabmap::CameraModel> cameraModels;
-	if (cameraInfoMsgs.size())
+	if (imageMsgs.size())
 	{
-		bool convertionOk = convertRGBDMsgs(imageMsgs, {}, cameraInfoMsgs, baseLinkFrame_, "", ros::Time(0),
-			rgb, depth, cameraModels, tfListener_, 0.0);
+		bool convertionOk = convertRGBMsgs(imageMsgs, cameraInfoMsgs, baseLinkFrame_, "", ros::Time(0),
+			rgbs, cameraModels, tfListener_, 0.0);
 		UASSERT(convertionOk);
 	}
 
@@ -562,7 +561,7 @@ rtabmap::Signature OccupancyGridBuilder::createSignature(
 	data.setStamp(time.sec, time.nsec);
 	data.setId(nodeId_);
 	data.setLaserScan(scan);
-	data.setRGBDImage(rgb, depth, cameraModels);
+	data.setRGBImages(rgbs, cameraModels);
 	rtabmap::Signature signature(data);
 	signature.setPose(pose);
 	return signature;

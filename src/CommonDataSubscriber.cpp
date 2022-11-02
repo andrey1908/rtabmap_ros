@@ -42,34 +42,36 @@ CommonDataSubscriber::CommonDataSubscriber() :
 		subscribedToDepth_(false),
 		subscribedToStereo_(false),
 
-		// Scan + Odom
+		// Scan
 		SYNC_INIT(odomScan2d),
 		SYNC_INIT(odomScan3d),
 
-		// RGB-only
+		// RGB
 		SYNC_INIT(rgb),
 		SYNC_INIT(rgbScan2d),
 		SYNC_INIT(rgbScan3d),
-
-		// RGB-only + Odom
 		SYNC_INIT(rgbOdom),
 		SYNC_INIT(rgbOdomScan2d),
 		SYNC_INIT(rgbOdomScan3d),
 
-		// RGB + Depth
+		// RGB2
+		SYNC_INIT(rgb2),
+		SYNC_INIT(rgb2Scan2d),
+		SYNC_INIT(rgb2Scan3d),
+		SYNC_INIT(rgb2Odom),
+		SYNC_INIT(rgb2OdomScan2d),
+		SYNC_INIT(rgb2OdomScan3d),
+
+		// Depth
 		SYNC_INIT(depth),
 		SYNC_INIT(depthScan2d),
 		SYNC_INIT(depthScan3d),
-
-		// RGB + Depth + Odom
 		SYNC_INIT(depthOdom),
 		SYNC_INIT(depthOdomScan2d),
 		SYNC_INIT(depthOdomScan3d),
 
 		// Stereo
 		SYNC_INIT(stereo),
-
-		// Stereo + Odom
 		SYNC_INIT(stereoOdom)
 {
 }
@@ -78,7 +80,7 @@ void CommonDataSubscriber::setCommonOdomCallback(CommonOdomCallback commonOdomCa
 {
 	if (callbackSetup_)
 	{
-		ROS_ERROR("Can not set callback after subscribing");
+		ROS_ERROR("Cannot set callback after subscribing");
 		return;
 	}
 	commonOdomCallback_ = std::move(commonOdomCallback);
@@ -87,7 +89,7 @@ void CommonDataSubscriber::setCommonLaserScanCallback(CommonLaserScanCallback co
 {
 	if (callbackSetup_)
 	{
-		ROS_ERROR("Can not set callback after subscribing");
+		ROS_ERROR("Cannot set callback after subscribing");
 		return;
 	}
 	commonLaserScanCallback_ = std::move(commonLaserScanCallback);
@@ -96,7 +98,7 @@ void CommonDataSubscriber::setCommonRGBCallback(CommonRGBCallback commonRGBCallb
 {
 	if (callbackSetup_)
 	{
-		ROS_ERROR("Can not set callback after subscribing");
+		ROS_ERROR("Cannot set callback after subscribing");
 		return;
 	}
 	commonRGBCallback_ = std::move(commonRGBCallback);
@@ -105,7 +107,7 @@ void CommonDataSubscriber::setCommonDepthCallback(CommonDepthCallback commonDept
 {
 	if (callbackSetup_)
 	{
-		ROS_ERROR("Can not set callback after subscribing");
+		ROS_ERROR("Cannot set callback after subscribing");
 		return;
 	}
 	commonDepthCallback_ = std::move(commonDepthCallback);
@@ -114,7 +116,7 @@ void CommonDataSubscriber::setCommonStereoCallback(CommonStereoCallback commonSt
 {
 	if (callbackSetup_)
 	{
-		ROS_ERROR("Can not set callback after subscribing");
+		ROS_ERROR("Cannot set callback after subscribing");
 		return;
 	}
 	commonStereoCallback_ = std::move(commonStereoCallback);
@@ -128,6 +130,7 @@ void CommonDataSubscriber::setupCallbacks(
 	bool subscribeOdom = true;
 	bool subscribeScan2d = false;
 	bool subscribeScan3d = false;
+	int rgbCameras = 1;
 	name_ = name;
 
 	// ROS related parameters (private)
@@ -161,13 +164,19 @@ void CommonDataSubscriber::setupCallbacks(
 
 	std::string odomFrameId;
 	pnh.getParam("odom_frame_id", odomFrameId);
+	pnh.param("rgb_cameras", rgbCameras, rgbCameras);
+	if (rgbCameras > 2)
+	{
+		ROS_WARN("Cannot synchronize more than 2 rgb cameras. Parameter rgb_cameras is set to 2.");
+		rgbCameras = 2;
+	}
 	pnh.param("queue_size", queueSize_, queueSize_);
 	pnh.param("approx_sync", approxSync_, approxSync_);
 
 	ROS_INFO("%s: subscribe_odom = %s", name.c_str(), subscribeOdom?"true":"false");
 	ROS_INFO("%s: subscribe_scan = %s", name.c_str(), subscribeScan2d?"true":"false");
 	ROS_INFO("%s: subscribe_scan_cloud = %s", name.c_str(), subscribeScan3d?"true":"false");
-	ROS_INFO("%s: subscribe_rgb = %s", name.c_str(), subscribedToRGB_?"true":"false");
+	ROS_INFO("%s: subscribe_rgb = %s (rgb_cameras %d)", name.c_str(), subscribedToRGB_?"true":"false", rgbCameras);
 	ROS_INFO("%s: subscribe_depth = %s", name.c_str(), subscribedToDepth_?"true":"false");
 	ROS_INFO("%s: subscribe_stereo = %s", name.c_str(), subscribedToStereo_?"true":"false");
 	ROS_INFO("%s: queue_size    = %d", name.c_str(), queueSize_);
@@ -196,14 +205,28 @@ void CommonDataSubscriber::setupCallbacks(
 	}
 	else if(subscribedToRGB_)
 	{
-		setupRGBCallbacks(
-			nh,
-			pnh,
-			subscribedToOdom_,
-			subscribeScan2d,
-			subscribeScan3d,
-			queueSize_,
-			approxSync_);
+		if (rgbCameras == 1)
+		{
+			setupRGBCallbacks(
+				nh,
+				pnh,
+				subscribedToOdom_,
+				subscribeScan2d,
+				subscribeScan3d,
+				queueSize_,
+				approxSync_);
+		}
+		else
+		{
+			setupRGB2Callbacks(
+				nh,
+				pnh,
+				subscribedToOdom_,
+				subscribeScan2d,
+				subscribeScan3d,
+				queueSize_,
+				approxSync_);
+		}
 	}
 	else if(subscribeScan2d || subscribeScan3d)
 	{
@@ -224,7 +247,7 @@ void CommonDataSubscriber::setupCallbacks(
 			approxSync_);
 	}
 
-	if(subscribedToDepth_ || subscribedToStereo_ || subscribedToScan2d_ || subscribedToScan3d_ || subscribedToRGB_ || subscribedToOdom_)
+	if(subscribedToOdom_ || subscribedToScan2d_ || subscribedToScan3d_ || subscribedToRGB_ || subscribedToDepth_ || subscribedToStereo_)
 	{
 		warningThread_ = new boost::thread(boost::bind(&CommonDataSubscriber::warningLoop, this));
 		ROS_INFO("%s", subscribedTopicsMsg_.c_str());
@@ -242,34 +265,36 @@ CommonDataSubscriber::~CommonDataSubscriber()
 		delete warningThread_;
 	}
 
-	// Scan + Odom
+	// Scan
 	SYNC_DEL(odomScan2d);
 	SYNC_DEL(odomScan3d);
 
-	// RGB-only
+	// RGB
 	SYNC_DEL(rgb);
 	SYNC_DEL(rgbScan2d);
 	SYNC_DEL(rgbScan3d);
-
-	// RGB-only + Odom
 	SYNC_DEL(rgbOdom);
 	SYNC_DEL(rgbOdomScan2d);
 	SYNC_DEL(rgbOdomScan3d);
 
-	// RGB + Depth
+	// RGB2
+	SYNC_DEL(rgb2);
+	SYNC_DEL(rgb2Scan2d);
+	SYNC_DEL(rgb2Scan3d);
+	SYNC_DEL(rgb2Odom);
+	SYNC_DEL(rgb2OdomScan2d);
+	SYNC_DEL(rgb2OdomScan3d);
+
+	// Depth
 	SYNC_DEL(depth);
 	SYNC_DEL(depthScan2d);
 	SYNC_DEL(depthScan3d);
-
-	// RGB + Depth + Odom
 	SYNC_DEL(depthOdom);
 	SYNC_DEL(depthOdomScan2d);
 	SYNC_DEL(depthOdomScan3d);
 
 	// Stereo
 	SYNC_DEL(stereo);
-
-	// Stereo + Odom
 	SYNC_DEL(stereoOdom);
 
 	//clear params
