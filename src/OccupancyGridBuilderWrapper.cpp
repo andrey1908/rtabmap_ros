@@ -167,17 +167,18 @@ void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 	pnh.param("save_map", saveMap_, false);
 	pnh.param("cache_loaded_map", cacheLoadedMap_, true);
 	pnh.param("needs_localization", needsLocalization_, true);
+	pnh.param("accumulative_mapping", accumulativeMapping_, true);
 	pnh.param("temporary_mapping", temporaryMapping_, false);
 }
 
 OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
-			commonDataSubscriber_(),
 			nodeId_(0)
 {
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
 	rtabmap::ParametersMap parameters = readRtabmapParameters(argc, argv, pnh);
 	readRtabmapRosParameters(pnh);
+	UASSERT(accumulativeMapping_ || temporaryMapping_);
 
 	occupancyGrid_.parseParameters(parameters);
 	occupancyGridPub_ = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);
@@ -200,12 +201,24 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 			occupancyGrid_.updatePoses({});
 		}
 	}
-	commonDataSubscriber_.setCommonRGBCallback(std::bind(&OccupancyGridBuilder::commonRGBCallback,
-		this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
-		std::placeholders::_4, std::placeholders::_5));
-	commonDataSubscriber_.setCommonLaserScanCallback(std::bind(&OccupancyGridBuilder::commonLaserScanCallback,
-		this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-	commonDataSubscriber_.setupCallbacks(nh, pnh, "subscribe");
+	if (accumulativeMapping_)
+	{
+		commonDataSubscriber_.setCommonRGBCallback(std::bind(&OccupancyGridBuilder::commonRGBCallback,
+			this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+			std::placeholders::_4, std::placeholders::_5, false));
+		commonDataSubscriber_.setCommonLaserScanCallback(std::bind(&OccupancyGridBuilder::commonLaserScanCallback,
+			this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, false));
+		commonDataSubscriber_.setupCallbacks(nh, "subscribe");
+	}
+	if (temporaryMapping_)
+	{
+		temporaryCommonDataSubscriber_.setCommonRGBCallback(std::bind(&OccupancyGridBuilder::commonRGBCallback,
+			this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+			std::placeholders::_4, std::placeholders::_5, true));
+		temporaryCommonDataSubscriber_.setCommonLaserScanCallback(std::bind(&OccupancyGridBuilder::commonLaserScanCallback,
+			this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, true));
+		temporaryCommonDataSubscriber_.setupCallbacks(nh, "temporary_subscribe");
+	}
 	optimizationResultsSub_ = nh.subscribe("optimization_results", 1, &OccupancyGridBuilder::updatePoses, this);
 }
 
@@ -465,13 +478,21 @@ std::optional<rtabmap::Transform> OccupancyGridBuilder::getPose(ros::Time time,
 void OccupancyGridBuilder::commonLaserScanCallback(
 		const nav_msgs::OdometryConstPtr& odomMsg,
 		const sensor_msgs::LaserScan& scanMsg,
-		const sensor_msgs::PointCloud2& scan3dMsg)
+		const sensor_msgs::PointCloud2& scan3dMsg,
+		bool temporaryMapping)
 {
 	UScopeMutex lock(mutex_);
 	MEASURE_BLOCK_TIME(commonLaserScanCallback);
-	UDEBUG("\n\nReceived new data");
-	UASSERT(commonDataSubscriber_.isSubscribedToOdom());
-	UASSERT(commonDataSubscriber_.isSubscribedToScan3d());
+	if (temporaryMapping)
+	{
+		UASSERT(temporaryCommonDataSubscriber_.isSubscribedToOdom());
+		UASSERT(temporaryCommonDataSubscriber_.isSubscribedToScan3d());
+	}
+	else
+	{
+		UASSERT(commonDataSubscriber_.isSubscribedToOdom());
+		UASSERT(commonDataSubscriber_.isSubscribedToScan3d());
+	}
 	UASSERT(odomFrame_.empty() ||
 			(odomFrame_ == odomMsg->header.frame_id && baseLinkFrame_ == odomMsg->child_frame_id));
 	if (odomFrame_.empty())
@@ -482,7 +503,7 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
 	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(-1, 0), true);
 	UASSERT(correctedPose.has_value() || odomMsg->header.stamp <= lastOptimizationResultsTime_);
-	if (!correctedPose.has_value() && odomMsg->header.stamp <= lastOptimizationResultsTime_)
+	if (!correctedPose.has_value())
 	{
 		return;
 	}
@@ -491,7 +512,7 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 		odomMsg->header.stamp,
 		scan3dMsg,
 		{}, {});
-	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping_);
+	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping);
 	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), !mapFrame_.empty() ? mapFrame_ : odomFrame_);
 }
 
@@ -500,14 +521,21 @@ void OccupancyGridBuilder::commonRGBCallback(
 		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
 		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
 		const sensor_msgs::LaserScan& scanMsg,
-		const sensor_msgs::PointCloud2& scan3dMsg)
+		const sensor_msgs::PointCloud2& scan3dMsg,
+		bool temporaryMapping)
 {
 	UScopeMutex lock(mutex_);
 	MEASURE_BLOCK_TIME(commonRGBCallback);
-	UDEBUG("\n\nReceived new data");
-	UASSERT(commonDataSubscriber_.isSubscribedToOdom());
-	UASSERT(commonDataSubscriber_.isSubscribedToRGB());
-	UASSERT(commonDataSubscriber_.isSubscribedToScan3d());
+	if (temporaryMapping)
+	{
+		UASSERT(temporaryCommonDataSubscriber_.isSubscribedToOdom());
+		UASSERT(temporaryCommonDataSubscriber_.isSubscribedToScan3d());
+	}
+	else
+	{
+		UASSERT(commonDataSubscriber_.isSubscribedToOdom());
+		UASSERT(commonDataSubscriber_.isSubscribedToScan3d());
+	}
 	UASSERT(odomFrame_.empty() ||
 			(odomFrame_ == odomMsg->header.frame_id && baseLinkFrame_ == odomMsg->child_frame_id));
 	if (odomFrame_.empty())
@@ -518,7 +546,7 @@ void OccupancyGridBuilder::commonRGBCallback(
 	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
 	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(-1, 0), true);
 	UASSERT(correctedPose.has_value() || odomMsg->header.stamp <= lastOptimizationResultsTime_);
-	if (!correctedPose.has_value() && odomMsg->header.stamp <= lastOptimizationResultsTime_)
+	if (!correctedPose.has_value())
 	{
 		return;
 	}
@@ -529,7 +557,7 @@ void OccupancyGridBuilder::commonRGBCallback(
 		scan3dMsg,
 		imageMsgs,
 		cameraInfoMsgs);
-	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping_);
+	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping);
 	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), !mapFrame_.empty() ? mapFrame_ : odomFrame_);
 	publishLastDilatedSemantic(ros::Time(signature.getSec(), signature.getNSec()), imageMsgs[0]->header.frame_id);
 }

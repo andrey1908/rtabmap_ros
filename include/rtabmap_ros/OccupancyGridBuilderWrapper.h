@@ -50,13 +50,15 @@ private:
 	void commonLaserScanCallback(
 		const nav_msgs::OdometryConstPtr& odomMsg,
 		const sensor_msgs::LaserScan& scanMsg,
-		const sensor_msgs::PointCloud2& scan3dMsg);
+		const sensor_msgs::PointCloud2& scan3dMsg,
+		bool temporaryMapping);
 	void commonRGBCallback(
 		const nav_msgs::OdometryConstPtr& odomMsg,
 		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
 		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
 		const sensor_msgs::LaserScan& scanMsg,
-		const sensor_msgs::PointCloud2& scan3dMsg);
+		const sensor_msgs::PointCloud2& scan3dMsg,
+		bool temporaryMapping);
 
 	rtabmap::Signature createSignature(
 		const rtabmap::Transform& pose,
@@ -74,6 +76,7 @@ private:
 
 private:
 	CommonDataSubscriber commonDataSubscriber_;
+	CommonDataSubscriber temporaryCommonDataSubscriber_;
 
 	ros::Publisher occupancyGridPub_;
 	ros::Publisher coloredOccupancyGridPub_;
@@ -103,6 +106,7 @@ private:
 	bool cacheLoadedMap_;
 	bool needsLocalization_;
 
+	bool accumulativeMapping_;
 	bool temporaryMapping_;
 
 	std::string mapFrame_;

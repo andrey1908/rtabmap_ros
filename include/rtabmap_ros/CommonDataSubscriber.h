@@ -109,7 +109,6 @@ public:
 
 	void setupCallbacks(
 			ros::NodeHandle & nh,
-			ros::NodeHandle & pnh,
 			const std::string & name);
 
 private:
@@ -175,6 +174,7 @@ private:
 	bool subscribedToScan2d_;
 	bool subscribedToScan3d_;
 	bool subscribedToRGB_;
+	int rgbCameras_;
 	bool subscribedToDepth_;
 	bool subscribedToStereo_;
 	std::string name_;
