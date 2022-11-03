@@ -10,7 +10,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <optimization_results_msgs/OptimizationResults.h>
 
-#include <rtabmap/core/OccupancyGrid.h>
+#include <rtabmap/core/OccupancyGridBuilder.h>
 #include <rtabmap/core/LaserScan.h>
 #include <rtabmap/core/Transform.h>
 #include <rtabmap/core/Signature.h>
@@ -69,7 +69,7 @@ private:
 
 	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
 		const rtabmap::Transform& odometryPose, bool temporary = false);
-	nav_msgs::OccupancyGrid getOccupancyGrid();
+	nav_msgs::OccupancyGrid getOccupancyGridMsg();
 	void publishOccupancyGridMaps(ros::Time stamp, const std::string& frame_id);
 
 	void publishLastDilatedSemantic(ros::Time stamp, const std::string& frame_id);
@@ -86,7 +86,7 @@ private:
 	tf::TransformListener tfListener_;
 
 	int nodeId_;
-	rtabmap::OccupancyGrid occupancyGrid_;
+	rtabmap::OccupancyGridBuilder occupancyGridBuilder_;
 
 	std::map<int, ros::Time> times_;
 
