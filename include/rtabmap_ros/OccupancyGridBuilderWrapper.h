@@ -99,9 +99,8 @@ private:
 
 	UMutex mutex_;
 
-	std::string mapPath_;
-	bool loadMap_;
-	bool saveMap_;
+	std::string loadMapPath_;
+	std::string saveMapPath_;
 
 	bool cacheMap_;
 	bool needsLocalization_;

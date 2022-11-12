@@ -162,9 +162,8 @@ rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, cha
 
 void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 {
-	pnh.param("map_path", mapPath_, std::string(""));
-	pnh.param("load_map", loadMap_, false);
-	pnh.param("save_map", saveMap_, false);
+	pnh.param("load_map_path", loadMapPath_, std::string(""));
+	pnh.param("save_map_path", saveMapPath_, std::string(""));
 	pnh.param("cache_map", cacheMap_, true);
 	pnh.param("needs_localization", needsLocalization_, true);
 	pnh.param("accumulative_mapping", accumulativeMapping_, true);
@@ -184,12 +183,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 	occupancyGridPub_ = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);
 	coloredOccupancyGridPub_ = nh.advertise<colored_occupancy_grid::ColoredOccupancyGrid>("colored_grid_map", 1);
 	dilatedSemanticPub_ = nh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
-	if (mapPath_.empty())
-	{
-		loadMap_ = false;
-		saveMap_ = false;
-	}
-	if (loadMap_)
+	if (!loadMapPath_.empty())
 	{
 		load();
 		if (needsLocalization_)
@@ -220,7 +214,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 
 OccupancyGridBuilder::~OccupancyGridBuilder()
 {
-	if (saveMap_)
+	if (!saveMapPath_.empty())
 	{
 		save();
 	}
@@ -229,7 +223,7 @@ OccupancyGridBuilder::~OccupancyGridBuilder()
 void OccupancyGridBuilder::load()
 {
 	MEASURE_BLOCK_TIME(load);
-	std::fstream fs(mapPath_, std::fstream::in | std::fstream::binary | std::fstream::app);
+	std::fstream fs(loadMapPath_, std::fstream::in | std::fstream::binary | std::fstream::app);
 	UASSERT(fs.is_open());
 
 	UASSERT(fs.peek() != EOF);
@@ -299,7 +293,7 @@ void OccupancyGridBuilder::load()
 void OccupancyGridBuilder::save()
 {
 	MEASURE_BLOCK_TIME(save);
-	std::fstream fs(mapPath_, std::fstream::out | std::fstream::binary | std::fstream::trunc);
+	std::fstream fs(saveMapPath_, std::fstream::out | std::fstream::binary | std::fstream::trunc);
 	UASSERT(fs.is_open());
 
 	int version = 1;
