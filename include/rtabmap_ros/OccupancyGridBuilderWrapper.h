@@ -103,7 +103,7 @@ private:
 	bool loadMap_;
 	bool saveMap_;
 
-	bool cacheLoadedMap_;
+	bool cacheMap_;
 	bool needsLocalization_;
 
 	bool accumulativeMapping_;

@@ -165,7 +165,7 @@ void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 	pnh.param("map_path", mapPath_, std::string(""));
 	pnh.param("load_map", loadMap_, false);
 	pnh.param("save_map", saveMap_, false);
-	pnh.param("cache_loaded_map", cacheLoadedMap_, true);
+	pnh.param("cache_map", cacheMap_, true);
 	pnh.param("needs_localization", needsLocalization_, true);
 	pnh.param("accumulative_mapping", accumulativeMapping_, true);
 	pnh.param("temporary_mapping", temporaryMapping_, false);
@@ -192,10 +192,6 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 	if (loadMap_)
 	{
 		load();
-		if (cacheLoadedMap_)
-		{
-			occupancyGridBuilder_.cacheCurrentMap();
-		}
 		if (needsLocalization_)
 		{
 			occupancyGridBuilder_.updatePoses({});
@@ -357,11 +353,13 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 	odometryCorrection_.reset();
 
 	int trajectory_counter = 0;
+	ros::Time latest_trajectory_start_time;
 	for (const auto& trajectory : optimizationResults->trajectories)
 	{
 		trajectoryBuffers_.emplace_back(ros::Duration(1000000));
 		tf2_ros::Buffer& trajectoryBuffer = *trajectoryBuffers_.rbegin();
 		bool addedStaticTransformToBaseLink = false;
+		ros::Time current_trajectory_start_time = trajectory.global_poses.begin()->header.stamp;
 		for (const geometry_msgs::TransformStamped& pose : trajectory.global_poses)
 		{
 			UASSERT(mapFrame_.empty() || mapFrame_ == pose.header.frame_id);
@@ -381,7 +379,9 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 				trajectoryBuffer.setTransform(toBaseLink, "default", true);
 				addedStaticTransformToBaseLink = true;
 			}
+			current_trajectory_start_time = std::min(current_trajectory_start_time, pose.header.stamp);
 		}
+		latest_trajectory_start_time = std::max(latest_trajectory_start_time, current_trajectory_start_time);
 		trajectory_counter++;
 	}
 
@@ -441,6 +441,20 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 	}
 
 	occupancyGridBuilder_.updatePoses(updatedPoses, updatedTemporaryPoses);
+
+	std::vector<int> nodeIdsToCache;
+	nodeIdsToCache.reserve(updatedPoses.size());
+	for (const auto& updatedPose : updatedPoses)
+	{
+		if (times_.at(updatedPose.first) < latest_trajectory_start_time)
+		{
+			nodeIdsToCache.push_back(updatedPose.first);
+		}
+	}
+	if (cacheMap_ && nodeIdsToCache.size())
+	{
+		occupancyGridBuilder_.cacheMap(nodeIdsToCache);
+	}
 }
 
 std::optional<rtabmap::Transform> OccupancyGridBuilder::getPose(ros::Time time,
