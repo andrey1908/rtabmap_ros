@@ -341,6 +341,7 @@ void OccupancyGridBuilder::save()
 
 void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults)
 {
+	MEASURE_BLOCK_TIME(updatePoses);
 	UScopeMutex lock(mutex_);
 	lastOptimizationResultsTime_ = optimizationResults->header.stamp;
 	trajectoryBuffers_.clear();
