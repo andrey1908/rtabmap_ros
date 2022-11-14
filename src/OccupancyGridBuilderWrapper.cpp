@@ -472,7 +472,7 @@ std::optional<rtabmap::Transform> OccupancyGridBuilder::getPose(ros::Time time,
 		}
 	}
 	else if ((odometryCorrection_ || defaultIdentityOdometryCorrection) && odometryPose &&
-		(maxDistance == ros::Duration(-1, 0) || time - lastOptimizationResultsTime_ <= maxDistance))
+		(maxDistance == ros::Duration(0, 0) || time - lastOptimizationResultsTime_ <= maxDistance))
 	{
 		if (odometryCorrection_ == nullptr)
 		{
@@ -510,7 +510,7 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 		baseLinkFrame_ = odomMsg->child_frame_id;
 	}
 	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
-	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(-1, 0), true);
+	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(0, 0), true);
 	UASSERT(correctedPose.has_value() || odomMsg->header.stamp <= lastOptimizationResultsTime_);
 	if (!correctedPose.has_value())
 	{
@@ -553,7 +553,7 @@ void OccupancyGridBuilder::commonRGBCallback(
 		baseLinkFrame_ = odomMsg->child_frame_id;
 	}
 	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
-	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(-1, 0), true);
+	std::optional<rtabmap::Transform> correctedPose = getPose(odomMsg->header.stamp, &odometryPose, ros::Duration(0, 0), true);
 	UASSERT(correctedPose.has_value() || odomMsg->header.stamp <= lastOptimizationResultsTime_);
 	if (!correctedPose.has_value())
 	{
