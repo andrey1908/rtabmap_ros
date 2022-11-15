@@ -598,7 +598,6 @@ rtabmap::Signature OccupancyGridBuilder::createSignature(
 
 	rtabmap::SensorData data;
 	data.setStamp(time.sec, time.nsec);
-	data.setId(nodeId_);
 	data.setLaserScan(scan);
 	data.setRGBImages(rgbs, cameraModels);
 	rtabmap::Signature signature(data);
