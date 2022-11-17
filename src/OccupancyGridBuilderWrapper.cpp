@@ -188,7 +188,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 		load();
 		if (needsLocalization_)
 		{
-			occupancyGridBuilder_.updatePoses({});
+			occupancyGridBuilder_.updatePoses({}, {});
 		}
 	}
 	if (accumulativeMapping_)
@@ -348,7 +348,7 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 	odometryCorrection_.reset();
 
 	int trajectory_counter = 0;
-	ros::Time latest_trajectory_start_time;
+	ros::Time latestTrajectoryStartTime;
 	for (const auto& trajectory : optimizationResults->trajectories)
 	{
 		trajectoryBuffers_.emplace_back(ros::Duration(1000000));
@@ -376,7 +376,7 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 			}
 			current_trajectory_start_time = std::min(current_trajectory_start_time, pose.header.stamp);
 		}
-		latest_trajectory_start_time = std::max(latest_trajectory_start_time, current_trajectory_start_time);
+		latestTrajectoryStartTime = std::max(latestTrajectoryStartTime, current_trajectory_start_time);
 		trajectory_counter++;
 	}
 
@@ -435,21 +435,24 @@ void OccupancyGridBuilder::updatePoses(const optimization_results_msgs::Optimiza
 		}
 	}
 
-	occupancyGridBuilder_.updatePoses(updatedPoses, updatedTemporaryPoses);
-
-	std::vector<int> nodeIdsToCache;
-	nodeIdsToCache.reserve(updatedPoses.size());
-	for (const auto& updatedPose : updatedPoses)
+	int lastNodeIdForCachedMap = -1;
+	if (cacheMap_)
 	{
-		if (times_.at(updatedPose.first) < latest_trajectory_start_time)
+		auto updatedPoseIt = updatedPoses.begin();
+		while (times_.at(updatedPoseIt->first) < latestTrajectoryStartTime)
 		{
-			nodeIdsToCache.push_back(updatedPose.first);
+			++updatedPoseIt;
+			if (updatedPoseIt == updatedPoses.end())
+			{
+				break;
+			}
+		}
+		if (updatedPoseIt != updatedPoses.begin())
+		{
+			lastNodeIdForCachedMap = std::prev(updatedPoseIt)->first;
 		}
 	}
-	if (cacheMap_ && nodeIdsToCache.size())
-	{
-		occupancyGridBuilder_.cacheMap(nodeIdsToCache);
-	}
+	occupancyGridBuilder_.updatePoses(updatedPoses, updatedTemporaryPoses, lastNodeIdForCachedMap);
 }
 
 std::optional<rtabmap::Transform> OccupancyGridBuilder::getPose(ros::Time time,
