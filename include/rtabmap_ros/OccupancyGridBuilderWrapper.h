@@ -43,8 +43,8 @@ private:
 	void save();
 
 	void updatePoses(const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults);
-	std::optional<rtabmap::Transform> getPose(ros::Time time,
-		const rtabmap::Transform* odometryPose = nullptr, ros::Duration maxDistance = ros::Duration(0, 0),
+	std::optional<rtabmap::Transform> getOptimizedPose(ros::Time time,
+		const rtabmap::Transform* odometryPose = nullptr, ros::Duration maxExtrapolationTime = ros::Duration(0, 0),
 		bool defaultIdentityOdometryCorrection = false);
 
 	void commonLaserScanCallback(
@@ -89,13 +89,12 @@ private:
 	rtabmap::OccupancyGridBuilder occupancyGridBuilder_;
 
 	std::map<int, ros::Time> times_;
-
-	std::list<rtabmap::Transform> temporaryOdometryPoses_;
 	std::list<ros::Time> temporaryTimes_;
+	std::list<rtabmap::Transform> temporaryOdometryPoses_;
 
 	ros::Time lastOptimizationResultsTime_;
 	std::list<tf2_ros::Buffer> trajectoryBuffers_;
-	std::unique_ptr<geometry_msgs::TransformStamped> odometryCorrection_;
+	std::optional<rtabmap::Transform> odometryCorrection_;
 
 	UMutex mutex_;
 
