@@ -350,34 +350,29 @@ void OccupancyGridBuilder::updatePoses(
 	trajectoryBuffers_.clear();
 	odometryCorrection_.reset();
 
-	int trajectory_counter = 0;
 	ros::Time latestTrajectoryStartTime;
 	for (const auto& trajectory : optimizationResults->trajectories)
 	{
 		trajectoryBuffers_.emplace_back(ros::Duration(1000000));
 		tf2_ros::Buffer& trajectoryBuffer = *trajectoryBuffers_.rbegin();
-		bool addedStaticTransformToBaseLink = false;
-		ros::Time current_trajectory_start_time = trajectory.global_poses.begin()->header.stamp;
+		ros::Time trajectoryStartTime = trajectory.global_poses.begin()->header.stamp;
 		for (const geometry_msgs::TransformStamped& pose : trajectory.global_poses)
 		{
 			UASSERT(mapFrame_ == pose.header.frame_id);
 			trajectoryBuffer.setTransform(pose, "default");
 			lastOptimizationResultsTime_ = std::max(lastOptimizationResultsTime_, pose.header.stamp);
-			if (pose.child_frame_id != baseLinkFrame_ &&
-				!baseLinkFrame_.empty() &&
-				addedStaticTransformToBaseLink == false)
-			{
-				tf::StampedTransform toBaseLinkTF;
-				tfListener_.lookupTransform(pose.child_frame_id, baseLinkFrame_, ros::Time(0), toBaseLinkTF);
-				geometry_msgs::TransformStamped toBaseLink;
-				transformStampedTFToMsg(toBaseLinkTF, toBaseLink);
-				trajectoryBuffer.setTransform(toBaseLink, "default", true);
-				addedStaticTransformToBaseLink = true;
-			}
-			current_trajectory_start_time = std::min(current_trajectory_start_time, pose.header.stamp);
+			trajectoryStartTime = std::min(trajectoryStartTime, pose.header.stamp);
 		}
-		latestTrajectoryStartTime = std::max(latestTrajectoryStartTime, current_trajectory_start_time);
-		trajectory_counter++;
+		const std::string& trajectoryChildFrameId = trajectory.global_poses.begin()->child_frame_id;
+		if (!baseLinkFrame_.empty() && trajectoryChildFrameId != baseLinkFrame_)
+		{
+			tf::StampedTransform toBaseLinkTF;
+			tfListener_.lookupTransform(trajectoryChildFrameId, baseLinkFrame_, ros::Time(0), toBaseLinkTF);
+			geometry_msgs::TransformStamped toBaseLink;
+			transformStampedTFToMsg(toBaseLinkTF, toBaseLink);
+			trajectoryBuffer.setTransform(toBaseLink, "default", true);
+		}
+		latestTrajectoryStartTime = std::max(latestTrajectoryStartTime, trajectoryStartTime);
 	}
 
 	if (!optimizationResults->map_to_odom.header.frame_id.empty())
