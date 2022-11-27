@@ -98,6 +98,10 @@ private:
 
 	UMutex mutex_;
 
+	std::string mapFrame_;
+	std::string odomFrame_;
+	std::string baseLinkFrame_;
+
 	std::string loadMapPath_;
 	std::string saveMapPath_;
 
@@ -106,10 +110,6 @@ private:
 
 	bool accumulativeMapping_;
 	bool temporaryMapping_;
-
-	std::string mapFrame_;
-	std::string odomFrame_;
-	std::string baseLinkFrame_;
 };
 
 }

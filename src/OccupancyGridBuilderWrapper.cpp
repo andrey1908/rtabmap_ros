@@ -162,6 +162,7 @@ rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, cha
 
 void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 {
+	pnh.param("map_frame", mapFrame_, std::string(""));
 	pnh.param("load_map_path", loadMapPath_, std::string(""));
 	pnh.param("save_map_path", saveMapPath_, std::string(""));
 	pnh.param("cache_map", cacheMap_, true);
@@ -177,6 +178,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 	ros::NodeHandle pnh("~");
 	rtabmap::ParametersMap parameters = readRtabmapParameters(argc, argv, pnh);
 	readRtabmapRosParameters(pnh);
+	UASSERT(!mapFrame_.empty());
 	UASSERT(accumulativeMapping_ || temporaryMapping_);
 
 	occupancyGridBuilder_.parseParameters(parameters);
@@ -358,11 +360,7 @@ void OccupancyGridBuilder::updatePoses(
 		ros::Time current_trajectory_start_time = trajectory.global_poses.begin()->header.stamp;
 		for (const geometry_msgs::TransformStamped& pose : trajectory.global_poses)
 		{
-			UASSERT(mapFrame_.empty() || mapFrame_ == pose.header.frame_id);
-			if (mapFrame_.empty())
-			{
-				mapFrame_ = pose.header.frame_id;
-			}
+			UASSERT(mapFrame_ == pose.header.frame_id);
 			trajectoryBuffer.setTransform(pose, "default");
 			lastOptimizationResultsTime_ = std::max(lastOptimizationResultsTime_, pose.header.stamp);
 			if (pose.child_frame_id != baseLinkFrame_ &&
@@ -382,16 +380,10 @@ void OccupancyGridBuilder::updatePoses(
 		trajectory_counter++;
 	}
 
-	UASSERT((mapFrame_.empty() || optimizationResults->map_to_odom.header.frame_id.empty() ||
-			mapFrame_ == optimizationResults->map_to_odom.header.frame_id) &&
-			(odomFrame_.empty() || optimizationResults->map_to_odom.child_frame_id.empty() ||
-			odomFrame_ == optimizationResults->map_to_odom.child_frame_id));
 	if (!optimizationResults->map_to_odom.header.frame_id.empty())
 	{
-		if (mapFrame_.empty())
-		{
-			mapFrame_ = optimizationResults->map_to_odom.header.frame_id;
-		}
+		UASSERT(mapFrame_ == optimizationResults->map_to_odom.header.frame_id &&
+			(odomFrame_.empty() || odomFrame_ == optimizationResults->map_to_odom.child_frame_id));
 		odometryCorrection_ = transformFromGeometryMsg(optimizationResults->map_to_odom.transform);
 	}
 
@@ -451,7 +443,7 @@ std::optional<rtabmap::Transform> OccupancyGridBuilder::getOptimizedPose(ros::Ti
 		const rtabmap::Transform* odometryPose /* nullptr */, ros::Duration maxExtrapolationTime /* (0, 0) */,
 		bool defaultIdentityOdometryCorrection /* false */)
 {
-	if (time <= lastOptimizationResultsTime_ && !mapFrame_.empty() && !baseLinkFrame_.empty())
+	if (time <= lastOptimizationResultsTime_ && !baseLinkFrame_.empty())
 	{
 		for (const auto& trajectoryBuffer : trajectoryBuffers_)
 		{
@@ -519,8 +511,7 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 		scan3dMsg,
 		{}, {});
 	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping);
-	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()),
-		!mapFrame_.empty() ? mapFrame_ : odomFrame_);
+	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), mapFrame_);
 }
 
 void OccupancyGridBuilder::commonRGBCallback(
@@ -566,8 +557,7 @@ void OccupancyGridBuilder::commonRGBCallback(
 		imageMsgs,
 		cameraInfoMsgs);
 	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping);
-	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()),
-		!mapFrame_.empty() ? mapFrame_ : odomFrame_);
+	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), mapFrame_);
 	publishLastDilatedSemantic(ros::Time(signature.getSec(), signature.getNSec()),
 		imageMsgs[0]->header.frame_id);
 }
