@@ -397,18 +397,15 @@ void OccupancyGridBuilder::updatePoses(
 	std::list<rtabmap::Transform> updatedTemporaryPoses;
 	if (lastOptimizedPoseTime_ == ros::Time(0))
 	{
-		temporaryTimes_.clear();
-		temporaryOdometryPoses_.clear();
+		temporaryTimesPoses_.clear();
 		occupancyGridBuilder_.resetTemporaryMap();
 	}
 	else
 	{
-		auto temporaryTimeIt = temporaryTimes_.begin();
-		auto temporaryOdometryPoseIt = temporaryOdometryPoses_.begin();
-		for (; temporaryTimeIt != temporaryTimes_.end(); ++temporaryTimeIt, ++temporaryOdometryPoseIt)
+		for (const auto& temporaryTimePose : temporaryTimesPoses_)
 		{
 			std::optional<rtabmap::Transform> pose =
-				getOptimizedPose(*temporaryTimeIt, &(*temporaryOdometryPoseIt), ros::Duration(1));
+				getOptimizedPose(temporaryTimePose.first, &(temporaryTimePose.second), ros::Duration(1));
 			UASSERT(pose.has_value());
 			updatedTemporaryPoses.push_back(*pose);
 		}
@@ -598,12 +595,11 @@ void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature&
 	if (temporary)
 	{
 		occupancyGridBuilder_.addTemporaryLocalMap(signature.getPose(), std::move(localMap));
-		temporaryTimes_.push_back(ros::Time(signature.getSec(), signature.getNSec()));
-		temporaryOdometryPoses_.push_back(odometryPose);
-		if (temporaryTimes_.size() > occupancyGridBuilder_.maxTemporaryLocalMaps())
+		temporaryTimesPoses_.emplace_back(ros::Time(signature.getSec(), signature.getNSec()),
+			odometryPose);
+		if (temporaryTimesPoses_.size() > occupancyGridBuilder_.maxTemporaryLocalMaps())
 		{
-			temporaryTimes_.pop_front();
-			temporaryOdometryPoses_.pop_front();
+			temporaryTimesPoses_.pop_front();
 		}
 	}
 	else

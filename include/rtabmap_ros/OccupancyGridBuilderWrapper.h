@@ -89,8 +89,7 @@ private:
 	rtabmap::OccupancyGridBuilder occupancyGridBuilder_;
 
 	std::map<int, ros::Time> times_;
-	std::list<ros::Time> temporaryTimes_;
-	std::list<rtabmap::Transform> temporaryOdometryPoses_;
+	std::list<std::pair<ros::Time, rtabmap::Transform>> temporaryTimesPoses_;
 
 	ros::Time lastOptimizedPoseTime_;
 	std::list<tf2_ros::Buffer> trajectoryBuffers_;
