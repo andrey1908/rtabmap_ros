@@ -44,7 +44,7 @@ private:
 
 	void updatePoses(const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults);
 	std::optional<rtabmap::Transform> getOptimizedPose(ros::Time time,
-		const rtabmap::Transform* odometryPose = nullptr, ros::Duration maxExtrapolationTime = ros::Duration(0, 0),
+		const rtabmap::Transform* odometryPose = nullptr, ros::Duration maxExtrapolationTime = ros::Duration(0),
 		bool defaultIdentityOdometryCorrection = false);
 
 	void commonLaserScanCallback(
@@ -92,7 +92,7 @@ private:
 	std::list<ros::Time> temporaryTimes_;
 	std::list<rtabmap::Transform> temporaryOdometryPoses_;
 
-	ros::Time lastOptimizationResultsTime_;
+	ros::Time lastOptimizedPoseTime_;
 	std::list<tf2_ros::Buffer> trajectoryBuffers_;
 	std::optional<rtabmap::Transform> odometryCorrection_;
 

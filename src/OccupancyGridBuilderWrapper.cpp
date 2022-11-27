@@ -346,7 +346,7 @@ void OccupancyGridBuilder::updatePoses(
 {
 	MEASURE_BLOCK_TIME(updatePoses);
 	UScopeMutex lock(mutex_);
-	lastOptimizationResultsTime_ = ros::Time();
+	lastOptimizedPoseTime_ = ros::Time();
 	trajectoryBuffers_.clear();
 	odometryCorrection_.reset();
 
@@ -360,7 +360,7 @@ void OccupancyGridBuilder::updatePoses(
 		{
 			UASSERT(mapFrame_ == pose.header.frame_id);
 			trajectoryBuffer.setTransform(pose, "default");
-			lastOptimizationResultsTime_ = std::max(lastOptimizationResultsTime_, pose.header.stamp);
+			lastOptimizedPoseTime_ = std::max(lastOptimizedPoseTime_, pose.header.stamp);
 			trajectoryStartTime = std::min(trajectoryStartTime, pose.header.stamp);
 		}
 		const std::string& trajectoryChildFrameId = trajectory.global_poses.begin()->child_frame_id;
@@ -395,7 +395,7 @@ void OccupancyGridBuilder::updatePoses(
 	}
 
 	std::list<rtabmap::Transform> updatedTemporaryPoses;
-	if (trajectoryBuffers_.size() == 0)
+	if (lastOptimizedPoseTime_ == ros::Time(0))
 	{
 		temporaryTimes_.clear();
 		temporaryOdometryPoses_.clear();
@@ -408,7 +408,7 @@ void OccupancyGridBuilder::updatePoses(
 		for (; temporaryTimeIt != temporaryTimes_.end(); ++temporaryTimeIt, ++temporaryOdometryPoseIt)
 		{
 			std::optional<rtabmap::Transform> pose =
-				getOptimizedPose(*temporaryTimeIt, &(*temporaryOdometryPoseIt), ros::Duration(1, 0));
+				getOptimizedPose(*temporaryTimeIt, &(*temporaryOdometryPoseIt), ros::Duration(1));
 			UASSERT(pose.has_value());
 			updatedTemporaryPoses.push_back(*pose);
 		}
@@ -435,10 +435,10 @@ void OccupancyGridBuilder::updatePoses(
 }
 
 std::optional<rtabmap::Transform> OccupancyGridBuilder::getOptimizedPose(ros::Time time,
-		const rtabmap::Transform* odometryPose /* nullptr */, ros::Duration maxExtrapolationTime /* (0, 0) */,
+		const rtabmap::Transform* odometryPose /* nullptr */, ros::Duration maxExtrapolationTime /* 0 */,
 		bool defaultIdentityOdometryCorrection /* false */)
 {
-	if (time <= lastOptimizationResultsTime_ && !baseLinkFrame_.empty())
+	if (time <= lastOptimizedPoseTime_ && !baseLinkFrame_.empty())
 	{
 		for (const auto& trajectoryBuffer : trajectoryBuffers_)
 		{
@@ -455,7 +455,7 @@ std::optional<rtabmap::Transform> OccupancyGridBuilder::getOptimizedPose(ros::Ti
 		}
 	}
 	else if ((odometryCorrection_ || defaultIdentityOdometryCorrection) && odometryPose &&
-		(maxExtrapolationTime == ros::Duration(0, 0) || time - lastOptimizationResultsTime_ <= maxExtrapolationTime))
+		(maxExtrapolationTime == ros::Duration(0) || time - lastOptimizedPoseTime_ <= maxExtrapolationTime))
 	{
 		if (!odometryCorrection_.has_value())
 		{
@@ -494,8 +494,8 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 	}
 	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
 	std::optional<rtabmap::Transform> optimizedPose = getOptimizedPose(
-		odomMsg->header.stamp, &odometryPose, ros::Duration(0, 0), true);
-	UASSERT(optimizedPose.has_value() || odomMsg->header.stamp <= lastOptimizationResultsTime_);
+		odomMsg->header.stamp, &odometryPose, ros::Duration(0), true);
+	UASSERT(optimizedPose.has_value() || odomMsg->header.stamp <= lastOptimizedPoseTime_);
 	if (!optimizedPose.has_value())
 	{
 		return;
@@ -538,8 +538,8 @@ void OccupancyGridBuilder::commonRGBCallback(
 	}
 	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
 	std::optional<rtabmap::Transform> optimizedPose = getOptimizedPose(
-		odomMsg->header.stamp, &odometryPose, ros::Duration(0, 0), true);
-	UASSERT(optimizedPose.has_value() || odomMsg->header.stamp <= lastOptimizationResultsTime_);
+		odomMsg->header.stamp, &odometryPose, ros::Duration(0), true);
+	UASSERT(optimizedPose.has_value() || odomMsg->header.stamp <= lastOptimizedPoseTime_);
 	if (!optimizedPose.has_value())
 	{
 		return;
