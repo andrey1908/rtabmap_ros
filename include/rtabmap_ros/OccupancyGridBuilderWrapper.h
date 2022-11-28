@@ -89,6 +89,7 @@ private:
 	rtabmap::OccupancyGridBuilder occupancyGridBuilder_;
 
 	std::map<int, ros::Time> times_;
+	std::map<int, rtabmap::Transform> posesAfterLastUpdate_;
 	std::list<std::pair<ros::Time, rtabmap::Transform>> temporaryTimesPoses_;
 
 	ros::Time lastOptimizedPoseTime_;
@@ -108,6 +109,7 @@ private:
 	bool cacheMap_;
 	bool needsLocalization_;
 	double maxInterpolationTimeError_;
+	double updateMaxExtrapolationTime_;
 
 	bool accumulativeMapping_;
 	bool temporaryMapping_;

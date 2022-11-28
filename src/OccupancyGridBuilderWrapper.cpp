@@ -167,7 +167,8 @@ void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 	pnh.param("save_map_path", saveMapPath_, std::string(""));
 	pnh.param("cache_map", cacheMap_, true);
 	pnh.param("needs_localization", needsLocalization_, true);
-	pnh.param("max_interpolation_time_error", maxInterpolationTimeError_, 0.0);
+	pnh.param("max_interpolation_time_error", maxInterpolationTimeError_, 0.06);
+	pnh.param("update_max_extrapolation_time", updateMaxExtrapolationTime_, 1.0);
 	pnh.param("accumulative_mapping", accumulativeMapping_, true);
 	pnh.param("temporary_mapping", temporaryMapping_, false);
 }
@@ -390,7 +391,17 @@ void OccupancyGridBuilder::updatePoses(
 	{
 		int nodeId = idTime.first;
 		ros::Time time = idTime.second;
-		std::optional<rtabmap::Transform> pose = getOptimizedPose(time);
+		std::optional<rtabmap::Transform> pose;
+		auto poseAfterLastUpdateIt = posesAfterLastUpdate_.find(nodeId);
+		if (poseAfterLastUpdateIt != posesAfterLastUpdate_.end())
+		{
+			pose = getOptimizedPose(time, &(poseAfterLastUpdateIt->second),
+				ros::Duration(updateMaxExtrapolationTime_));
+		}
+		else
+		{
+			pose = getOptimizedPose(time);
+		}
 		if (pose.has_value())
 		{
 			updatedPoses[nodeId] = *pose;
@@ -410,7 +421,8 @@ void OccupancyGridBuilder::updatePoses(
 		for (const auto& temporaryTimePose : temporaryTimesPoses_)
 		{
 			std::optional<rtabmap::Transform> pose =
-				getOptimizedPose(temporaryTimePose.first, &(temporaryTimePose.second), ros::Duration(1));
+				getOptimizedPose(temporaryTimePose.first, &(temporaryTimePose.second),
+					ros::Duration(updateMaxExtrapolationTime_));
 			UASSERT(pose.has_value());
 			updatedTemporaryPoses.push_back(*pose);
 		}
@@ -434,30 +446,41 @@ void OccupancyGridBuilder::updatePoses(
 		}
 	}
 	occupancyGridBuilder_.updatePoses(updatedPoses, updatedTemporaryPoses, lastNodeIdForCachedMap);
+	posesAfterLastUpdate_.clear();
 }
 
 std::optional<rtabmap::Transform> OccupancyGridBuilder::getOptimizedPose(ros::Time time,
 		const rtabmap::Transform* odometryPose /* nullptr */, ros::Duration maxExtrapolationTime /* 0 */,
 		bool defaultIdentityOdometryCorrection /* false */)
 {
-	if (time <= lastOptimizedPoseTime_ && !baseLinkFrame_.empty())
+	bool canInterpolate = (time <= lastOptimizedPoseTime_);
+	if (canInterpolate && maxInterpolationTimeError_ != 0.0)
 	{
-		if (maxInterpolationTimeError_ != 0.0)
+		auto upperTimeIt = optimizedPosesTimes_.lower_bound(time);
+		UASSERT(upperTimeIt != optimizedPosesTimes_.end());
+		double interpolationTimeError = std::abs((*upperTimeIt - time).toSec());
+		if (upperTimeIt != optimizedPosesTimes_.begin())
 		{
-			auto upperTimeIt = optimizedPosesTimes_.lower_bound(time);
-			UASSERT(upperTimeIt != optimizedPosesTimes_.end());
-			double interpolationTimeError = std::abs((*upperTimeIt - time).toSec());
-			if (upperTimeIt != optimizedPosesTimes_.begin())
-			{
-				auto lowerTimeIt = std::prev(upperTimeIt);
-				interpolationTimeError =
-					std::min(interpolationTimeError, std::abs((*lowerTimeIt - time).toSec()));
-			}
-			if (interpolationTimeError > maxInterpolationTimeError_)
-			{
-				return std::optional<rtabmap::Transform>();
-			}
+			auto lowerTimeIt = std::prev(upperTimeIt);
+			interpolationTimeError =
+				std::min(interpolationTimeError, std::abs((*lowerTimeIt - time).toSec()));
 		}
+		if (interpolationTimeError > maxInterpolationTimeError_)
+		{
+			canInterpolate = false;
+		}
+	}
+	ros::Duration extrapolationTime;
+	if (time > lastOptimizedPoseTime_)
+	{
+		extrapolationTime = time - lastOptimizedPoseTime_;
+	}
+	else
+	{
+		extrapolationTime = lastOptimizedPoseTime_ - time;
+	}
+	if (canInterpolate && !baseLinkFrame_.empty())
+	{
 		for (const auto& trajectoryBuffer : trajectoryBuffers_)
 		{
 			try
@@ -473,7 +496,7 @@ std::optional<rtabmap::Transform> OccupancyGridBuilder::getOptimizedPose(ros::Ti
 		}
 	}
 	else if ((odometryCorrection_ || defaultIdentityOdometryCorrection) && odometryPose &&
-		(maxExtrapolationTime == ros::Duration(0) || time - lastOptimizedPoseTime_ <= maxExtrapolationTime))
+		(maxExtrapolationTime == ros::Duration(0) || extrapolationTime <= maxExtrapolationTime))
 	{
 		if (!odometryCorrection_.has_value())
 		{
@@ -627,6 +650,7 @@ void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature&
 	{
 		occupancyGridBuilder_.addLocalMap(nodeId_, signature.getPose(), std::move(localMap));
 		times_[nodeId_] = ros::Time(signature.getSec(), signature.getNSec());
+		posesAfterLastUpdate_[nodeId_] = odometryPose;
 		nodeId_++;
 	}
 }
