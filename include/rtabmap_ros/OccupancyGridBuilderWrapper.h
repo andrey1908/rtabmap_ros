@@ -92,6 +92,7 @@ private:
 	std::list<std::pair<ros::Time, rtabmap::Transform>> temporaryTimesPoses_;
 
 	ros::Time lastOptimizedPoseTime_;
+	std::set<ros::Time> optimizedPosesTimes_;
 	std::list<tf2_ros::Buffer> trajectoryBuffers_;
 	std::optional<rtabmap::Transform> odometryCorrection_;
 
@@ -106,6 +107,7 @@ private:
 
 	bool cacheMap_;
 	bool needsLocalization_;
+	double maxInterpolationTimeError_;
 
 	bool accumulativeMapping_;
 	bool temporaryMapping_;

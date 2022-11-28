@@ -167,6 +167,7 @@ void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 	pnh.param("save_map_path", saveMapPath_, std::string(""));
 	pnh.param("cache_map", cacheMap_, true);
 	pnh.param("needs_localization", needsLocalization_, true);
+	pnh.param("max_interpolation_time_error", maxInterpolationTimeError_, 0.0);
 	pnh.param("accumulative_mapping", accumulativeMapping_, true);
 	pnh.param("temporary_mapping", temporaryMapping_, false);
 }
@@ -347,6 +348,7 @@ void OccupancyGridBuilder::updatePoses(
 	MEASURE_BLOCK_TIME(updatePoses);
 	UScopeMutex lock(mutex_);
 	lastOptimizedPoseTime_ = ros::Time();
+	optimizedPosesTimes_.clear();
 	trajectoryBuffers_.clear();
 	odometryCorrection_.reset();
 
@@ -361,6 +363,7 @@ void OccupancyGridBuilder::updatePoses(
 			UASSERT(mapFrame_ == pose.header.frame_id);
 			trajectoryBuffer.setTransform(pose, "default");
 			lastOptimizedPoseTime_ = std::max(lastOptimizedPoseTime_, pose.header.stamp);
+			optimizedPosesTimes_.insert(pose.header.stamp);
 			trajectoryStartTime = std::min(trajectoryStartTime, pose.header.stamp);
 		}
 		const std::string& trajectoryChildFrameId = trajectory.global_poses.begin()->child_frame_id;
@@ -393,6 +396,8 @@ void OccupancyGridBuilder::updatePoses(
 			updatedPoses[nodeId] = *pose;
 		}
 	}
+	UINFO("Dropped %d (%d -> %d) frames (reduced to %lf%)", (int)(times_.size() - updatedPoses.size()),
+		(int)(times_.size()), (int)(updatedPoses.size()), 100.0 * updatedPoses.size() / times_.size());
 
 	std::list<rtabmap::Transform> updatedTemporaryPoses;
 	if (lastOptimizedPoseTime_ == ros::Time(0))
@@ -437,6 +442,22 @@ std::optional<rtabmap::Transform> OccupancyGridBuilder::getOptimizedPose(ros::Ti
 {
 	if (time <= lastOptimizedPoseTime_ && !baseLinkFrame_.empty())
 	{
+		if (maxInterpolationTimeError_ != 0.0)
+		{
+			auto upperTimeIt = optimizedPosesTimes_.lower_bound(time);
+			UASSERT(upperTimeIt != optimizedPosesTimes_.end());
+			double interpolationTimeError = std::abs((*upperTimeIt - time).toSec());
+			if (upperTimeIt != optimizedPosesTimes_.begin())
+			{
+				auto lowerTimeIt = std::prev(upperTimeIt);
+				interpolationTimeError =
+					std::min(interpolationTimeError, std::abs((*lowerTimeIt - time).toSec()));
+			}
+			if (interpolationTimeError > maxInterpolationTimeError_)
+			{
+				return std::optional<rtabmap::Transform>();
+			}
+		}
 		for (const auto& trajectoryBuffer : trajectoryBuffers_)
 		{
 			try
