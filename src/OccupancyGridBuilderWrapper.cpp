@@ -429,7 +429,7 @@ void OccupancyGridBuilder::updatePoses(
 	}
 
 	int lastNodeIdForCachedMap = -1;
-	if (cacheMap_)
+	if (cacheMap_ && updatedPoses.size())
 	{
 		auto updatedPoseIt = updatedPoses.begin();
 		while (times_.at(updatedPoseIt->first) < latestTrajectoryStartTime)
