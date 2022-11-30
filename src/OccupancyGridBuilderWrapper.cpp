@@ -233,7 +233,7 @@ void OccupancyGridBuilder::load()
 	UASSERT(fs.peek() != EOF);
 	int version;
 	fs.read((char*)(&version), sizeof(version));
-	UASSERT(version == 1);
+	UASSERT(version == latestMapVersion);
 
 	UASSERT(fs.peek() != EOF);
 	float cellSize;
@@ -251,6 +251,8 @@ void OccupancyGridBuilder::load()
 		int numObstacles;
 		Eigen::Matrix3Xf points;
 		std::vector<int> colors;
+		float sensorBlindRange2dSqr;
+		Eigen::Matrix4f eigenToSensor;
 
 		fs.read((char*)(&nodeId), sizeof(nodeId));
 		fs.read((char*)(eigenPose.data()), eigenPose.size() * sizeof(eigenPose(0, 0)));
@@ -263,15 +265,12 @@ void OccupancyGridBuilder::load()
 		fs.read((char*)(points.data()), points.size() * sizeof(points(0, 0)));
 		colors.resize(numGround + numEmpty + numObstacles);
 		fs.read((char*)(colors.data()), colors.size() * sizeof(colors[0]));
+		fs.read((char*)(&sensorBlindRange2dSqr), sizeof(sensorBlindRange2dSqr));
+		fs.read((char*)(eigenToSensor.data()), eigenToSensor.size() * sizeof(eigenToSensor(0, 0)));
 
 		if (nodeId > maxNodeId)
 		{
 			maxNodeId = nodeId;
-		}
-		rtabmap::Transform pose;
-		if (eigenPose != Eigen::Matrix4f::Zero())
-		{
-			pose = rtabmap::Transform::fromEigen4f(eigenPose);
 		}
 		times_[nodeId] = time;
 
@@ -281,8 +280,12 @@ void OccupancyGridBuilder::load()
 		localMap.numObstacles = numObstacles;
 		localMap.points = std::move(points);
 		localMap.colors = std::move(colors);
+		localMap.sensorBlindRange2dSqr = sensorBlindRange2dSqr;
+		localMap.toSensor = rtabmap::Transform::fromEigen4f(eigenToSensor);
+
 		if (eigenPose != Eigen::Matrix4f::Zero())
 		{
+			rtabmap::Transform pose = rtabmap::Transform::fromEigen4f(eigenPose);
 			occupancyGridBuilder_.addLocalMap(nodeId, pose, std::move(localMap));
 		}
 		else
@@ -300,7 +303,7 @@ void OccupancyGridBuilder::save()
 	std::fstream fs(saveMapPath_, std::fstream::out | std::fstream::binary | std::fstream::trunc);
 	UASSERT(fs.is_open());
 
-	int version = 1;
+	int version = latestMapVersion;
 	fs.write((const char*)(&version), sizeof(version));
 
 	float cellSize = occupancyGridBuilder_.cellSize();
@@ -318,7 +321,9 @@ void OccupancyGridBuilder::save()
 		int numObstacles = localMap.numObstacles;
 		const Eigen::Matrix3Xf& points = localMap.points;
 		const std::vector<int>& colors = localMap.colors;
-
+		float sensorBlindRange2dSqr = localMap.sensorBlindRange2dSqr;
+		const rtabmap::Transform& toSensor = localMap.toSensor;
+		const Eigen::Matrix4f& eigenToSensor = toSensor.toEigen4f();
 		UASSERT(timeIt != times_.end());
 
 		fs.write((const char*)(&nodeId), sizeof(nodeId));
@@ -329,8 +334,8 @@ void OccupancyGridBuilder::save()
 		}
 		else
 		{
-			const Eigen::Matrix4f& nullEigenPose = Eigen::Matrix4f::Zero();
-			fs.write((const char*)(nullEigenPose.data()), nullEigenPose.size() * sizeof(nullEigenPose(0, 0)));
+			const Eigen::Matrix4f& nullEigenMatrix = Eigen::Matrix4f::Zero();
+			fs.write((const char*)(nullEigenMatrix.data()), nullEigenMatrix.size() * sizeof(nullEigenMatrix(0, 0)));
 		}
 		fs.write((const char*)(&timeIt->second.sec), sizeof(timeIt->second.sec));
 		fs.write((const char*)(&timeIt->second.nsec), sizeof(timeIt->second.nsec));
@@ -339,6 +344,8 @@ void OccupancyGridBuilder::save()
 		fs.write((const char*)(&numObstacles), sizeof(numObstacles));
 		fs.write((const char*)(points.data()), points.size() * sizeof(points(0, 0)));
 		fs.write((const char*)(colors.data()), colors.size() * sizeof(colors[0]));
+		fs.write((const char*)(&sensorBlindRange2dSqr), sizeof(sensorBlindRange2dSqr));
+		fs.write((const char*)(eigenToSensor.data()), eigenToSensor.size() * sizeof(eigenToSensor(0, 0)));
 	}
 	fs.close();
 }

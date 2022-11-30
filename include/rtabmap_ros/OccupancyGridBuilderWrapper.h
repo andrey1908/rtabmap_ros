@@ -113,6 +113,9 @@ private:
 
 	bool accumulativeMapping_;
 	bool temporaryMapping_;
+
+	static constexpr int mapVersionWithoutSensorBlindRange = 1;
+	static constexpr int latestMapVersion = 2;
 };
 
 }
