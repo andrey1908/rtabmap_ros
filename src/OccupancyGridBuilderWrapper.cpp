@@ -233,7 +233,7 @@ void OccupancyGridBuilder::load()
 	UASSERT(fs.peek() != EOF);
 	int version;
 	fs.read((char*)(&version), sizeof(version));
-	UASSERT(version == latestMapVersion);
+	UASSERT(version == latestMapVersion || version == mapVersionWithoutSensorBlindRange);
 
 	UASSERT(fs.peek() != EOF);
 	float cellSize;
@@ -265,8 +265,15 @@ void OccupancyGridBuilder::load()
 		fs.read((char*)(points.data()), points.size() * sizeof(points(0, 0)));
 		colors.resize(numGround + numEmpty + numObstacles);
 		fs.read((char*)(colors.data()), colors.size() * sizeof(colors[0]));
-		fs.read((char*)(&sensorBlindRange2dSqr), sizeof(sensorBlindRange2dSqr));
-		fs.read((char*)(eigenToSensor.data()), eigenToSensor.size() * sizeof(eigenToSensor(0, 0)));
+		if (version == latestMapVersion)
+		{
+			fs.read((char*)(&sensorBlindRange2dSqr), sizeof(sensorBlindRange2dSqr));
+			fs.read((char*)(eigenToSensor.data()), eigenToSensor.size() * sizeof(eigenToSensor(0, 0)));
+		}
+		else if (version == mapVersionWithoutSensorBlindRange)
+		{
+			sensorBlindRange2dSqr = 0.0f;
+		}
 
 		if (nodeId > maxNodeId)
 		{
