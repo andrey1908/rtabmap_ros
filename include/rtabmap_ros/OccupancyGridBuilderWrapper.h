@@ -2,24 +2,26 @@
 
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
-#include <nav_msgs/Odometry.h>
+#include <std_msgs/Empty.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <nav_msgs/Odometry.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Path.h>
+#include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <colored_occupancy_grid/ColoredOccupancyGrid.h>
 #include <optimization_results_msgs/OptimizationResults.h>
 
 #include <rtabmap/core/OccupancyGridBuilder.h>
 #include <rtabmap/core/LaserScan.h>
 #include <rtabmap/core/Transform.h>
 #include <rtabmap/core/Signature.h>
+#include <rtabmap/core/DoorTracking.h>
 #include <rtabmap/utilite/UStl.h>
 #include <rtabmap/utilite/UMutex.h>
 
 #include "rtabmap_ros/CommonDataSubscriber.h"
-
-#include <colored_occupancy_grid/ColoredOccupancyGrid.h>
 
 #include <memory>
 #include <vector>
@@ -74,6 +76,9 @@ private:
 
 	void publishLastDilatedSemantic(ros::Time stamp, const std::string& frame_id);
 
+	void startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation);
+	void stopDoorTracking(const std_msgs::EmptyConstPtr& empty);
+
 private:
 	CommonDataSubscriber commonDataSubscriber_;
 	CommonDataSubscriber temporaryCommonDataSubscriber_;
@@ -81,7 +86,10 @@ private:
 	ros::Publisher occupancyGridPub_;
 	ros::Publisher coloredOccupancyGridPub_;
 	ros::Publisher dilatedSemanticPub_;
+	ros::Publisher doorCornersPub_;
 	ros::Subscriber optimizationResultsSub_;
+	ros::Subscriber doorCenterEstimationSub_;
+	ros::Subscriber stopDoorTrackingSub_;
 
 	tf::TransformListener tfListener_;
 
@@ -96,6 +104,9 @@ private:
 	std::set<ros::Time> optimizedPosesTimes_;
 	std::list<tf2_ros::Buffer> trajectoryBuffers_;
 	std::optional<rtabmap::Transform> odometryCorrection_;
+
+	DoorTracking doorTracking_;
+	DoorTracking::Cell doorCenterEstimationInMapFrame_;
 
 	UMutex mutex_;
 

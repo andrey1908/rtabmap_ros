@@ -13,7 +13,7 @@
 #include <rtabmap/core/util3d_transforms.h>
 #include <rtabmap/utilite/UFile.h>
 #include <rtabmap/utilite/ULogger.h>
-#include <rtabmap/core/DoorTracking.h>
+#include <rtabmap/utilite/UMath.h>
 
 #include "rtabmap_ros/MsgConversion.h"
 
@@ -175,7 +175,8 @@ void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 }
 
 OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
-			nodeId_(0)
+		nodeId_(0), doorTracking_(3, 7),
+		doorCenterEstimationInMapFrame_(std::numeric_limits<int>::min(), std::numeric_limits<int>::min())
 {
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
@@ -215,7 +216,8 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 		temporaryCommonDataSubscriber_.setupCallback(nh, "temporary_subscribe");
 	}
 	optimizationResultsSub_ = nh.subscribe("optimization_results", 1, &OccupancyGridBuilder::updatePoses, this);
-	UINFO("Starting...");
+	doorCenterEstimationSub_ = nh.subscribe("start_door_tracking", 1, &OccupancyGridBuilder::startDoorTracking, this);
+	stopDoorTrackingSub_ = nh.subscribe("stop_door_tracking", 1, &OccupancyGridBuilder::stopDoorTracking, this);
 }
 
 OccupancyGridBuilder::~OccupancyGridBuilder()
@@ -678,19 +680,6 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::
 	occupancyGridMsg.header.frame_id = frame_id;
 	occupancyGridPub_.publish(occupancyGridMsg);
 
-	static DoorTracking doorTracking(3, 7);
-	static DoorTracking::Cell estimate_in_map_frame(-18, 8);
-	static DoorTracking::Cell estimate(-1, -1);
-	estimate.first = estimate_in_map_frame.first -
-		(int)(occupancyGridMsg.info.origin.position.y * 10 +
-		0.5 * (std::signbit(occupancyGridMsg.info.origin.position.y) * 2 - 1));
-	estimate.second = estimate_in_map_frame.second -
-	(int)(occupancyGridMsg.info.origin.position.x * 10 +
-		0.5 * (std::signbit(occupancyGridMsg.info.origin.position.x) * 2 - 1));
-	UASSERT(estimate.first >= 0 && estimate.second >= 0 &&
-		estimate.first < occupancyGridMsg.info.height &&
-		estimate.second < occupancyGridMsg.info.width);
-
 	colored_occupancy_grid::ColoredOccupancyGrid coloredOccupancyGridMsg;
 	coloredOccupancyGridMsg.header = occupancyGridMsg.header;
 	coloredOccupancyGridMsg.info = occupancyGridMsg.info;
@@ -711,24 +700,39 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::
 			coloredOccupancyGridMsg.r.push_back((color >> 16) & 0xFF);
 		}
 	}
-	coloredOccupancyGridMsg.b[estimate.second + estimate.first * colorGrid.cols()] = 255;
 
-	cv::Mat image(occupancyGridMsg.info.height, occupancyGridMsg.info.width, CV_8U,
-		occupancyGridMsg.data.data());
-	DoorTracking::Cell corner_1, corner_2;
-	std::tie(corner_1, corner_2) = doorTracking.trackDoor(image, estimate);
-	if (corner_1.first != -1) {
-		estimate.first = (corner_1.first + corner_2.first) / 2;
-		estimate.second = (corner_1.second + corner_2.second) / 2;
-		estimate_in_map_frame.first = estimate.first +
-			(int)(occupancyGridMsg.info.origin.position.y * 10 +
-			0.5 * (std::signbit(occupancyGridMsg.info.origin.position.y) * 2 - 1));
-		estimate_in_map_frame.second = estimate.second +
-			(int)(occupancyGridMsg.info.origin.position.x * 10 +
-			0.5 * (std::signbit(occupancyGridMsg.info.origin.position.x) * 2 - 1));
-
-		coloredOccupancyGridMsg.r[corner_1.second + corner_1.first * colorGrid.cols()] = 255;
-		coloredOccupancyGridMsg.r[corner_2.second + corner_2.first * colorGrid.cols()] = 255;
+	if (doorCenterEstimationInMapFrame_.first != std::numeric_limits<int>::min())
+	{
+		int width = occupancyGridMsg.info.width;
+		int height = occupancyGridMsg.info.height;
+		DoorTracking::Cell doorCenterEstimation;
+		doorCenterEstimation.first = doorCenterEstimationInMapFrame_.first -
+			uRound(occupancyGridMsg.info.origin.position.y / occupancyGridBuilder_.cellSize());
+		doorCenterEstimation.second = doorCenterEstimationInMapFrame_.second -
+			uRound(occupancyGridMsg.info.origin.position.x / occupancyGridBuilder_.cellSize());
+		if (doorCenterEstimation.first >= 0 && doorCenterEstimation.second >= 0 &&
+			doorCenterEstimation.first < height && doorCenterEstimation.second < width)
+		{
+			coloredOccupancyGridMsg.b[doorCenterEstimation.second + doorCenterEstimation.first * width] = 255;
+			cv::Mat image(height, width, CV_8U, occupancyGridMsg.data.data());
+			DoorTracking::Cell corner1, corner2;
+			std::tie(corner1, corner2) = doorTracking_.trackDoor(image, doorCenterEstimation);
+			if (corner1.first != -1) {
+				doorCenterEstimation.first = (corner1.first + corner2.first) / 2;
+				doorCenterEstimation.second = (corner1.second + corner2.second) / 2;
+				doorCenterEstimationInMapFrame_.first = doorCenterEstimation.first +
+					uRound(occupancyGridMsg.info.origin.position.y / occupancyGridBuilder_.cellSize());
+				doorCenterEstimationInMapFrame_.second = doorCenterEstimation.second +
+					uRound(occupancyGridMsg.info.origin.position.x / occupancyGridBuilder_.cellSize());
+				coloredOccupancyGridMsg.r[corner1.second + corner1.first * width] = 255;
+				coloredOccupancyGridMsg.r[corner2.second + corner2.first * width] = 255;
+			}
+		}
+		else
+		{
+			doorCenterEstimationInMapFrame_.first = std::numeric_limits<int>::min();
+			doorCenterEstimationInMapFrame_.second = std::numeric_limits<int>::min();
+		}
 	}
 
 	coloredOccupancyGridPub_.publish(coloredOccupancyGridMsg);
@@ -776,6 +780,20 @@ void OccupancyGridBuilder::publishLastDilatedSemantic(ros::Time stamp, const std
 	sensor_msgs::Image lastDilatedSemanticMsg;
 	cv_bridge.toImageMsg(lastDilatedSemanticMsg);
 	dilatedSemanticPub_.publish(lastDilatedSemanticMsg);
+}
+
+void OccupancyGridBuilder::startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation)
+{
+	UScopeMutex lock(mutex_);
+	doorCenterEstimationInMapFrame_.first = uRound(doorCenterEstimation->y / occupancyGridBuilder_.cellSize());
+	doorCenterEstimationInMapFrame_.second = uRound(doorCenterEstimation->x / occupancyGridBuilder_.cellSize());
+}
+
+void OccupancyGridBuilder::stopDoorTracking(const std_msgs::EmptyConstPtr& empty)
+{
+	UScopeMutex lock(mutex_);
+	doorCenterEstimationInMapFrame_.first = std::numeric_limits<int>::min();
+	doorCenterEstimationInMapFrame_.second = std::numeric_limits<int>::min();
 }
 
 }
