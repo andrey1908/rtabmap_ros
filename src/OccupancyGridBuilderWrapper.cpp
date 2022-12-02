@@ -13,6 +13,7 @@
 #include <rtabmap/core/util3d_transforms.h>
 #include <rtabmap/utilite/UFile.h>
 #include <rtabmap/utilite/ULogger.h>
+#include <rtabmap/core/DoorTracking.h>
 
 #include "rtabmap_ros/MsgConversion.h"
 
@@ -214,6 +215,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 		temporaryCommonDataSubscriber_.setupCallback(nh, "temporary_subscribe");
 	}
 	optimizationResultsSub_ = nh.subscribe("optimization_results", 1, &OccupancyGridBuilder::updatePoses, this);
+	UINFO("Starting...");
 }
 
 OccupancyGridBuilder::~OccupancyGridBuilder()
@@ -676,6 +678,15 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::
 	occupancyGridMsg.header.frame_id = frame_id;
 	occupancyGridPub_.publish(occupancyGridMsg);
 
+	static DoorTracking doorTracking(3, 7);
+	static DoorTracking::Cell estimate_in_map_frame(-18, 8);
+	static DoorTracking::Cell estimate(-1, -1);
+	estimate.first = estimate_in_map_frame.first - (int)(occupancyGridMsg.info.origin.position.y * 10);
+	estimate.second = estimate_in_map_frame.second - (int)(occupancyGridMsg.info.origin.position.x * 10);
+	UASSERT(estimate.first >= 0 && estimate.second >= 0 &&
+		estimate.first < occupancyGridMsg.info.height &&
+		estimate.second < occupancyGridMsg.info.width);
+
 	colored_occupancy_grid::ColoredOccupancyGrid coloredOccupancyGridMsg;
 	coloredOccupancyGridMsg.header = occupancyGridMsg.header;
 	coloredOccupancyGridMsg.info = occupancyGridMsg.info;
@@ -696,6 +707,22 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::
 			coloredOccupancyGridMsg.r.push_back((color >> 16) & 0xFF);
 		}
 	}
+	coloredOccupancyGridMsg.b[estimate.second + estimate.first * colorGrid.cols()] = 255;
+
+	cv::Mat image(occupancyGridMsg.info.height, occupancyGridMsg.info.width, CV_8U,
+		occupancyGridMsg.data.data());
+	DoorTracking::Cell corner_1, corner_2;
+	std::tie(corner_1, corner_2) = doorTracking.trackDoor(image, estimate);
+	if (corner_1.first != -1) {
+		estimate.first = (corner_1.first + corner_2.first) / 2;
+		estimate.second = (corner_1.second + corner_2.second) / 2;
+		estimate_in_map_frame.first = estimate.first + (int)(occupancyGridMsg.info.origin.position.y * 10);
+		estimate_in_map_frame.second = estimate.second + (int)(occupancyGridMsg.info.origin.position.x * 10);
+
+		coloredOccupancyGridMsg.r[corner_1.second + corner_1.first * colorGrid.cols()] = 255;
+		coloredOccupancyGridMsg.r[corner_2.second + corner_2.first * colorGrid.cols()] = 255;
+	}
+
 	coloredOccupancyGridPub_.publish(coloredOccupancyGridMsg);
 }
 
