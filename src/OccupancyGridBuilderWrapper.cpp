@@ -681,8 +681,12 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::
 	static DoorTracking doorTracking(3, 7);
 	static DoorTracking::Cell estimate_in_map_frame(-18, 8);
 	static DoorTracking::Cell estimate(-1, -1);
-	estimate.first = estimate_in_map_frame.first - (int)(occupancyGridMsg.info.origin.position.y * 10);
-	estimate.second = estimate_in_map_frame.second - (int)(occupancyGridMsg.info.origin.position.x * 10);
+	estimate.first = estimate_in_map_frame.first -
+		(int)(occupancyGridMsg.info.origin.position.y * 10 +
+		0.5 * (std::signbit(occupancyGridMsg.info.origin.position.y) * 2 - 1));
+	estimate.second = estimate_in_map_frame.second -
+	(int)(occupancyGridMsg.info.origin.position.x * 10 +
+		0.5 * (std::signbit(occupancyGridMsg.info.origin.position.x) * 2 - 1));
 	UASSERT(estimate.first >= 0 && estimate.second >= 0 &&
 		estimate.first < occupancyGridMsg.info.height &&
 		estimate.second < occupancyGridMsg.info.width);
@@ -716,8 +720,12 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::
 	if (corner_1.first != -1) {
 		estimate.first = (corner_1.first + corner_2.first) / 2;
 		estimate.second = (corner_1.second + corner_2.second) / 2;
-		estimate_in_map_frame.first = estimate.first + (int)(occupancyGridMsg.info.origin.position.y * 10);
-		estimate_in_map_frame.second = estimate.second + (int)(occupancyGridMsg.info.origin.position.x * 10);
+		estimate_in_map_frame.first = estimate.first +
+			(int)(occupancyGridMsg.info.origin.position.y * 10 +
+			0.5 * (std::signbit(occupancyGridMsg.info.origin.position.y) * 2 - 1));
+		estimate_in_map_frame.second = estimate.second +
+			(int)(occupancyGridMsg.info.origin.position.x * 10 +
+			0.5 * (std::signbit(occupancyGridMsg.info.origin.position.x) * 2 - 1));
 
 		coloredOccupancyGridMsg.r[corner_1.second + corner_1.first * colorGrid.cols()] = 255;
 		coloredOccupancyGridMsg.r[corner_2.second + corner_2.first * colorGrid.cols()] = 255;
