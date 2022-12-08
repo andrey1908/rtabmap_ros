@@ -77,6 +77,13 @@ private:
 	void publishLastDilatedSemantic(ros::Time stamp, const std::string& frame_id);
 
 	void startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation);
+	void trackDoor();
+	void drawDoorCenterOnColoredOccupancyGrid(
+		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
+		const cv::Vec3b& color);
+	void drawDoorCornersOnColoredOccupancyGrid(
+		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
+		const cv::Vec3b& color);
 	void stopDoorTracking(const std_msgs::EmptyConstPtr& empty);
 
 private:
@@ -105,8 +112,9 @@ private:
 	std::list<tf2_ros::Buffer> trajectoryBuffers_;
 	std::optional<rtabmap::Transform> odometryCorrection_;
 
-	DoorTracking doorTracking_;
-	DoorTracking::Cell doorCenterEstimationInMapFrame_;
+	rtabmap::DoorTracking doorTracking_;
+	rtabmap::DoorTracking::Cell doorCenterInMapFrame_;
+	std::pair<rtabmap::DoorTracking::Cell, rtabmap::DoorTracking::Cell> doorCornersInMapFrame_;
 
 	UMutex mutex_;
 
@@ -124,6 +132,11 @@ private:
 
 	bool accumulativeMapping_;
 	bool temporaryMapping_;
+
+	double doorTrackingSmallRadius_;
+	double doorTrackingLargeRadius_;
+	bool drawDoorCenterEstimation_;
+	bool drawDoorCorners_;
 
 	static constexpr int mapVersionWithoutSensorBlindRange = 1;
 	static constexpr int latestMapVersion = 2;

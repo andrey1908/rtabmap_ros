@@ -172,11 +172,15 @@ void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 	pnh.param("update_max_extrapolation_time", updateMaxExtrapolationTime_, 1.0);
 	pnh.param("accumulative_mapping", accumulativeMapping_, true);
 	pnh.param("temporary_mapping", temporaryMapping_, false);
+	pnh.param("draw_door_center_estimation", drawDoorCenterEstimation_, false);
+	pnh.param("draw_door_corners", drawDoorCorners_, false);
+	pnh.param("door_tracking_small_radius", doorTrackingSmallRadius_, 0.3);
+	pnh.param("door_tracking_large_radius", doorTrackingLargeRadius_, 0.7);
 }
 
 OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
-		nodeId_(0), doorTracking_(3, 7),
-		doorCenterEstimationInMapFrame_(std::numeric_limits<int>::min(), std::numeric_limits<int>::min())
+		nodeId_(0),
+		doorCenterInMapFrame_(std::numeric_limits<int>::min(), std::numeric_limits<int>::min())
 {
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
@@ -186,6 +190,10 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 	UASSERT(accumulativeMapping_ || temporaryMapping_);
 
 	occupancyGridBuilder_.parseParameters(parameters);
+	float cellSize = occupancyGridBuilder_.cellSize();
+	doorTracking_.initialize(std::lround(doorTrackingSmallRadius_ / cellSize),
+		std::lround(doorTrackingLargeRadius_ / cellSize));
+
 	occupancyGridPub_ = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);
 	coloredOccupancyGridPub_ = nh.advertise<colored_occupancy_grid_msgs::ColoredOccupancyGrid>("colored_grid_map", 1);
 	dilatedSemanticPub_ = nh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
@@ -700,41 +708,18 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::
 			coloredOccupancyGridMsg.r.push_back((color >> 16) & 0xFF);
 		}
 	}
-
-	if (doorCenterEstimationInMapFrame_.first != std::numeric_limits<int>::min())
+	if (doorCenterInMapFrame_.first != std::numeric_limits<int>::min())
 	{
-		int width = occupancyGridMsg.info.width;
-		int height = occupancyGridMsg.info.height;
-		DoorTracking::Cell doorCenterEstimation;
-		doorCenterEstimation.first = doorCenterEstimationInMapFrame_.first -
-			std::lround(occupancyGridMsg.info.origin.position.y / occupancyGridBuilder_.cellSize());
-		doorCenterEstimation.second = doorCenterEstimationInMapFrame_.second -
-			std::lround(occupancyGridMsg.info.origin.position.x / occupancyGridBuilder_.cellSize());
-		if (doorCenterEstimation.first >= 0 && doorCenterEstimation.second >= 0 &&
-			doorCenterEstimation.first < height && doorCenterEstimation.second < width)
+		if (drawDoorCenterEstimation_)
 		{
-			coloredOccupancyGridMsg.b[doorCenterEstimation.second + doorCenterEstimation.first * width] = 255;
-			cv::Mat image(height, width, CV_8U, occupancyGridMsg.data.data());
-			DoorTracking::Cell corner1, corner2;
-			std::tie(corner1, corner2) = doorTracking_.trackDoor(image, doorCenterEstimation);
-			if (corner1.first != -1) {
-				doorCenterEstimation.first = (corner1.first + corner2.first) / 2;
-				doorCenterEstimation.second = (corner1.second + corner2.second) / 2;
-				doorCenterEstimationInMapFrame_.first = doorCenterEstimation.first +
-					std::lround(occupancyGridMsg.info.origin.position.y / occupancyGridBuilder_.cellSize());
-				doorCenterEstimationInMapFrame_.second = doorCenterEstimation.second +
-					std::lround(occupancyGridMsg.info.origin.position.x / occupancyGridBuilder_.cellSize());
-				coloredOccupancyGridMsg.r[corner1.second + corner1.first * width] = 255;
-				coloredOccupancyGridMsg.r[corner2.second + corner2.first * width] = 255;
-			}
+			drawDoorCenterOnColoredOccupancyGrid(coloredOccupancyGridMsg, cv::Vec3b(255, 0, 0));
 		}
-		else
+		trackDoor();
+		if (drawDoorCorners_)
 		{
-			doorCenterEstimationInMapFrame_.first = std::numeric_limits<int>::min();
-			doorCenterEstimationInMapFrame_.second = std::numeric_limits<int>::min();
+			drawDoorCornersOnColoredOccupancyGrid(coloredOccupancyGridMsg, cv::Vec3b(0, 0, 255));
 		}
 	}
-
 	coloredOccupancyGridPub_.publish(coloredOccupancyGridMsg);
 }
 
@@ -785,15 +770,114 @@ void OccupancyGridBuilder::publishLastDilatedSemantic(ros::Time stamp, const std
 void OccupancyGridBuilder::startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation)
 {
 	UScopeMutex lock(mutex_);
-	doorCenterEstimationInMapFrame_.first = std::lround(doorCenterEstimation->y / occupancyGridBuilder_.cellSize());
-	doorCenterEstimationInMapFrame_.second = std::lround(doorCenterEstimation->x / occupancyGridBuilder_.cellSize());
+	doorCenterInMapFrame_.first = std::lround(doorCenterEstimation->y / occupancyGridBuilder_.cellSize());
+	doorCenterInMapFrame_.second = std::lround(doorCenterEstimation->x / occupancyGridBuilder_.cellSize());
+}
+
+void OccupancyGridBuilder::trackDoor()
+{
+	UASSERT(doorCenterInMapFrame_.first != std::numeric_limits<int>::min());
+	float originX, originY;
+	rtabmap::OccupancyGridBuilder::OccupancyGrid occupancyGrid =
+		occupancyGridBuilder_.getOccupancyGrid(originX, originY);
+	int width = occupancyGrid.cols();
+	int height = occupancyGrid.rows();
+	cv::Mat image(height, width, CV_8U, occupancyGrid.data());
+	float cellSize = occupancyGridBuilder_.cellSize();
+	rtabmap::DoorTracking::Cell doorCenterEstimation;
+	doorCenterEstimation.first = doorCenterInMapFrame_.first - std::lround(originY / cellSize);
+	doorCenterEstimation.second = doorCenterInMapFrame_.second - std::lround(originX / cellSize);
+	if (doorCenterEstimation.first >= 0 && doorCenterEstimation.second >= 0 &&
+		doorCenterEstimation.first < height && doorCenterEstimation.second < width)
+	{
+		rtabmap::DoorTracking::Cell firstDoorCorner, secondDoorCorner;
+		std::tie(firstDoorCorner, secondDoorCorner) = doorTracking_.trackDoor(image, doorCenterEstimation);
+		if (firstDoorCorner.first != -1)
+		{
+			doorCenterEstimation.first = (firstDoorCorner.first + secondDoorCorner.first) / 2;
+			doorCenterEstimation.second = (firstDoorCorner.second + secondDoorCorner.second) / 2;
+			doorCenterInMapFrame_.first = doorCenterEstimation.first + std::lround(originY / cellSize);
+			doorCenterInMapFrame_.second = doorCenterEstimation.second + std::lround(originX / cellSize);
+			doorCornersInMapFrame_.first.first = firstDoorCorner.first + std::lround(originY / cellSize);
+			doorCornersInMapFrame_.first.second = firstDoorCorner.second + std::lround(originX / cellSize);
+			doorCornersInMapFrame_.second.first = secondDoorCorner.first + std::lround(originY / cellSize);
+			doorCornersInMapFrame_.second.second = secondDoorCorner.second + std::lround(originX / cellSize);
+		}
+		else
+		{
+			doorCornersInMapFrame_.first = rtabmap::DoorTracking::Cell(-1, -1);
+			doorCornersInMapFrame_.second = rtabmap::DoorTracking::Cell(-1, -1);
+		}
+	}
+	else
+	{
+		doorCenterInMapFrame_.first = std::numeric_limits<int>::min();
+		doorCenterInMapFrame_.second = std::numeric_limits<int>::min();
+	}
+}
+
+void OccupancyGridBuilder::drawDoorCenterOnColoredOccupancyGrid(
+		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
+		const cv::Vec3b& color)
+{
+	if (doorCenterInMapFrame_.first == std::numeric_limits<int>::min())
+	{
+		return;
+	}
+	int width =  coloredOccupancyGridMsg.info.width;
+	float cellSize = occupancyGridBuilder_.cellSize();
+	float originX, originY;
+	std::tie(originX, originY) = occupancyGridBuilder_.getGridOrigin();
+	rtabmap::DoorTracking::Cell doorCenter;
+	doorCenter.first = doorCenterInMapFrame_.first - std::lround(originY / cellSize);
+	doorCenter.second = doorCenterInMapFrame_.second - std::lround(originX / cellSize);
+	int index = doorCenter.second + doorCenter.first * width;
+	if (index >= 0 && index < coloredOccupancyGridMsg.b.size())
+	{
+		coloredOccupancyGridMsg.b[index] = color[0];
+		coloredOccupancyGridMsg.g[index] = color[1];
+		coloredOccupancyGridMsg.r[index] = color[2];
+	}
+}
+
+void OccupancyGridBuilder::drawDoorCornersOnColoredOccupancyGrid(
+		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
+		const cv::Vec3b& color)
+{
+	if (doorCenterInMapFrame_.first == std::numeric_limits<int>::min())
+	{
+		return;
+	}
+	if (doorCornersInMapFrame_.first.first == -1)
+	{
+		return;
+	}
+	int width =  coloredOccupancyGridMsg.info.width;
+	float cellSize = occupancyGridBuilder_.cellSize();
+	float originX, originY;
+	std::tie(originX, originY) = occupancyGridBuilder_.getGridOrigin();
+	rtabmap::DoorTracking::Cell firstCorner, secondCorner;
+	firstCorner.first = doorCornersInMapFrame_.first.first - std::lround(originY / cellSize);
+	firstCorner.second = doorCornersInMapFrame_.first.second - std::lround(originX / cellSize);
+	secondCorner.first = doorCornersInMapFrame_.second.first - std::lround(originY / cellSize);
+	secondCorner.second = doorCornersInMapFrame_.second.second - std::lround(originX / cellSize);
+	int firstIndex = firstCorner.second + firstCorner.first * width;
+	int secondIndex = secondCorner.second + secondCorner.first * width;
+	UASSERT(firstIndex >= 0 && firstIndex < coloredOccupancyGridMsg.b.size());
+	UASSERT(secondIndex >= 0 && secondIndex < coloredOccupancyGridMsg.b.size());
+	coloredOccupancyGridMsg.b[firstIndex] = color[0];
+	coloredOccupancyGridMsg.g[firstIndex] = color[1];
+	coloredOccupancyGridMsg.r[firstIndex] = color[2];
+	coloredOccupancyGridMsg.b[secondIndex] = color[0];
+	coloredOccupancyGridMsg.g[secondIndex] = color[1];
+	coloredOccupancyGridMsg.r[secondIndex] = color[2];
 }
 
 void OccupancyGridBuilder::stopDoorTracking(const std_msgs::EmptyConstPtr& empty)
 {
 	UScopeMutex lock(mutex_);
-	doorCenterEstimationInMapFrame_.first = std::numeric_limits<int>::min();
-	doorCenterEstimationInMapFrame_.second = std::numeric_limits<int>::min();
+	doorCenterInMapFrame_.first = std::numeric_limits<int>::min();
+	doorCenterInMapFrame_.second = std::numeric_limits<int>::min();
 }
 
 }
