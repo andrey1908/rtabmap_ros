@@ -47,6 +47,7 @@ add_message_files(
    GPS.msg
    Path.msg
    EnvSensor.msg
+   DoorCorners.msg
 )
 
 ## Generate services in the 'srv' folder
