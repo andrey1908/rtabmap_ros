@@ -12,6 +12,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <colored_occupancy_grid_msgs/ColoredOccupancyGrid.h>
 #include <optimization_results_msgs/OptimizationResults.h>
+#include <rtabmap_ros_msgs/DoorCorners.h>
 
 #include <rtabmap/core/OccupancyGridBuilder.h>
 #include <rtabmap/core/LaserScan.h>
@@ -73,8 +74,8 @@ private:
 		const rtabmap::Transform& odometryPose, bool temporary = false);
 	nav_msgs::OccupancyGrid getOccupancyGridMsg();
 	void publishOccupancyGridMaps(ros::Time stamp, const std::string& frame_id);
-
 	void publishLastDilatedSemantic(ros::Time stamp, const std::string& frame_id);
+	void tryToPublishDoorCorners(ros::Time stamp, const std::string& frame_id);
 
 	void startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation);
 	void trackDoor();

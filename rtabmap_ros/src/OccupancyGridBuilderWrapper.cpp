@@ -197,6 +197,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 	occupancyGridPub_ = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);
 	coloredOccupancyGridPub_ = nh.advertise<colored_occupancy_grid_msgs::ColoredOccupancyGrid>("colored_grid_map", 1);
 	dilatedSemanticPub_ = nh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
+	doorCornersPub_ = nh.advertise<rtabmap_ros_msgs::DoorCorners>("door_corners", 1);
 	if (!loadMapPath_.empty())
 	{
 		load();
@@ -574,6 +575,7 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 		{}, {});
 	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping);
 	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), mapFrame_);
+	tryToPublishDoorCorners(ros::Time(signature.getSec(), signature.getNSec()), mapFrame_);
 }
 
 void OccupancyGridBuilder::commonRGBCallback(
@@ -622,6 +624,7 @@ void OccupancyGridBuilder::commonRGBCallback(
 	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()), mapFrame_);
 	publishLastDilatedSemantic(ros::Time(signature.getSec(), signature.getNSec()),
 		imageMsgs[0]->header.frame_id);
+	tryToPublishDoorCorners(ros::Time(signature.getSec(), signature.getNSec()), mapFrame_);
 }
 
 rtabmap::Signature OccupancyGridBuilder::createSignature(
@@ -765,6 +768,33 @@ void OccupancyGridBuilder::publishLastDilatedSemantic(ros::Time stamp, const std
 	sensor_msgs::Image lastDilatedSemanticMsg;
 	cv_bridge.toImageMsg(lastDilatedSemanticMsg);
 	dilatedSemanticPub_.publish(lastDilatedSemanticMsg);
+}
+
+void OccupancyGridBuilder::tryToPublishDoorCorners(ros::Time stamp, const std::string& frame_id)
+{
+	if (doorCenterInMapFrame_.first == std::numeric_limits<int>::min())
+	{
+		return;
+	}
+	rtabmap_ros_msgs::DoorCorners doorCornersMsg;
+	doorCornersMsg.header.stamp = stamp;
+	doorCornersMsg.header.frame_id = frame_id;
+	if (doorCornersInMapFrame_.first.first == -1)
+	{
+		doorCornersMsg.success = false;
+	}
+	else
+	{
+		doorCornersMsg.success = true;
+		float cellSize = occupancyGridBuilder_.cellSize();
+		doorCornersMsg.first_corner.x = doorCornersInMapFrame_.first.second * cellSize + cellSize / 2;
+		doorCornersMsg.first_corner.y = doorCornersInMapFrame_.first.first * cellSize + cellSize / 2;
+		doorCornersMsg.first_corner.z = 0;
+		doorCornersMsg.second_corner.x = doorCornersInMapFrame_.second.second * cellSize + cellSize / 2;
+		doorCornersMsg.second_corner.y = doorCornersInMapFrame_.second.first * cellSize + cellSize / 2;
+		doorCornersMsg.second_corner.z = 0;
+	}
+	doorCornersPub_.publish(doorCornersMsg);
 }
 
 void OccupancyGridBuilder::startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation)
