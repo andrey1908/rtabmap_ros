@@ -10,7 +10,7 @@
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/TransformStamped.h>
-#include <colored_occupancy_grid/ColoredOccupancyGrid.h>
+#include <colored_occupancy_grid_msgs/ColoredOccupancyGrid.h>
 #include <optimization_results_msgs/OptimizationResults.h>
 
 #include <rtabmap/core/OccupancyGridBuilder.h>
