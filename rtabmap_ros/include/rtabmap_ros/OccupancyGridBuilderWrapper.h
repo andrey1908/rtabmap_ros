@@ -80,7 +80,7 @@ private:
 		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg);
 	void maybeDrawDoorOnColoredOccupancyGridMsg(
 		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg);
-	void drawDoorCenterOnColoredOccupancyGrid(
+	void drawDoorCenterUsedAsEstimationOnColoredOccupancyGrid(
 		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
 		const cv::Vec3b& color);
 	void drawDoorCornersOnColoredOccupancyGrid(
@@ -119,6 +119,7 @@ private:
 
 	rtabmap::DoorTracking doorTracking_;
 	rtabmap::DoorTracking::Cell doorCenterInMapFrame_;
+	rtabmap::DoorTracking::Cell doorCenterUsedAsEstimationInMapFrame_;
 	std::pair<rtabmap::DoorTracking::Cell, rtabmap::DoorTracking::Cell> doorCornersInMapFrame_;
 
 	UMutex mutex_;
