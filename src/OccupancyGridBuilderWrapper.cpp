@@ -707,9 +707,9 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::
 		int height = occupancyGridMsg.info.height;
 		DoorTracking::Cell doorCenterEstimation;
 		doorCenterEstimation.first = doorCenterEstimationInMapFrame_.first -
-			uRound(occupancyGridMsg.info.origin.position.y / occupancyGridBuilder_.cellSize());
+			std::lround(occupancyGridMsg.info.origin.position.y / occupancyGridBuilder_.cellSize());
 		doorCenterEstimation.second = doorCenterEstimationInMapFrame_.second -
-			uRound(occupancyGridMsg.info.origin.position.x / occupancyGridBuilder_.cellSize());
+			std::lround(occupancyGridMsg.info.origin.position.x / occupancyGridBuilder_.cellSize());
 		if (doorCenterEstimation.first >= 0 && doorCenterEstimation.second >= 0 &&
 			doorCenterEstimation.first < height && doorCenterEstimation.second < width)
 		{
@@ -721,9 +721,9 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::
 				doorCenterEstimation.first = (corner1.first + corner2.first) / 2;
 				doorCenterEstimation.second = (corner1.second + corner2.second) / 2;
 				doorCenterEstimationInMapFrame_.first = doorCenterEstimation.first +
-					uRound(occupancyGridMsg.info.origin.position.y / occupancyGridBuilder_.cellSize());
+					std::lround(occupancyGridMsg.info.origin.position.y / occupancyGridBuilder_.cellSize());
 				doorCenterEstimationInMapFrame_.second = doorCenterEstimation.second +
-					uRound(occupancyGridMsg.info.origin.position.x / occupancyGridBuilder_.cellSize());
+					std::lround(occupancyGridMsg.info.origin.position.x / occupancyGridBuilder_.cellSize());
 				coloredOccupancyGridMsg.r[corner1.second + corner1.first * width] = 255;
 				coloredOccupancyGridMsg.r[corner2.second + corner2.first * width] = 255;
 			}
@@ -785,8 +785,8 @@ void OccupancyGridBuilder::publishLastDilatedSemantic(ros::Time stamp, const std
 void OccupancyGridBuilder::startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation)
 {
 	UScopeMutex lock(mutex_);
-	doorCenterEstimationInMapFrame_.first = uRound(doorCenterEstimation->y / occupancyGridBuilder_.cellSize());
-	doorCenterEstimationInMapFrame_.second = uRound(doorCenterEstimation->x / occupancyGridBuilder_.cellSize());
+	doorCenterEstimationInMapFrame_.first = std::lround(doorCenterEstimation->y / occupancyGridBuilder_.cellSize());
+	doorCenterEstimationInMapFrame_.second = std::lround(doorCenterEstimation->x / occupancyGridBuilder_.cellSize());
 }
 
 void OccupancyGridBuilder::stopDoorTracking(const std_msgs::EmptyConstPtr& empty)
