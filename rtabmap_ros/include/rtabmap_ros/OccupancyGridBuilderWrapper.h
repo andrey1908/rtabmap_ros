@@ -63,6 +63,13 @@ private:
 		const sensor_msgs::PointCloud2& scan3dMsg,
 		bool temporaryMapping);
 
+	void mappingPipeline(
+		const nav_msgs::OdometryConstPtr& odomMsg,
+		const sensor_msgs::PointCloud2& scan3dMsg,
+		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
+		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
+		bool temporaryMapping);
+
 	rtabmap::Signature createSignature(
 		const rtabmap::Transform& pose,
 		const ros::Time& time,
@@ -119,7 +126,7 @@ private:
 
 	rtabmap::DoorTracking doorTracking_;
 	rtabmap::DoorTracking::Cell doorCenterInMapFrame_;
-	rtabmap::DoorTracking::Cell doorCenterUsedAsEstimationInMapFrame_;
+	rtabmap::DoorTracking::Cell doorCenterUsedAsEstimationInMapFrame_;  // for visualization
 	std::pair<rtabmap::DoorTracking::Cell, rtabmap::DoorTracking::Cell> doorCornersInMapFrame_;
 
 	UMutex mutex_;

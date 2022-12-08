@@ -543,43 +543,7 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 {
 	UScopeMutex lock(mutex_);
 	MEASURE_BLOCK_TIME(commonLaserScanCallback);
-	if (temporaryMapping)
-	{
-		UASSERT(temporaryCommonDataSubscriber_.isSubscribedToOdom());
-		UASSERT(temporaryCommonDataSubscriber_.isSubscribedToScan3d());
-	}
-	else
-	{
-		UASSERT(commonDataSubscriber_.isSubscribedToOdom());
-		UASSERT(commonDataSubscriber_.isSubscribedToScan3d());
-	}
-	UASSERT(odomFrame_.empty() ||
-			(odomFrame_ == odomMsg->header.frame_id && baseLinkFrame_ == odomMsg->child_frame_id));
-	if (odomFrame_.empty())
-	{
-		odomFrame_ = odomMsg->header.frame_id;
-		baseLinkFrame_ = odomMsg->child_frame_id;
-	}
-	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
-	std::optional<rtabmap::Transform> optimizedPose = getOptimizedPose(
-		odomMsg->header.stamp, &odometryPose, ros::Duration(0), true);
-	UASSERT(optimizedPose.has_value() || odomMsg->header.stamp <= lastOptimizedPoseTime_);
-	if (!optimizedPose.has_value())
-	{
-		return;
-	}
-	rtabmap::Signature signature = createSignature(
-		*optimizedPose,
-		odomMsg->header.stamp,
-		scan3dMsg,
-		{}, {});
-	addSignatureToOccupancyGrid(signature, odometryPose, temporaryMapping);
-	if (doorCenterInMapFrame_.first != std::numeric_limits<int>::min())
-	{
-		trackDoor();
-	}
-	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()));
-	tryToPublishDoorCorners(ros::Time(signature.getSec(), signature.getNSec()));
+	mappingPipeline(odomMsg, scan3dMsg, {}, {}, temporaryMapping);
 }
 
 void OccupancyGridBuilder::commonRGBCallback(
@@ -592,16 +556,18 @@ void OccupancyGridBuilder::commonRGBCallback(
 {
 	UScopeMutex lock(mutex_);
 	MEASURE_BLOCK_TIME(commonRGBCallback);
-	if (temporaryMapping)
-	{
-		UASSERT(temporaryCommonDataSubscriber_.isSubscribedToOdom());
-		UASSERT(temporaryCommonDataSubscriber_.isSubscribedToScan3d());
-	}
-	else
-	{
-		UASSERT(commonDataSubscriber_.isSubscribedToOdom());
-		UASSERT(commonDataSubscriber_.isSubscribedToScan3d());
-	}
+	mappingPipeline(odomMsg, scan3dMsg, imageMsgs, cameraInfoMsgs, temporaryMapping);
+}
+
+void OccupancyGridBuilder::mappingPipeline(
+		const nav_msgs::OdometryConstPtr& odomMsg,
+		const sensor_msgs::PointCloud2& scan3dMsg,
+		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
+		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
+		bool temporaryMapping)
+{
+	UASSERT(odomMsg);
+	UASSERT(scan3dMsg.data.size());
 	UASSERT(odomFrame_.empty() ||
 			(odomFrame_ == odomMsg->header.frame_id && baseLinkFrame_ == odomMsg->child_frame_id));
 	if (odomFrame_.empty())
@@ -609,6 +575,7 @@ void OccupancyGridBuilder::commonRGBCallback(
 		odomFrame_ = odomMsg->header.frame_id;
 		baseLinkFrame_ = odomMsg->child_frame_id;
 	}
+
 	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
 	std::optional<rtabmap::Transform> optimizedPose = getOptimizedPose(
 		odomMsg->header.stamp, &odometryPose, ros::Duration(0), true);
@@ -629,10 +596,14 @@ void OccupancyGridBuilder::commonRGBCallback(
 	{
 		trackDoor();
 	}
-	publishOccupancyGridMaps(ros::Time(signature.getSec(), signature.getNSec()));
-	publishLastDilatedSemantic(ros::Time(signature.getSec(), signature.getNSec()),
-		imageMsgs[0]->header.frame_id);
-	tryToPublishDoorCorners(ros::Time(signature.getSec(), signature.getNSec()));
+
+	ros::Time stamp(signature.getSec(), signature.getNSec());
+	publishOccupancyGridMaps(stamp);
+	if (imageMsgs.size())
+	{
+		publishLastDilatedSemantic(stamp, imageMsgs[0]->header.frame_id);
+	}
+	tryToPublishDoorCorners(stamp);
 }
 
 rtabmap::Signature OccupancyGridBuilder::createSignature(
@@ -835,7 +806,7 @@ void OccupancyGridBuilder::drawDoorCornersOnColoredOccupancyGrid(
 
 void OccupancyGridBuilder::publishLastDilatedSemantic(const ros::Time& stamp, const std::string& frame_id)
 {
-	const cv::Mat lastDilatedSemantic = occupancyGridBuilder_.lastDilatedSemantic();
+	const cv::Mat& lastDilatedSemantic = occupancyGridBuilder_.lastDilatedSemantic();
 	if (lastDilatedSemantic.empty())
 	{
 		return;
