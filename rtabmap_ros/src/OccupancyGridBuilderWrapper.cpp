@@ -579,11 +579,7 @@ void OccupancyGridBuilder::mappingPipeline(
 	rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
 	std::optional<rtabmap::Transform> optimizedPose = getOptimizedPose(
 		odomMsg->header.stamp, &odometryPose, ros::Duration(0), true);
-	UASSERT(optimizedPose.has_value() || odomMsg->header.stamp <= lastOptimizedPoseTime_);
-	if (!optimizedPose.has_value())
-	{
-		return;
-	}
+	UASSERT(optimizedPose.has_value());
 	rtabmap::Signature signature;
 	signature = createSignature(
 		*optimizedPose,
