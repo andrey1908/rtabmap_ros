@@ -185,7 +185,7 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 
 	occupancyGridBuilder_.parseParameters(parameters);
 	occupancyGridPub_ = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);
-	coloredOccupancyGridPub_ = nh.advertise<colored_occupancy_grid::ColoredOccupancyGrid>("colored_grid_map", 1);
+	coloredOccupancyGridPub_ = nh.advertise<colored_occupancy_grid_msgs::ColoredOccupancyGrid>("colored_grid_map", 1);
 	dilatedSemanticPub_ = nh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
 	if (!loadMapPath_.empty())
 	{
@@ -676,7 +676,7 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(ros::Time stamp, const std::
 	occupancyGridMsg.header.frame_id = frame_id;
 	occupancyGridPub_.publish(occupancyGridMsg);
 
-	colored_occupancy_grid::ColoredOccupancyGrid coloredOccupancyGridMsg;
+	colored_occupancy_grid_msgs::ColoredOccupancyGrid coloredOccupancyGridMsg;
 	coloredOccupancyGridMsg.header = occupancyGridMsg.header;
 	coloredOccupancyGridMsg.info = occupancyGridMsg.info;
 	coloredOccupancyGridMsg.data = occupancyGridMsg.data;

@@ -8,6 +8,7 @@
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <colored_occupancy_grid_msgs/ColoredOccupancyGrid.h>
 #include <optimization_results_msgs/OptimizationResults.h>
 
 #include <rtabmap/core/OccupancyGridBuilder.h>
@@ -18,8 +19,6 @@
 #include <rtabmap/utilite/UMutex.h>
 
 #include "rtabmap_ros/CommonDataSubscriber.h"
-
-#include <colored_occupancy_grid/ColoredOccupancyGrid.h>
 
 #include <memory>
 #include <vector>
