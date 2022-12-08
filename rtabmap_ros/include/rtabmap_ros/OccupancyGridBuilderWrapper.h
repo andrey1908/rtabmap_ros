@@ -42,8 +42,8 @@ private:
 	rtabmap::ParametersMap readRtabmapParameters(int argc, char** argv, const ros::NodeHandle& pnh);
 	void readRtabmapRosParameters(const ros::NodeHandle& pnh);
 
-	void load();
 	void save();
+	void load();
 
 	void updatePoses(const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults);
 	std::optional<rtabmap::Transform> getOptimizedPose(ros::Time time,
@@ -69,22 +69,26 @@ private:
 		const sensor_msgs::PointCloud2& scan3dMsg,
 		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
 		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
-
 	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
 		const rtabmap::Transform& odometryPose, bool temporary = false);
-	nav_msgs::OccupancyGrid getOccupancyGridMsg();
-	void publishOccupancyGridMaps(ros::Time stamp, const std::string& frame_id);
-	void publishLastDilatedSemantic(ros::Time stamp, const std::string& frame_id);
-	void tryToPublishDoorCorners(ros::Time stamp, const std::string& frame_id);
+	void publishOccupancyGridMaps(const ros::Time& stamp);
+	void publishLastDilatedSemantic(const ros::Time& stamp, const std::string& frame_id);
+	void tryToPublishDoorCorners(const ros::Time& stamp);
 
-	void startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation);
-	void trackDoor();
+	nav_msgs::OccupancyGrid getOccupancyGridMsg(const ros::Time& stamp);
+	void fillColorsInColoredOccupancyGridMsg(
+		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg);
+	void maybeDrawDoorOnColoredOccupancyGridMsg(
+		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg);
 	void drawDoorCenterOnColoredOccupancyGrid(
 		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
 		const cv::Vec3b& color);
 	void drawDoorCornersOnColoredOccupancyGrid(
 		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
 		const cv::Vec3b& color);
+
+	void startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation);
+	void trackDoor();
 	void stopDoorTracking(const std_msgs::EmptyConstPtr& empty);
 
 private:
