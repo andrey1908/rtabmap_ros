@@ -543,7 +543,13 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 {
 	UScopeMutex lock(mutex_);
 	MEASURE_BLOCK_TIME(commonLaserScanCallback);
-	mappingPipeline(odomMsg, scan3dMsg, {}, {}, temporaryMapping);
+	nav_msgs::Odometry* odomPtr = new nav_msgs::Odometry();
+	odomPtr->header.frame_id = "odom";
+	odomPtr->header.stamp = scan3dMsg.header.stamp;
+	odomPtr->child_frame_id = "base_link";
+	odomPtr->pose.pose.orientation.w = 1;
+	nav_msgs::OdometryConstPtr odomShrd(odomPtr);
+	mappingPipeline(odomShrd, scan3dMsg, {}, {}, temporaryMapping);
 }
 
 void OccupancyGridBuilder::commonRGBCallback(
@@ -556,7 +562,13 @@ void OccupancyGridBuilder::commonRGBCallback(
 {
 	UScopeMutex lock(mutex_);
 	MEASURE_BLOCK_TIME(commonRGBCallback);
-	mappingPipeline(odomMsg, scan3dMsg, imageMsgs, cameraInfoMsgs, temporaryMapping);
+	nav_msgs::Odometry* odomPtr = new nav_msgs::Odometry();
+	odomPtr->header.frame_id = "odom";
+	odomPtr->header.stamp = scan3dMsg.header.stamp;
+	odomPtr->child_frame_id = "base_link";
+	odomPtr->pose.pose.orientation.w = 1;
+	nav_msgs::OdometryConstPtr odomShrd(odomPtr);
+	mappingPipeline(odomShrd, scan3dMsg, imageMsgs, cameraInfoMsgs, temporaryMapping);
 }
 
 void OccupancyGridBuilder::mappingPipeline(
