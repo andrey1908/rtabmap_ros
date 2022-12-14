@@ -253,7 +253,8 @@ void OccupancyGridBuilder::save()
 	for (const auto& entry : nodes)
 	{
 		int nodeId = entry.first;
-		const std::optional<rtabmap::Transform>& pose = entry.second.localPose;
+		const std::optional<rtabmap::OccupancyGridBuilder::TransformedLocalMap>&
+			transformedLocalMap = entry.second.transformedLocalMap;
 		auto timeIt = times_.find(nodeId);
 		const auto& localMap = entry.second.localMap;
 		int numGround = 0;
@@ -267,9 +268,10 @@ void OccupancyGridBuilder::save()
 		UASSERT(timeIt != times_.end());
 
 		fs.write((const char*)(&nodeId), sizeof(nodeId));
-		if (pose.has_value())
+		if (transformedLocalMap.has_value())
 		{
-			const Eigen::Matrix4f& eigenPose = pose->toEigen4f();
+			const rtabmap::Transform& pose = transformedLocalMap->pose;
+			const Eigen::Matrix4f& eigenPose = pose.toEigen4f();
 			fs.write((const char*)(eigenPose.data()), eigenPose.size() * sizeof(eigenPose(0, 0)));
 		}
 		else
@@ -688,8 +690,8 @@ nav_msgs::OccupancyGrid OccupancyGridBuilder::getOccupancyGridMsg(const ros::Tim
 {
 	float xMin, yMin;
 	rtabmap::OccupancyGridBuilder::OccupancyGrid occupancyGrid =
-		occupancyGridBuilder_.getOccupancyGrid(xMin, yMin);
-	UASSERT(occupancyGrid.size());
+		occupancyGridBuilder_.getOccupancyGrid();
+	UASSERT(occupancyGrid.grid.size());
 
 	nav_msgs::OccupancyGrid occupancyGridMsg;
 	occupancyGridMsg.header.stamp = stamp;
@@ -703,13 +705,13 @@ nav_msgs::OccupancyGrid OccupancyGridBuilder::getOccupancyGridMsg(const ros::Tim
 	occupancyGridMsg.info.origin.orientation.z = 0.0;
 	occupancyGridMsg.info.origin.orientation.w = 1.0;
 
-	occupancyGridMsg.info.width = occupancyGrid.cols();
-	occupancyGridMsg.info.height = occupancyGrid.rows();
+	occupancyGridMsg.info.width = occupancyGrid.grid.cols();
+	occupancyGridMsg.info.height = occupancyGrid.grid.rows();
 	occupancyGridMsg.info.origin.position.x = xMin;
 	occupancyGridMsg.info.origin.position.y = yMin;
-	occupancyGridMsg.data.resize(occupancyGrid.size());
+	occupancyGridMsg.data.resize(occupancyGrid.grid.size());
 
-	memcpy(occupancyGridMsg.data.data(), occupancyGrid.data(), occupancyGrid.size());
+	memcpy(occupancyGridMsg.data.data(), occupancyGrid.grid.data(), occupancyGrid.grid.size());
 	return occupancyGridMsg;
 }
 
@@ -717,12 +719,12 @@ void OccupancyGridBuilder::fillColorsInColoredOccupancyGridMsg(
 		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg)
 {
 	float xMin, yMin;
-	rtabmap::OccupancyGridBuilder::ColorGrid colorGrid = occupancyGridBuilder_.getColorGrid(xMin, yMin);
-	for (int h = 0; h < colorGrid.rows(); h++)
+	rtabmap::OccupancyGridBuilder::ColorGrid colorGrid = occupancyGridBuilder_.getColorGrid();
+	for (int h = 0; h < colorGrid.grid.rows(); h++)
 	{
-		for (int w = 0; w < colorGrid.cols(); w++)
+		for (int w = 0; w < colorGrid.grid.cols(); w++)
 		{
-			int color = colorGrid(h, w);
+			int color = colorGrid.grid(h, w);
 			if (color == rtabmap::LocalMapBuilder::Color::missingColor.data())
 			{
 				color = 0;
@@ -868,10 +870,12 @@ void OccupancyGridBuilder::trackDoor()
 	UASSERT(doorCenterInMapFrame_.first != std::numeric_limits<int>::min());
 	float originX, originY;
 	rtabmap::OccupancyGridBuilder::OccupancyGrid occupancyGrid =
-		occupancyGridBuilder_.getOccupancyGrid(originX, originY);
-	int width = occupancyGrid.cols();
-	int height = occupancyGrid.rows();
-	cv::Mat image(height, width, CV_8U, occupancyGrid.data());
+		occupancyGridBuilder_.getOccupancyGrid();
+	originX = occupancyGrid.minX;
+	originY = occupancyGrid.minY;
+	int width = occupancyGrid.grid.cols();
+	int height = occupancyGrid.grid.rows();
+	cv::Mat image(height, width, CV_8U, occupancyGrid.grid.data());
 	float cellSize = occupancyGridBuilder_.cellSize();
 	rtabmap::DoorTracking::Cell doorCenterEstimation;
 	doorCenterEstimation.first = doorCenterInMapFrame_.first - std::lround(originY / cellSize);
