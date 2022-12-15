@@ -14,7 +14,7 @@
 #include <optimization_results_msgs/OptimizationResults.h>
 #include <rtabmap_ros_msgs/DoorCorners.h>
 
-#include <rtabmap/core/OccupancyGridBuilder.h>
+#include <rtabmap/core/OccupancyGridMap.h>
 #include <rtabmap/core/LocalMapBuilder.h>
 #include <rtabmap/core/LaserScan.h>
 #include <rtabmap/core/Transform.h>
@@ -114,7 +114,7 @@ private:
 	tf::TransformListener tfListener_;
 
 	int nodeId_;
-	rtabmap::OccupancyGridBuilder occupancyGridBuilder_;
+	rtabmap::OccupancyGridMap occupancyGridMap_;
 
 	std::map<int, ros::Time> times_;
 	std::map<int, rtabmap::Transform> posesAfterLastUpdate_;
