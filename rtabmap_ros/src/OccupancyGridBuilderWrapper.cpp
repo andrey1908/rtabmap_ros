@@ -261,7 +261,7 @@ void OccupancyGridBuilder::save()
 		int numEmpty = localMap.numEmpty;
 		int numObstacles = localMap.numObstacles;
 		const Eigen::Matrix3Xf& points = localMap.points;
-		const std::vector<rtabmap::LocalMapBuilder::Color>& colors = localMap.colors;
+		const std::vector<rtabmap::OccupancyGridMap::Color>& colors = localMap.colors;
 		float sensorBlindRange2dSqr = localMap.sensorBlindRange2dSqr;
 		const rtabmap::Transform& toSensor = localMap.toSensor;
 		const Eigen::Matrix4f& eigenToSensor = toSensor.toEigen4f();
@@ -318,7 +318,7 @@ void OccupancyGridBuilder::load()
 		int numEmpty;
 		int numObstacles;
 		Eigen::Matrix3Xf points;
-		std::vector<rtabmap::LocalMapBuilder::Color> colors;
+		std::vector<rtabmap::OccupancyGridMap::Color> colors;
 		float sensorBlindRange2dSqr;
 		Eigen::Matrix4f eigenToSensor;
 
@@ -726,7 +726,7 @@ void OccupancyGridBuilder::fillColorsInColoredOccupancyGridMsg(
 		for (int w = 0; w < colorGrid.grid.cols(); w++)
 		{
 			int color = colorGrid.grid(h, w);
-			if (color == rtabmap::LocalMapBuilder::Color::missingColor.data())
+			if (color == rtabmap::OccupancyGridMap::Color::missingColor.data())
 			{
 				color = 0;
 			}

@@ -15,7 +15,6 @@
 #include <rtabmap_ros_msgs/DoorCorners.h>
 
 #include <rtabmap/core/OccupancyGridMap.h>
-#include <rtabmap/core/LocalMapBuilder.h>
 #include <rtabmap/core/LaserScan.h>
 #include <rtabmap/core/Transform.h>
 #include <rtabmap/core/Signature.h>
