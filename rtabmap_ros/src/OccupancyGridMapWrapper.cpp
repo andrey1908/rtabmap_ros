@@ -1,4 +1,4 @@
-#include "rtabmap_ros/OccupancyGridBuilderWrapper.h"
+#include "rtabmap_ros/OccupancyGridMapWrapper.h"
 
 #include <tf/transform_datatypes.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -23,7 +23,7 @@
 
 namespace rtabmap_ros {
 
-rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, char** argv, const ros::NodeHandle& pnh)
+rtabmap::ParametersMap OccupancyGridMapWrapper::readRtabmapParameters(int argc, char** argv, const ros::NodeHandle& pnh)
 {
 	std::string configPath;
 	pnh.param("config_path", configPath, configPath);
@@ -161,7 +161,7 @@ rtabmap::ParametersMap OccupancyGridBuilder::readRtabmapParameters(int argc, cha
 	return parameters;
 }
 
-void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
+void OccupancyGridMapWrapper::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 {
 	pnh.param("map_frame", mapFrame_, std::string(""));
 	pnh.param("load_map_path", loadMapPath_, std::string(""));
@@ -178,7 +178,7 @@ void OccupancyGridBuilder::readRtabmapRosParameters(const ros::NodeHandle& pnh)
 	pnh.param("door_tracking_large_radius", doorTrackingLargeRadius_, 0.7);
 }
 
-OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
+OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv) :
 		nodeId_(0),
 		doorCenterInMapFrame_(std::numeric_limits<int>::min(), std::numeric_limits<int>::min())
 {
@@ -208,28 +208,28 @@ OccupancyGridBuilder::OccupancyGridBuilder(int argc, char** argv) :
 	}
 	if (accumulativeMapping_)
 	{
-		commonDataSubscriber_.setCommonRGBCallback(std::bind(&OccupancyGridBuilder::commonRGBCallback,
+		commonDataSubscriber_.setCommonRGBCallback(std::bind(&OccupancyGridMapWrapper::commonRGBCallback,
 			this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
 			std::placeholders::_4, std::placeholders::_5, false));
-		commonDataSubscriber_.setCommonLaserScanCallback(std::bind(&OccupancyGridBuilder::commonLaserScanCallback,
+		commonDataSubscriber_.setCommonLaserScanCallback(std::bind(&OccupancyGridMapWrapper::commonLaserScanCallback,
 			this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, false));
 		commonDataSubscriber_.setupCallback(nh, "subscribe");
 	}
 	if (temporaryMapping_)
 	{
-		temporaryCommonDataSubscriber_.setCommonRGBCallback(std::bind(&OccupancyGridBuilder::commonRGBCallback,
+		temporaryCommonDataSubscriber_.setCommonRGBCallback(std::bind(&OccupancyGridMapWrapper::commonRGBCallback,
 			this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
 			std::placeholders::_4, std::placeholders::_5, true));
-		temporaryCommonDataSubscriber_.setCommonLaserScanCallback(std::bind(&OccupancyGridBuilder::commonLaserScanCallback,
+		temporaryCommonDataSubscriber_.setCommonLaserScanCallback(std::bind(&OccupancyGridMapWrapper::commonLaserScanCallback,
 			this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, true));
 		temporaryCommonDataSubscriber_.setupCallback(nh, "temporary_subscribe");
 	}
-	optimizationResultsSub_ = nh.subscribe("optimization_results", 1, &OccupancyGridBuilder::updatePoses, this);
-	doorCenterEstimationSub_ = nh.subscribe("start_door_tracking", 1, &OccupancyGridBuilder::startDoorTracking, this);
-	stopDoorTrackingSub_ = nh.subscribe("stop_door_tracking", 1, &OccupancyGridBuilder::stopDoorTracking, this);
+	optimizationResultsSub_ = nh.subscribe("optimization_results", 1, &OccupancyGridMapWrapper::updatePoses, this);
+	doorCenterEstimationSub_ = nh.subscribe("start_door_tracking", 1, &OccupancyGridMapWrapper::startDoorTracking, this);
+	stopDoorTrackingSub_ = nh.subscribe("stop_door_tracking", 1, &OccupancyGridMapWrapper::stopDoorTracking, this);
 }
 
-OccupancyGridBuilder::~OccupancyGridBuilder()
+OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
 {
 	if (!saveMapPath_.empty())
 	{
@@ -237,7 +237,7 @@ OccupancyGridBuilder::~OccupancyGridBuilder()
 	}
 }
 
-void OccupancyGridBuilder::save()
+void OccupancyGridMapWrapper::save()
 {
 	MEASURE_BLOCK_TIME(save);
 	std::fstream fs(saveMapPath_, std::fstream::out | std::fstream::binary | std::fstream::trunc);
@@ -292,7 +292,7 @@ void OccupancyGridBuilder::save()
 	fs.close();
 }
 
-void OccupancyGridBuilder::load()
+void OccupancyGridMapWrapper::load()
 {
 	MEASURE_BLOCK_TIME(load);
 	std::fstream fs(loadMapPath_, std::fstream::in | std::fstream::binary | std::fstream::app);
@@ -371,7 +371,7 @@ void OccupancyGridBuilder::load()
 	fs.close();
 }
 
-void OccupancyGridBuilder::updatePoses(
+void OccupancyGridMapWrapper::updatePoses(
 		const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults)
 {
 	MEASURE_BLOCK_TIME(updatePoses);
@@ -477,7 +477,7 @@ void OccupancyGridBuilder::updatePoses(
 	posesAfterLastUpdate_.clear();
 }
 
-std::optional<rtabmap::Transform> OccupancyGridBuilder::getOptimizedPose(ros::Time time,
+std::optional<rtabmap::Transform> OccupancyGridMapWrapper::getOptimizedPose(ros::Time time,
 		const rtabmap::Transform* odometryPose /* nullptr */, ros::Duration maxExtrapolationTime /* 0 */,
 		bool defaultIdentityOdometryCorrection /* false */)
 {
@@ -536,7 +536,7 @@ std::optional<rtabmap::Transform> OccupancyGridBuilder::getOptimizedPose(ros::Ti
 	return std::optional<rtabmap::Transform>();
 }
 
-void OccupancyGridBuilder::commonLaserScanCallback(
+void OccupancyGridMapWrapper::commonLaserScanCallback(
 		const nav_msgs::OdometryConstPtr& odomMsg,
 		const sensor_msgs::LaserScan& scanMsg,
 		const sensor_msgs::PointCloud2& scan3dMsg,
@@ -553,7 +553,7 @@ void OccupancyGridBuilder::commonLaserScanCallback(
 	mappingPipeline(odomShrd, scan3dMsg, {}, {}, temporaryMapping);
 }
 
-void OccupancyGridBuilder::commonRGBCallback(
+void OccupancyGridMapWrapper::commonRGBCallback(
 		const nav_msgs::OdometryConstPtr& odomMsg,
 		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
 		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
@@ -572,7 +572,7 @@ void OccupancyGridBuilder::commonRGBCallback(
 	mappingPipeline(odomShrd, scan3dMsg, imageMsgs, cameraInfoMsgs, temporaryMapping);
 }
 
-void OccupancyGridBuilder::mappingPipeline(
+void OccupancyGridMapWrapper::mappingPipeline(
 		const nav_msgs::OdometryConstPtr& odomMsg,
 		const sensor_msgs::PointCloud2& scan3dMsg,
 		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
@@ -615,7 +615,7 @@ void OccupancyGridBuilder::mappingPipeline(
 	tryToPublishDoorCorners(stamp);
 }
 
-rtabmap::Signature OccupancyGridBuilder::createSignature(
+rtabmap::Signature OccupancyGridMapWrapper::createSignature(
 		const rtabmap::Transform& pose,
 		const ros::Time& time,
 		const sensor_msgs::PointCloud2& scan3dMsg,
@@ -649,7 +649,7 @@ rtabmap::Signature OccupancyGridBuilder::createSignature(
 	return signature;
 }
 
-void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
+void OccupancyGridMapWrapper::addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
 		const rtabmap::Transform& odometryPose, bool temporary /* false */)
 {
 	rtabmap::OccupancyGridMap::LocalMap localMap = occupancyGridMap_.createLocalMap(signature);
@@ -672,7 +672,7 @@ void OccupancyGridBuilder::addSignatureToOccupancyGrid(const rtabmap::Signature&
 	}
 }
 
-void OccupancyGridBuilder::publishOccupancyGridMaps(const ros::Time& stamp)
+void OccupancyGridMapWrapper::publishOccupancyGridMaps(const ros::Time& stamp)
 {
 	nav_msgs::OccupancyGrid occupancyGridMsg = getOccupancyGridMsg(stamp);
 	occupancyGridPub_.publish(occupancyGridMsg);
@@ -686,7 +686,7 @@ void OccupancyGridBuilder::publishOccupancyGridMaps(const ros::Time& stamp)
 	coloredOccupancyGridPub_.publish(coloredOccupancyGridMsg);
 }
 
-nav_msgs::OccupancyGrid OccupancyGridBuilder::getOccupancyGridMsg(const ros::Time& stamp)
+nav_msgs::OccupancyGrid OccupancyGridMapWrapper::getOccupancyGridMsg(const ros::Time& stamp)
 {
 	float xMin, yMin;
 	rtabmap::OccupancyGridMap::OccupancyGrid occupancyGrid =
@@ -717,7 +717,7 @@ nav_msgs::OccupancyGrid OccupancyGridBuilder::getOccupancyGridMsg(const ros::Tim
 	return occupancyGridMsg;
 }
 
-void OccupancyGridBuilder::fillColorsInColoredOccupancyGridMsg(
+void OccupancyGridMapWrapper::fillColorsInColoredOccupancyGridMsg(
 		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg)
 {
 	rtabmap::OccupancyGridMap::ColorGrid colorGrid = occupancyGridMap_.getColorGrid();
@@ -737,7 +737,7 @@ void OccupancyGridBuilder::fillColorsInColoredOccupancyGridMsg(
 	}
 }
 
-void OccupancyGridBuilder::maybeDrawDoorOnColoredOccupancyGridMsg(
+void OccupancyGridMapWrapper::maybeDrawDoorOnColoredOccupancyGridMsg(
 		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg)
 {
 	if (doorCenterInMapFrame_.first != std::numeric_limits<int>::min())
@@ -755,7 +755,7 @@ void OccupancyGridBuilder::maybeDrawDoorOnColoredOccupancyGridMsg(
 	}
 }
 
-void OccupancyGridBuilder::drawDoorCenterUsedAsEstimationOnColoredOccupancyGrid(
+void OccupancyGridMapWrapper::drawDoorCenterUsedAsEstimationOnColoredOccupancyGrid(
 		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
 		const cv::Vec3b& color)
 {
@@ -781,7 +781,7 @@ void OccupancyGridBuilder::drawDoorCenterUsedAsEstimationOnColoredOccupancyGrid(
 	}
 }
 
-void OccupancyGridBuilder::drawDoorCornersOnColoredOccupancyGrid(
+void OccupancyGridMapWrapper::drawDoorCornersOnColoredOccupancyGrid(
 		colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
 		const cv::Vec3b& color)
 {
@@ -814,7 +814,7 @@ void OccupancyGridBuilder::drawDoorCornersOnColoredOccupancyGrid(
 	coloredOccupancyGridMsg.r[secondIndex] = color[2];
 }
 
-void OccupancyGridBuilder::publishLastDilatedSemantic(const ros::Time& stamp, const std::string& frame_id)
+void OccupancyGridMapWrapper::publishLastDilatedSemantic(const ros::Time& stamp, const std::string& frame_id)
 {
 	const cv::Mat& lastDilatedSemantic = occupancyGridMap_.lastDilatedSemantic();
 	if (lastDilatedSemantic.empty())
@@ -830,7 +830,7 @@ void OccupancyGridBuilder::publishLastDilatedSemantic(const ros::Time& stamp, co
 	dilatedSemanticPub_.publish(lastDilatedSemanticMsg);
 }
 
-void OccupancyGridBuilder::tryToPublishDoorCorners(const ros::Time& stamp)
+void OccupancyGridMapWrapper::tryToPublishDoorCorners(const ros::Time& stamp)
 {
 	if (doorCenterInMapFrame_.first == std::numeric_limits<int>::min())
 	{
@@ -857,7 +857,7 @@ void OccupancyGridBuilder::tryToPublishDoorCorners(const ros::Time& stamp)
 	doorCornersPub_.publish(doorCornersMsg);
 }
 
-void OccupancyGridBuilder::startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation)
+void OccupancyGridMapWrapper::startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation)
 {
 	UScopeMutex lock(mutex_);
 	doorCenterInMapFrame_.first = std::lround(doorCenterEstimation->y / occupancyGridMap_.cellSize());
@@ -866,7 +866,7 @@ void OccupancyGridBuilder::startDoorTracking(const geometry_msgs::PointConstPtr&
 	doorCenterUsedAsEstimationInMapFrame_ = doorCenterInMapFrame_;
 }
 
-void OccupancyGridBuilder::trackDoor()
+void OccupancyGridMapWrapper::trackDoor()
 {
 	UASSERT(doorCenterInMapFrame_.first != std::numeric_limits<int>::min());
 	float originX, originY;
@@ -911,7 +911,7 @@ void OccupancyGridBuilder::trackDoor()
 	}
 }
 
-void OccupancyGridBuilder::stopDoorTracking(const std_msgs::EmptyConstPtr& empty)
+void OccupancyGridMapWrapper::stopDoorTracking(const std_msgs::EmptyConstPtr& empty)
 {
 	UScopeMutex lock(mutex_);
 	doorCenterInMapFrame_.first = std::numeric_limits<int>::min();

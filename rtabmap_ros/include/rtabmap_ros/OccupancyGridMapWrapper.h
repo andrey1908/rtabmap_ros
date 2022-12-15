@@ -33,10 +33,10 @@
 
 namespace rtabmap_ros {
 
-class OccupancyGridBuilder {
+class OccupancyGridMapWrapper {
 public:
-	OccupancyGridBuilder(int argc, char** argv);
-	~OccupancyGridBuilder();
+	OccupancyGridMapWrapper(int argc, char** argv);
+	~OccupancyGridMapWrapper();
 
 private:
 	rtabmap::ParametersMap readRtabmapParameters(int argc, char** argv, const ros::NodeHandle& pnh);
