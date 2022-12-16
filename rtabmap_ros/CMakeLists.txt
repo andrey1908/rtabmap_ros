@@ -220,8 +220,8 @@ add_library(rtabmap_sync
 # add_library(rtabmap_plugins
 #    ${rtabmap_plugins_lib_src}
 # )
-add_library(occupancy_grid_builder_core
-   src/OccupancyGridBuilderWrapper.cpp
+add_library(occupancy_grid_map_wrapper
+   src/OccupancyGridMapWrapper.cpp
 )
 
 
@@ -234,7 +234,7 @@ target_link_libraries(rtabmap_sync
 # target_link_libraries(rtabmap_plugins
 #    rtabmap_ros
 # )
-target_link_libraries(occupancy_grid_builder_core
+target_link_libraries(occupancy_grid_map_wrapper
    rtabmap_ros rtabmap_sync
 )
 
@@ -244,8 +244,8 @@ add_dependencies(rtabmap_ros ${${PROJECT_NAME}_EXPORTED_TARGETS})
 # add_executable(rtabmap src/CoreNode.cpp)
 # target_link_libraries(rtabmap ${Libraries})
 
-add_executable(occupancy_grid_builder src/OccupancyGridBuilderNode.cpp)
-target_link_libraries(occupancy_grid_builder occupancy_grid_builder_core)
+add_executable(occupancy_grid_map src/OccupancyGridMapNode.cpp)
+target_link_libraries(occupancy_grid_map occupancy_grid_map_wrapper)
 
 # add_executable(rtabmap_rgbd_odometry src/RGBDOdometryNode.cpp)
 # target_link_libraries(rtabmap_rgbd_odometry ${Libraries})
@@ -490,25 +490,8 @@ catkin_install_python(PROGRAMS
 install(TARGETS 
    rtabmap_sync
    rtabmap_ros
-   occupancy_grid_builder_core
-   occupancy_grid_builder
-   # rtabmap_plugins
-   # rtabmap
-   # rtabmap_rgbd_odometry
-   # rtabmap_icp_odometry
-   # rtabmap_rgbdicp_odometry
-   # rtabmap_stereo_odometry
-   # rtabmap_map_assembler
-   # rtabmap_map_optimizer
-   # rtabmap_data_player
-   # rtabmap_odom_msg_to_tf
-   # rtabmap_pointcloud_to_depthimage
-   # rtabmap_point_cloud_assembler
-   # rtabmap_camera
-   # rtabmap_rgbd_sync
-   # rtabmap_rgbdx_sync
-   # rtabmap_rgbd_relay
-   # rtabmap_wifi_signal_sub
+   occupancy_grid_map_wrapper
+   occupancy_grid_map
    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

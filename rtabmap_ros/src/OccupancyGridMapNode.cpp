@@ -1,9 +1,9 @@
-#include "rtabmap_ros/OccupancyGridBuilderWrapper.h"
+#include "rtabmap_ros/OccupancyGridMapWrapper.h"
 
 
 int main(int argc, char** argv)
 {
-	ros::init(argc, argv, "occupancy_grid_builder");
+	ros::init(argc, argv, "occupancy_grid_map");
 
 	ULogger::setType(ULogger::kTypeConsole);
 	ULogger::setLevel(ULogger::kWarning);
@@ -41,7 +41,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	rtabmap_ros::OccupancyGridBuilder occupancy_grid_builder(argc, argv);
+	rtabmap_ros::OccupancyGridMapWrapper occupancyGridMapWrapper(argc, argv);
 	ros::spin();
 	return 0;
 }
