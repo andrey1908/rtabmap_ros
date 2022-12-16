@@ -860,12 +860,12 @@ void OccupancyGridMapWrapper::trackDoor()
 	float originX, originY;
 	rtabmap::OccupancyGridMap::OccupancyGrid occupancyGrid =
 		occupancyGridMap_.getOccupancyGrid();
-	originX = occupancyGrid.limits.minX;
-	originY = occupancyGrid.limits.minY;
+	float cellSize = occupancyGridMap_.cellSize();
+	originX = occupancyGrid.limits.minX * cellSize;
+	originY = occupancyGrid.limits.minY * cellSize;
 	int width = occupancyGrid.grid.cols();
 	int height = occupancyGrid.grid.rows();
 	cv::Mat image(height, width, CV_8U, occupancyGrid.grid.data());
-	float cellSize = occupancyGridMap_.cellSize();
 	rtabmap::DoorTracking::Cell doorCenterEstimation;
 	doorCenterEstimation.first = doorCenterInMapFrame_.first - std::lround(originY / cellSize);
 	doorCenterEstimation.second = doorCenterInMapFrame_.second - std::lround(originX / cellSize);
