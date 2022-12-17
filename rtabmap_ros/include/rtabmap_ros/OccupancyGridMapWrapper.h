@@ -151,8 +151,9 @@ private:
 	bool drawDoorCenterEstimation_;
 	bool drawDoorCorners_;
 
+	static constexpr int latestMapVersion = 3;
+	static constexpr int mapVersionWithPointsOrderGEO = 2;
 	static constexpr int mapVersionWithoutSensorBlindRange = 1;
-	static constexpr int latestMapVersion = 2;
 };
 
 }

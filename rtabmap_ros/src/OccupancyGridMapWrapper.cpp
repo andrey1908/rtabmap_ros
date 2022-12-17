@@ -257,9 +257,8 @@ void OccupancyGridMapWrapper::save()
 			transformedLocalMap = entry.second.transformedLocalMap;
 		auto timeIt = times_.find(nodeId);
 		const auto& localMap = entry.second.localMap;
-		int numGround = 0;
-		int numEmpty = localMap.numEmpty;
 		int numObstacles = localMap.numObstacles;
+		int numEmpty = localMap.numEmpty;
 		const Eigen::Matrix3Xf& points = localMap.points;
 		const std::vector<rtabmap::OccupancyGridMap::Color>& colors = localMap.colors;
 		float sensorBlindRange2dSqr = localMap.sensorBlindRange2dSqr;
@@ -281,9 +280,8 @@ void OccupancyGridMapWrapper::save()
 		}
 		fs.write((const char*)(&timeIt->second.sec), sizeof(timeIt->second.sec));
 		fs.write((const char*)(&timeIt->second.nsec), sizeof(timeIt->second.nsec));
-		fs.write((const char*)(&numGround), sizeof(numGround));
-		fs.write((const char*)(&numEmpty), sizeof(numEmpty));
 		fs.write((const char*)(&numObstacles), sizeof(numObstacles));
+		fs.write((const char*)(&numEmpty), sizeof(numEmpty));
 		fs.write((const char*)(points.data()), points.size() * sizeof(points(0, 0)));
 		fs.write((const char*)(colors.data()), colors.size() * sizeof(colors[0]));
 		fs.write((const char*)(&sensorBlindRange2dSqr), sizeof(sensorBlindRange2dSqr));
@@ -301,7 +299,9 @@ void OccupancyGridMapWrapper::load()
 	UASSERT(fs.peek() != EOF);
 	int version;
 	fs.read((char*)(&version), sizeof(version));
-	UASSERT(version == latestMapVersion || version == mapVersionWithoutSensorBlindRange);
+	UASSERT(version == latestMapVersion ||
+			version == mapVersionWithPointsOrderGEO ||
+			version == mapVersionWithoutSensorBlindRange);
 
 	UASSERT(fs.peek() != EOF);
 	float cellSize;
@@ -314,9 +314,8 @@ void OccupancyGridMapWrapper::load()
 		int nodeId;
 		Eigen::Matrix4f eigenPose;
 		ros::Time time;
-		int numGround;
-		int numEmpty;
 		int numObstacles;
+		int numEmpty;
 		Eigen::Matrix3Xf points;
 		std::vector<rtabmap::OccupancyGridMap::Color> colors;
 		float sensorBlindRange2dSqr;
@@ -326,19 +325,45 @@ void OccupancyGridMapWrapper::load()
 		fs.read((char*)(eigenPose.data()), eigenPose.size() * sizeof(eigenPose(0, 0)));
 		fs.read((char*)(&time.sec), sizeof(time.sec));
 		fs.read((char*)(&time.nsec), sizeof(time.nsec));
-		fs.read((char*)(&numGround), sizeof(numGround));
-		fs.read((char*)(&numEmpty), sizeof(numEmpty));
-		fs.read((char*)(&numObstacles), sizeof(numObstacles));
-		points.resize(3, numGround + numEmpty + numObstacles);
+		if (version > mapVersionWithPointsOrderGEO)
+		{
+			fs.read((char*)(&numObstacles), sizeof(numObstacles));
+			fs.read((char*)(&numEmpty), sizeof(numEmpty));
+		}
+		else
+		{
+			int numGround;
+			fs.read((char*)(&numGround), sizeof(numGround));
+			fs.read((char*)(&numEmpty), sizeof(numEmpty));
+			fs.read((char*)(&numObstacles), sizeof(numObstacles));
+			numEmpty += numGround;
+		}
+		points.resize(3, numObstacles + numEmpty);
 		fs.read((char*)(points.data()), points.size() * sizeof(points(0, 0)));
-		colors.resize(numGround + numEmpty + numObstacles);
+		colors.resize(numObstacles + numEmpty);
 		fs.read((char*)(colors.data()), colors.size() * sizeof(colors[0]));
-		if (version == latestMapVersion)
+		if (version <= mapVersionWithPointsOrderGEO)
+		{
+			Eigen::Matrix3Xf pointsTmp = std::move(points);
+			points.resize(3, numObstacles + numEmpty);
+			points.block(0, 0, 3, numObstacles) =
+				pointsTmp.block(0, numEmpty, 3, numObstacles);
+			points.block(0, numObstacles, 3, numEmpty) =
+				pointsTmp.block(0, 0, 3, numEmpty);
+			std::vector<rtabmap::OccupancyGridMap::Color> colorsTmp =
+				std::move(colors);
+			colors.reserve(numObstacles + numEmpty);
+			std::copy(colorsTmp.begin() + numEmpty, colorsTmp.end(),
+				std::back_inserter(colors));
+			std::copy(colorsTmp.begin(), colorsTmp.begin() + numEmpty,
+				std::back_inserter(colors));
+		}
+		if (version > mapVersionWithoutSensorBlindRange)
 		{
 			fs.read((char*)(&sensorBlindRange2dSqr), sizeof(sensorBlindRange2dSqr));
 			fs.read((char*)(eigenToSensor.data()), eigenToSensor.size() * sizeof(eigenToSensor(0, 0)));
 		}
-		else if (version == mapVersionWithoutSensorBlindRange)
+		else
 		{
 			sensorBlindRange2dSqr = 0.0f;
 		}
@@ -350,8 +375,8 @@ void OccupancyGridMapWrapper::load()
 		times_[nodeId] = time;
 
 		rtabmap::OccupancyGridMap::LocalMap localMap;
-		localMap.numEmpty = numEmpty;
 		localMap.numObstacles = numObstacles;
+		localMap.numEmpty = numEmpty;
 		localMap.points = std::move(points);
 		localMap.colors = std::move(colors);
 		localMap.sensorBlindRange2dSqr = sensorBlindRange2dSqr;
