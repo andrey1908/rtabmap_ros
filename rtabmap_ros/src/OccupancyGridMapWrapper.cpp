@@ -250,19 +250,21 @@ void OccupancyGridMapWrapper::save()
 	fs.write((const char*)(&cellSize), sizeof(cellSize));
 
 	const auto& nodes = occupancyGridMap_.nodes();
+	const auto& localMapsWithoutObstacleDilation =
+		occupancyGridMap_.localMapsWithoutObstacleDilation();
 	for (const auto& entry : nodes)
 	{
 		int nodeId = entry.first;
 		const std::optional<rtabmap::OccupancyGridMap::TransformedLocalMap>&
 			transformedLocalMap = entry.second.transformedLocalMap;
 		auto timeIt = times_.find(nodeId);
-		const auto& localMap = entry.second.localMap;
-		int numObstacles = localMap.numObstacles;
-		int numEmpty = localMap.numEmpty;
-		const Eigen::Matrix3Xf& points = localMap.points;
-		const std::vector<rtabmap::OccupancyGridMap::Color>& colors = localMap.colors;
-		float sensorBlindRange2dSqr = localMap.sensorBlindRange2dSqr;
-		const rtabmap::Transform& toSensor = localMap.toSensor;
+		const auto& localMap = localMapsWithoutObstacleDilation.at(nodeId);
+		int numObstacles = localMap->numObstacles;
+		int numEmpty = localMap->numEmpty;
+		const Eigen::Matrix3Xf& points = localMap->points;
+		const std::vector<rtabmap::OccupancyGridMap::Color>& colors = localMap->colors;
+		float sensorBlindRange2dSqr = localMap->sensorBlindRange2dSqr;
+		const rtabmap::Transform& toSensor = localMap->toSensor;
 		const Eigen::Matrix4f& eigenToSensor = toSensor.toEigen4f();
 		UASSERT(timeIt != times_.end());
 
@@ -374,22 +376,23 @@ void OccupancyGridMapWrapper::load()
 		}
 		times_[nodeId] = time;
 
-		rtabmap::OccupancyGridMap::LocalMap localMap;
-		localMap.numObstacles = numObstacles;
-		localMap.numEmpty = numEmpty;
-		localMap.points = std::move(points);
-		localMap.colors = std::move(colors);
-		localMap.sensorBlindRange2dSqr = sensorBlindRange2dSqr;
-		localMap.toSensor = rtabmap::Transform::fromEigen4f(eigenToSensor);
+		std::shared_ptr<rtabmap::OccupancyGridMap::LocalMap> localMap =
+			std::make_shared<rtabmap::OccupancyGridMap::LocalMap>();
+		localMap->numObstacles = numObstacles;
+		localMap->numEmpty = numEmpty;
+		localMap->points = std::move(points);
+		localMap->colors = std::move(colors);
+		localMap->sensorBlindRange2dSqr = sensorBlindRange2dSqr;
+		localMap->toSensor = rtabmap::Transform::fromEigen4f(eigenToSensor);
 
 		if (eigenPose != Eigen::Matrix4f::Zero())
 		{
 			rtabmap::Transform pose = rtabmap::Transform::fromEigen4f(eigenPose);
-			occupancyGridMap_.addLocalMap(nodeId, std::move(localMap), pose);
+			occupancyGridMap_.addLocalMap(nodeId, localMap, pose);
 		}
 		else
 		{
-			occupancyGridMap_.addLocalMap(nodeId, std::move(localMap));
+			occupancyGridMap_.addLocalMap(nodeId, localMap);
 		}
 	}
 	nodeId_ = maxNodeId + 1;
@@ -665,10 +668,11 @@ rtabmap::Signature OccupancyGridMapWrapper::createSignature(
 void OccupancyGridMapWrapper::addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
 		const rtabmap::Transform& odometryPose, bool temporary /* false */)
 {
-	rtabmap::OccupancyGridMap::LocalMap localMap = occupancyGridMap_.createLocalMap(signature);
+	std::shared_ptr<const rtabmap::OccupancyGridMap::LocalMap> localMap =
+		occupancyGridMap_.createLocalMap(signature);
 	if (temporary)
 	{
-		occupancyGridMap_.addTemporaryLocalMap(std::move(localMap), signature.getPose());
+		occupancyGridMap_.addTemporaryLocalMap(localMap, signature.getPose());
 		temporaryTimesPoses_.emplace_back(ros::Time(signature.getSec(), signature.getNSec()),
 			odometryPose);
 		if (temporaryTimesPoses_.size() > occupancyGridMap_.maxTemporaryLocalMaps())
@@ -678,7 +682,7 @@ void OccupancyGridMapWrapper::addSignatureToOccupancyGrid(const rtabmap::Signatu
 	}
 	else
 	{
-		occupancyGridMap_.addLocalMap(nodeId_, std::move(localMap), signature.getPose());
+		occupancyGridMap_.addLocalMap(nodeId_, localMap, signature.getPose());
 		times_[nodeId_] = ros::Time(signature.getSec(), signature.getNSec());
 		posesAfterLastUpdate_[nodeId_] = odometryPose;
 		nodeId_++;
