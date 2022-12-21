@@ -402,8 +402,8 @@ void OccupancyGridMapWrapper::load()
 void OccupancyGridMapWrapper::updatePoses(
 		const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults)
 {
-	MEASURE_BLOCK_TIME(updatePoses);
 	UScopeMutex lock(mutex_);
+	MEASURE_BLOCK_TIME(updatePoses);
 	lastOptimizedPoseTime_ = ros::Time();
 	optimizedPosesTimes_.clear();
 	trajectoryBuffers_.clear();
@@ -641,7 +641,6 @@ rtabmap::Signature OccupancyGridMapWrapper::createSignature(
 	rtabmap::LaserScan scan;
 	if (scan3dMsg.data.size())
 	{
-		MEASURE_BLOCK_TIME(convertScan3dMsg);
 		bool convertionOk = convertScan3dMsg(scan3dMsg, baseLinkFrame_, "", ros::Time(0), scan, tfListener_, 0.0);
 		UASSERT(convertionOk);
 	}
@@ -650,7 +649,6 @@ rtabmap::Signature OccupancyGridMapWrapper::createSignature(
 	std::vector<rtabmap::CameraModel> cameraModels;
 	if (imageMsgs.size())
 	{
-		MEASURE_BLOCK_TIME(convertRGBMsgs);
 		bool convertionOk = convertRGBMsgs(imageMsgs, cameraInfoMsgs, baseLinkFrame_, "", ros::Time(0),
 			rgbs, cameraModels, tfListener_, 0.0);
 		UASSERT(convertionOk);
@@ -691,6 +689,7 @@ void OccupancyGridMapWrapper::addSignatureToOccupancyGrid(const rtabmap::Signatu
 
 void OccupancyGridMapWrapper::publishOccupancyGridMaps(const ros::Time& stamp)
 {
+	MEASURE_BLOCK_TIME(publishOccupancyGridMaps);
 	nav_msgs::OccupancyGrid occupancyGridMsg = getOccupancyGridMsg(stamp);
 	occupancyGridPub_.publish(occupancyGridMsg);
 
