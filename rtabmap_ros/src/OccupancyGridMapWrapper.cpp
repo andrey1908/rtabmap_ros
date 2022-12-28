@@ -196,8 +196,8 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv) :
 
 	occupancyGridPub_ = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);
 	coloredOccupancyGridPub_ = nh.advertise<colored_occupancy_grid_msgs::ColoredOccupancyGrid>("colored_grid_map", 1);
-	dilatedSemanticPub_ = nh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
-	doorCornersPub_ = nh.advertise<rtabmap_ros_msgs::DoorCorners>("door_corners", 1);
+	dilatedSemanticPub_ = pnh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
+	doorCornersPub_ = pnh.advertise<rtabmap_ros_msgs::DoorCorners>("door_corners", 1);
 	if (!loadMapPath_.empty())
 	{
 		load();
@@ -225,8 +225,8 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv) :
 		temporaryCommonDataSubscriber_.setupCallback(nh, "temporary_subscribe");
 	}
 	optimizationResultsSub_ = nh.subscribe("optimization_results", 1, &OccupancyGridMapWrapper::updatePoses, this);
-	doorCenterEstimationSub_ = nh.subscribe("start_door_tracking", 1, &OccupancyGridMapWrapper::startDoorTracking, this);
-	stopDoorTrackingSub_ = nh.subscribe("stop_door_tracking", 1, &OccupancyGridMapWrapper::stopDoorTracking, this);
+	doorCenterEstimationSub_ = pnh.subscribe("start_door_tracking", 1, &OccupancyGridMapWrapper::startDoorTracking, this);
+	stopDoorTrackingSub_ = pnh.subscribe("stop_door_tracking", 1, &OccupancyGridMapWrapper::stopDoorTracking, this);
 }
 
 OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
