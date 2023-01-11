@@ -707,8 +707,8 @@ nav_msgs::OccupancyGrid OccupancyGridMapWrapper::getOccupancyGridMsg(const ros::
 	float xMin, yMin;
 	rtabmap::OccupancyGridMap::OccupancyGrid occupancyGrid =
 		occupancyGridMap_.getOccupancyGrid();
-	xMin = occupancyGrid.limits.minX * occupancyGridMap_.cellSize();
-	yMin = occupancyGrid.limits.minY * occupancyGridMap_.cellSize();
+	xMin = occupancyGrid.limits.minX() * occupancyGridMap_.cellSize();
+	yMin = occupancyGrid.limits.minY() * occupancyGridMap_.cellSize();
 	UASSERT(occupancyGrid.grid.size());
 
 	nav_msgs::OccupancyGrid occupancyGridMsg;
@@ -889,8 +889,8 @@ void OccupancyGridMapWrapper::trackDoor()
 	rtabmap::OccupancyGridMap::OccupancyGrid occupancyGrid =
 		occupancyGridMap_.getOccupancyGrid();
 	float cellSize = occupancyGridMap_.cellSize();
-	originX = occupancyGrid.limits.minX * cellSize;
-	originY = occupancyGrid.limits.minY * cellSize;
+	originX = occupancyGrid.limits.minX() * cellSize;
+	originY = occupancyGrid.limits.minY() * cellSize;
 	int width = occupancyGrid.grid.cols();
 	int height = occupancyGrid.grid.rows();
 	cv::Mat image(height, width, CV_8U, occupancyGrid.grid.data());
