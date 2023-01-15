@@ -177,22 +177,22 @@ private:
         {
             memcpy(dm_index, sm_index, region_size_x * sizeof(data_type));
             for (unsigned int j = 0; j < region_size_x; j++) {
-            	// known marked: 11 = 2 bits, unknown: 01 = 1 bit, known free: 00 = 0 bits
-				if (z_shift > 0) {
-					dm_index[j] =
-							// Shift marked cells, insert zeros for new unknowns
-							((dm_index[j] & marked_bits_mask) >> z_shift & marked_bits_mask) |
-							// Shift empty/unknown cells, insert ones for new unknowns
-						    (((dm_index[j] & unknown_bits_mask) >> z_shift | (~((data_type) 0) << sizeof(data_type) * 4 - z_shift)) & unknown_bits_mask);
+                // known marked: 11 = 2 bits, unknown: 01 = 1 bit, known free: 00 = 0 bits
+                if (z_shift > 0) {
+                    dm_index[j] =
+                            // Shift marked cells, insert zeros for new unknowns
+                            ((dm_index[j] & marked_bits_mask) >> z_shift & marked_bits_mask) |
+                            // Shift empty/unknown cells, insert ones for new unknowns
+                            (((dm_index[j] & unknown_bits_mask) >> z_shift | (~((data_type) 0) << sizeof(data_type) * 4 - z_shift)) & unknown_bits_mask);
 
-				} else if (z_shift < 0) {
-					dm_index[j] =
-							// Shift marked cells, insert zeros for new unknowns
-							(dm_index[j] & marked_bits_mask) << z_shift * -1 |
-							// Shift empty/unknown cells, insert ones for new unknowns
-						    ((dm_index[j] << z_shift * -1 & unknown_bits_mask) | ~(~((data_type) 0) << z_shift * -1));
-				}
-			}
+                } else if (z_shift < 0) {
+                    dm_index[j] =
+                            // Shift marked cells, insert zeros for new unknowns
+                            (dm_index[j] & marked_bits_mask) << z_shift * -1 |
+                            // Shift empty/unknown cells, insert ones for new unknowns
+                            ((dm_index[j] << z_shift * -1 & unknown_bits_mask) | ~(~((data_type) 0) << z_shift * -1));
+                }
+            }
 
             dm_index += dm_size_x;
             sm_index += sm_size_x;

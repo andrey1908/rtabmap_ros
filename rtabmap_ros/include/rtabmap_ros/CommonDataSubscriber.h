@@ -57,185 +57,185 @@ namespace rtabmap_ros {
 
 class CommonDataSubscriber {
 public:
-	using CommonOdomCallback = std::function<void(
-		const nav_msgs::OdometryConstPtr & odomMsg)>;
-	using CommonLaserScanCallback = std::function<void(
-		const nav_msgs::OdometryConstPtr & odomMsg,
-		const sensor_msgs::LaserScan& scanMsg,
-		const sensor_msgs::PointCloud2& scan3dMsg)>;
-	using CommonRGBCallback = std::function<void(
-		const nav_msgs::OdometryConstPtr & odomMsg,
-		const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
-		const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
-		const sensor_msgs::LaserScan& scanMsg,
-		const sensor_msgs::PointCloud2& scan3dMsg)>;
-	using CommonDepthCallback = std::function<void(
-		const nav_msgs::OdometryConstPtr & odomMsg,
-		const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
-		const std::vector<cv_bridge::CvImageConstPtr> & depthMsgs,
-		const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
-		const std::vector<sensor_msgs::CameraInfo> & depthCamInfoMsgs,
-		const sensor_msgs::LaserScan& scanMsg,
-		const sensor_msgs::PointCloud2& scan3dMsg)>;
-	using CommonStereoCallback = std::function<void(
-		const nav_msgs::OdometryConstPtr & odomMsg,
-		const cv_bridge::CvImageConstPtr& leftImageMsg,
-		const cv_bridge::CvImageConstPtr& rightImageMsg,
-		const sensor_msgs::CameraInfo& leftCamInfoMsg,
-		const sensor_msgs::CameraInfo& rightCamInfoMsg,
-		const sensor_msgs::LaserScan& scanMsg,
-		const sensor_msgs::PointCloud2& scan3dMsg)>;
+    using CommonOdomCallback = std::function<void(
+        const nav_msgs::OdometryConstPtr & odomMsg)>;
+    using CommonLaserScanCallback = std::function<void(
+        const nav_msgs::OdometryConstPtr & odomMsg,
+        const sensor_msgs::LaserScan& scanMsg,
+        const sensor_msgs::PointCloud2& scan3dMsg)>;
+    using CommonRGBCallback = std::function<void(
+        const nav_msgs::OdometryConstPtr & odomMsg,
+        const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
+        const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
+        const sensor_msgs::LaserScan& scanMsg,
+        const sensor_msgs::PointCloud2& scan3dMsg)>;
+    using CommonDepthCallback = std::function<void(
+        const nav_msgs::OdometryConstPtr & odomMsg,
+        const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
+        const std::vector<cv_bridge::CvImageConstPtr> & depthMsgs,
+        const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
+        const std::vector<sensor_msgs::CameraInfo> & depthCamInfoMsgs,
+        const sensor_msgs::LaserScan& scanMsg,
+        const sensor_msgs::PointCloud2& scan3dMsg)>;
+    using CommonStereoCallback = std::function<void(
+        const nav_msgs::OdometryConstPtr & odomMsg,
+        const cv_bridge::CvImageConstPtr& leftImageMsg,
+        const cv_bridge::CvImageConstPtr& rightImageMsg,
+        const sensor_msgs::CameraInfo& leftCamInfoMsg,
+        const sensor_msgs::CameraInfo& rightCamInfoMsg,
+        const sensor_msgs::LaserScan& scanMsg,
+        const sensor_msgs::PointCloud2& scan3dMsg)>;
 
 public:
-	CommonDataSubscriber();
-	virtual ~CommonDataSubscriber();
+    CommonDataSubscriber();
+    virtual ~CommonDataSubscriber();
 
-	bool isSubscribedToOdom() const  {return subscribedToOdom_;}
-	bool isSubscribedToScan2d() const {return subscribedToScan2d_;}
-	bool isSubscribedToScan3d() const {return subscribedToScan3d_;}
-	bool isSubscribedToRGB() const  {return subscribedToRGB_;}
-	bool isSubscribedToDepth() const  {return subscribedToDepth_;}
-	bool isSubscribedToStereo() const {return subscribedToStereo_;}
-	bool isDataSubscribed() const {return isSubscribedToDepth() || isSubscribedToStereo() || isSubscribedToScan2d() || isSubscribedToScan3d() || isSubscribedToRGB() || isSubscribedToOdom();}
-	int getQueueSize() const {return queueSize_;}
-	bool isApproxSync() const {return approxSync_;}
-	const std::string & name() const {return name_;}
+    bool isSubscribedToOdom() const  {return subscribedToOdom_;}
+    bool isSubscribedToScan2d() const {return subscribedToScan2d_;}
+    bool isSubscribedToScan3d() const {return subscribedToScan3d_;}
+    bool isSubscribedToRGB() const  {return subscribedToRGB_;}
+    bool isSubscribedToDepth() const  {return subscribedToDepth_;}
+    bool isSubscribedToStereo() const {return subscribedToStereo_;}
+    bool isDataSubscribed() const {return isSubscribedToDepth() || isSubscribedToStereo() || isSubscribedToScan2d() || isSubscribedToScan3d() || isSubscribedToRGB() || isSubscribedToOdom();}
+    int getQueueSize() const {return queueSize_;}
+    bool isApproxSync() const {return approxSync_;}
+    const std::string & name() const {return name_;}
 
-	void setCommonOdomCallback(CommonOdomCallback commonOdomCallback);
-	void setCommonLaserScanCallback(CommonLaserScanCallback commonLaserScanCallback);
-	void setCommonRGBCallback(CommonRGBCallback commonRGBCallback);
-	void setCommonDepthCallback(CommonDepthCallback commonDepthCallback);
-	void setCommonStereoCallback(CommonStereoCallback commonStereoCallback);
+    void setCommonOdomCallback(CommonOdomCallback commonOdomCallback);
+    void setCommonLaserScanCallback(CommonLaserScanCallback commonLaserScanCallback);
+    void setCommonRGBCallback(CommonRGBCallback commonRGBCallback);
+    void setCommonDepthCallback(CommonDepthCallback commonDepthCallback);
+    void setCommonStereoCallback(CommonStereoCallback commonStereoCallback);
 
-	void setupCallback(
-			ros::NodeHandle & nh,
-			const std::string & name);
-
-private:
-	void warningLoop();
-	void callbackCalled() {callbackCalled_ = true;}
-	void setupOdomCallback(
-		ros::NodeHandle & nh,
-		ros::NodeHandle & pnh,
-		int queueSize,
-		bool approxSync);
-	void setupScanCallback(
-		ros::NodeHandle & nh,
-		ros::NodeHandle & pnh,
-		bool subscribeOdom,
-		bool scan2dTopic,
-		int queueSize,
-		bool approxSync);
-	void setupRGBCallback(
-		ros::NodeHandle & nh,
-		ros::NodeHandle & pnh,
-		bool subscribeOdom,
-		bool subscribeScan2d,
-		bool subscribeScan3d,
-		int queueSize,
-		bool approxSync);
-	void setupRGB2Callback(
-		ros::NodeHandle & nh,
-		ros::NodeHandle & pnh,
-		bool subscribeOdom,
-		bool subscribeScan2d,
-		bool subscribeScan3d,
-		int queueSize,
-		bool approxSync);
-	void setupDepthCallback(
-		ros::NodeHandle & nh,
-		ros::NodeHandle & pnh,
-		bool subscribeOdom,
-		bool subscribeScan2d,
-		bool subscribeScan3d,
-		int queueSize,
-		bool approxSync);
-	void setupStereoCallback(
-		ros::NodeHandle & nh,
-		ros::NodeHandle & pnh,
-		bool subscribeOdom,
-		int queueSize,
-		bool approxSync);
+    void setupCallback(
+            ros::NodeHandle & nh,
+            const std::string & name);
 
 private:
-	CommonOdomCallback commonOdomCallback_;
-	CommonLaserScanCallback commonLaserScanCallback_;
-	CommonRGBCallback commonRGBCallback_;
-	CommonDepthCallback commonDepthCallback_;
-	CommonStereoCallback commonStereoCallback_;
+    void warningLoop();
+    void callbackCalled() {callbackCalled_ = true;}
+    void setupOdomCallback(
+        ros::NodeHandle & nh,
+        ros::NodeHandle & pnh,
+        int queueSize,
+        bool approxSync);
+    void setupScanCallback(
+        ros::NodeHandle & nh,
+        ros::NodeHandle & pnh,
+        bool subscribeOdom,
+        bool scan2dTopic,
+        int queueSize,
+        bool approxSync);
+    void setupRGBCallback(
+        ros::NodeHandle & nh,
+        ros::NodeHandle & pnh,
+        bool subscribeOdom,
+        bool subscribeScan2d,
+        bool subscribeScan3d,
+        int queueSize,
+        bool approxSync);
+    void setupRGB2Callback(
+        ros::NodeHandle & nh,
+        ros::NodeHandle & pnh,
+        bool subscribeOdom,
+        bool subscribeScan2d,
+        bool subscribeScan3d,
+        int queueSize,
+        bool approxSync);
+    void setupDepthCallback(
+        ros::NodeHandle & nh,
+        ros::NodeHandle & pnh,
+        bool subscribeOdom,
+        bool subscribeScan2d,
+        bool subscribeScan3d,
+        int queueSize,
+        bool approxSync);
+    void setupStereoCallback(
+        ros::NodeHandle & nh,
+        ros::NodeHandle & pnh,
+        bool subscribeOdom,
+        int queueSize,
+        bool approxSync);
 
-	std::string subscribedTopicsMsg_;
-	int queueSize_;
-	bool approxSync_;
-	boost::thread* warningThread_;
-	bool callbackSetup_;
-	bool callbackCalled_;
-	bool subscribedToOdom_;
-	bool subscribedToScan2d_;
-	bool subscribedToScan3d_;
-	bool subscribedToRGB_;
-	int rgbCameras_;
-	bool subscribedToDepth_;
-	bool subscribedToStereo_;
-	std::string name_;
+private:
+    CommonOdomCallback commonOdomCallback_;
+    CommonLaserScanCallback commonLaserScanCallback_;
+    CommonRGBCallback commonRGBCallback_;
+    CommonDepthCallback commonDepthCallback_;
+    CommonStereoCallback commonStereoCallback_;
 
-	ros::Subscriber odomSubOnly_;
+    std::string subscribedTopicsMsg_;
+    int queueSize_;
+    bool approxSync_;
+    boost::thread* warningThread_;
+    bool callbackSetup_;
+    bool callbackCalled_;
+    bool subscribedToOdom_;
+    bool subscribedToScan2d_;
+    bool subscribedToScan3d_;
+    bool subscribedToRGB_;
+    int rgbCameras_;
+    bool subscribedToDepth_;
+    bool subscribedToStereo_;
+    std::string name_;
 
-	ros::Subscriber scan2dSubOnly_;
-	ros::Subscriber scan3dSubOnly_;
-	message_filters::Subscriber<nav_msgs::Odometry> odomSub_;
-	message_filters::Subscriber<sensor_msgs::LaserScan> scanSub_;
-	message_filters::Subscriber<sensor_msgs::PointCloud2> scan3dSub_;
+    ros::Subscriber odomSubOnly_;
 
-	// rgb and depth callbacks
-	std::vector<std::unique_ptr<image_transport::SubscriberFilter>> imageSubs_;
-	std::vector<std::unique_ptr<message_filters::Subscriber<sensor_msgs::CameraInfo>>> cameraInfoSubs_;
+    ros::Subscriber scan2dSubOnly_;
+    ros::Subscriber scan3dSubOnly_;
+    message_filters::Subscriber<nav_msgs::Odometry> odomSub_;
+    message_filters::Subscriber<sensor_msgs::LaserScan> scanSub_;
+    message_filters::Subscriber<sensor_msgs::PointCloud2> scan3dSub_;
 
-	std::vector<std::unique_ptr<image_transport::SubscriberFilter>> depthSubs_;
-	std::vector<std::unique_ptr<message_filters::Subscriber<sensor_msgs::CameraInfo>>> depthCamInfoSubs_;
+    // rgb and depth callbacks
+    std::vector<std::unique_ptr<image_transport::SubscriberFilter>> imageSubs_;
+    std::vector<std::unique_ptr<message_filters::Subscriber<sensor_msgs::CameraInfo>>> cameraInfoSubs_;
 
-	// stereo callback
-	image_transport::SubscriberFilter imageRectLeft_;
-	image_transport::SubscriberFilter imageRectRight_;
-	message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoLeft_;
-	message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoRight_;
+    std::vector<std::unique_ptr<image_transport::SubscriberFilter>> depthSubs_;
+    std::vector<std::unique_ptr<message_filters::Subscriber<sensor_msgs::CameraInfo>>> depthCamInfoSubs_;
 
-	// Odom
-	void odomCallback(const nav_msgs::OdometryConstPtr&);
+    // stereo callback
+    image_transport::SubscriberFilter imageRectLeft_;
+    image_transport::SubscriberFilter imageRectRight_;
+    message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoLeft_;
+    message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoRight_;
 
-	// Scan
-	void scan2dCallback(const sensor_msgs::LaserScanConstPtr&);
-	void scan3dCallback(const sensor_msgs::PointCloud2ConstPtr&);
-	DATA_SYNCS2(odomScan2d, nav_msgs::Odometry, sensor_msgs::LaserScan);
-	DATA_SYNCS2(odomScan3d, nav_msgs::Odometry, sensor_msgs::PointCloud2);
+    // Odom
+    void odomCallback(const nav_msgs::OdometryConstPtr&);
 
-	// RGB
-	DATA_SYNCS2(rgb, sensor_msgs::Image, sensor_msgs::CameraInfo);
-	DATA_SYNCS3(rgbScan2d, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
-	DATA_SYNCS3(rgbScan3d, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
-	DATA_SYNCS3(rgbOdom, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::CameraInfo);
-	DATA_SYNCS4(rgbOdomScan2d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
-	DATA_SYNCS4(rgbOdomScan3d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
+    // Scan
+    void scan2dCallback(const sensor_msgs::LaserScanConstPtr&);
+    void scan3dCallback(const sensor_msgs::PointCloud2ConstPtr&);
+    DATA_SYNCS2(odomScan2d, nav_msgs::Odometry, sensor_msgs::LaserScan);
+    DATA_SYNCS2(odomScan3d, nav_msgs::Odometry, sensor_msgs::PointCloud2);
 
-	// RGB2
-	DATA_SYNCS4(rgb2, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
-	DATA_SYNCS5(rgb2Scan2d, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
-	DATA_SYNCS5(rgb2Scan3d, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
-	DATA_SYNCS5(rgb2Odom, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
-	DATA_SYNCS6(rgb2OdomScan2d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
-	DATA_SYNCS6(rgb2OdomScan3d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
+    // RGB
+    DATA_SYNCS2(rgb, sensor_msgs::Image, sensor_msgs::CameraInfo);
+    DATA_SYNCS3(rgbScan2d, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
+    DATA_SYNCS3(rgbScan3d, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
+    DATA_SYNCS3(rgbOdom, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::CameraInfo);
+    DATA_SYNCS4(rgbOdomScan2d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
+    DATA_SYNCS4(rgbOdomScan3d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
 
-	// Depth
-	DATA_SYNCS4(depth, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
-	DATA_SYNCS5(depthScan2d, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
-	DATA_SYNCS5(depthScan3d, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
-	DATA_SYNCS5(depthOdom, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
-	DATA_SYNCS6(depthOdomScan2d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
-	DATA_SYNCS6(depthOdomScan3d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
+    // RGB2
+    DATA_SYNCS4(rgb2, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
+    DATA_SYNCS5(rgb2Scan2d, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
+    DATA_SYNCS5(rgb2Scan3d, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
+    DATA_SYNCS5(rgb2Odom, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
+    DATA_SYNCS6(rgb2OdomScan2d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
+    DATA_SYNCS6(rgb2OdomScan3d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
 
-	// Stereo
-	DATA_SYNCS4(stereo, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
-	DATA_SYNCS5(stereoOdom, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
+    // Depth
+    DATA_SYNCS4(depth, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
+    DATA_SYNCS5(depthScan2d, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
+    DATA_SYNCS5(depthScan3d, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
+    DATA_SYNCS5(depthOdom, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
+    DATA_SYNCS6(depthOdomScan2d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::LaserScan);
+    DATA_SYNCS6(depthOdomScan3d, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
+
+    // Stereo
+    DATA_SYNCS4(stereo, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
+    DATA_SYNCS5(stereoOdom, nav_msgs::Odometry, sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo);
 };
 
 } /* namespace rtabmap_ros */

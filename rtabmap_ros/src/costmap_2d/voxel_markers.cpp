@@ -148,14 +148,14 @@ ros::Publisher pub;
 ros::Subscriber sub;
 void connectCb()
 {
-	ros::NodeHandle n;
-	sub = n.subscribe < costmap_2d::VoxelGrid > ("voxel_grid", 1, boost::bind(voxelCallback, pub, _1));
+    ros::NodeHandle n;
+    sub = n.subscribe < costmap_2d::VoxelGrid > ("voxel_grid", 1, boost::bind(voxelCallback, pub, _1));
 }
 
 void disconnectCb()
 {
-	if(pub.getNumSubscribers()==0)
-		sub.shutdown();
+    if(pub.getNumSubscribers()==0)
+        sub.shutdown();
 }
 
 int main(int argc, char** argv)

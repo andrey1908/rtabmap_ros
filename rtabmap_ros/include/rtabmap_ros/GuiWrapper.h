@@ -46,8 +46,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace rtabmap
 {
-	class MainWindow;
-	class PreferencesDialog;
+    class MainWindow;
+    class PreferencesDialog;
 }
 
 class QApplication;
@@ -57,92 +57,92 @@ namespace rtabmap_ros {
 class GuiWrapper : public UEventsHandler, public CommonDataSubscriber
 {
 public:
-	GuiWrapper(int & argc, char** argv);
-	virtual ~GuiWrapper();
+    GuiWrapper(int & argc, char** argv);
+    virtual ~GuiWrapper();
 
 protected:
-	virtual bool handleEvent(UEvent * anEvent);
+    virtual bool handleEvent(UEvent * anEvent);
 
 private:
-	void infoMapCallback(const rtabmap_ros::InfoConstPtr & infoMsg, const rtabmap_ros::MapDataConstPtr & mapMsg);
-	void goalPathCallback(const rtabmap_ros_msgs::GoalConstPtr & goalMsg, const nav_msgs::PathConstPtr & pathMsg);
-	void goalReachedCallback(const std_msgs::BoolConstPtr & value);
+    void infoMapCallback(const rtabmap_ros::InfoConstPtr & infoMsg, const rtabmap_ros::MapDataConstPtr & mapMsg);
+    void goalPathCallback(const rtabmap_ros_msgs::GoalConstPtr & goalMsg, const nav_msgs::PathConstPtr & pathMsg);
+    void goalReachedCallback(const std_msgs::BoolConstPtr & value);
 
-	virtual void commonDepthCallback(
-			const nav_msgs::OdometryConstPtr & odomMsg,
-			const rtabmap_ros::UserDataConstPtr & userDataMsg,
-			const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
-			const std::vector<cv_bridge::CvImageConstPtr> & depthMsgs,
-			const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
-			const sensor_msgs::LaserScan& scan2dMsg,
-			const sensor_msgs::PointCloud2& scan3dMsg,
-			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
-			const std::vector<rtabmap_ros_msgs::GlobalDescriptor> & globalDescriptorMsgs = std::vector<rtabmap_ros_msgs::GlobalDescriptor>(),
-			const std::vector<std::vector<rtabmap_ros_msgs::KeyPoint> > & localKeyPoints = std::vector<std::vector<rtabmap_ros_msgs::KeyPoint> >(),
-			const std::vector<std::vector<rtabmap_ros_msgs::Point3f> > & localPoints3d = std::vector<std::vector<rtabmap_ros_msgs::Point3f> >(),
-			const std::vector<cv::Mat> & localDescriptors = std::vector<cv::Mat>());
-	virtual void commonStereoCallback(
-			const nav_msgs::OdometryConstPtr & odomMsg,
-			const rtabmap_ros::UserDataConstPtr & userDataMsg,
-			const cv_bridge::CvImageConstPtr& leftImageMsg,
-			const cv_bridge::CvImageConstPtr& rightImageMsg,
-			const sensor_msgs::CameraInfo& leftCamInfoMsg,
-			const sensor_msgs::CameraInfo& rightCamInfoMsg,
-			const sensor_msgs::LaserScan& scan2dMsg,
-			const sensor_msgs::PointCloud2& scan3dMsg,
-			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
-			const std::vector<rtabmap_ros_msgs::GlobalDescriptor> & globalDescriptorMsgs = std::vector<rtabmap_ros_msgs::GlobalDescriptor>(),
-			const std::vector<rtabmap_ros_msgs::KeyPoint> & localKeyPoints = std::vector<rtabmap_ros_msgs::KeyPoint>(),
-			const std::vector<rtabmap_ros_msgs::Point3f> & localPoints3d = std::vector<rtabmap_ros_msgs::Point3f>(),
-			const cv::Mat & localDescriptors = cv::Mat());
-	virtual void commonLaserScanCallback(
-			const nav_msgs::OdometryConstPtr & odomMsg,
-			const rtabmap_ros::UserDataConstPtr & userDataMsg,
-			const sensor_msgs::LaserScan& scan2dMsg,
-			const sensor_msgs::PointCloud2& scan3dMsg,
-			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
-			const rtabmap_ros_msgs::GlobalDescriptor & globalDescriptor = rtabmap_ros_msgs::GlobalDescriptor());
+    virtual void commonDepthCallback(
+            const nav_msgs::OdometryConstPtr & odomMsg,
+            const rtabmap_ros::UserDataConstPtr & userDataMsg,
+            const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
+            const std::vector<cv_bridge::CvImageConstPtr> & depthMsgs,
+            const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
+            const sensor_msgs::LaserScan& scan2dMsg,
+            const sensor_msgs::PointCloud2& scan3dMsg,
+            const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
+            const std::vector<rtabmap_ros_msgs::GlobalDescriptor> & globalDescriptorMsgs = std::vector<rtabmap_ros_msgs::GlobalDescriptor>(),
+            const std::vector<std::vector<rtabmap_ros_msgs::KeyPoint> > & localKeyPoints = std::vector<std::vector<rtabmap_ros_msgs::KeyPoint> >(),
+            const std::vector<std::vector<rtabmap_ros_msgs::Point3f> > & localPoints3d = std::vector<std::vector<rtabmap_ros_msgs::Point3f> >(),
+            const std::vector<cv::Mat> & localDescriptors = std::vector<cv::Mat>());
+    virtual void commonStereoCallback(
+            const nav_msgs::OdometryConstPtr & odomMsg,
+            const rtabmap_ros::UserDataConstPtr & userDataMsg,
+            const cv_bridge::CvImageConstPtr& leftImageMsg,
+            const cv_bridge::CvImageConstPtr& rightImageMsg,
+            const sensor_msgs::CameraInfo& leftCamInfoMsg,
+            const sensor_msgs::CameraInfo& rightCamInfoMsg,
+            const sensor_msgs::LaserScan& scan2dMsg,
+            const sensor_msgs::PointCloud2& scan3dMsg,
+            const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
+            const std::vector<rtabmap_ros_msgs::GlobalDescriptor> & globalDescriptorMsgs = std::vector<rtabmap_ros_msgs::GlobalDescriptor>(),
+            const std::vector<rtabmap_ros_msgs::KeyPoint> & localKeyPoints = std::vector<rtabmap_ros_msgs::KeyPoint>(),
+            const std::vector<rtabmap_ros_msgs::Point3f> & localPoints3d = std::vector<rtabmap_ros_msgs::Point3f>(),
+            const cv::Mat & localDescriptors = cv::Mat());
+    virtual void commonLaserScanCallback(
+            const nav_msgs::OdometryConstPtr & odomMsg,
+            const rtabmap_ros::UserDataConstPtr & userDataMsg,
+            const sensor_msgs::LaserScan& scan2dMsg,
+            const sensor_msgs::PointCloud2& scan3dMsg,
+            const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg,
+            const rtabmap_ros_msgs::GlobalDescriptor & globalDescriptor = rtabmap_ros_msgs::GlobalDescriptor());
 
-	virtual void commonOdomCallback(
-			const nav_msgs::OdometryConstPtr & odomMsg,
-			const rtabmap_ros::UserDataConstPtr & userDataMsg,
-			const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg);
+    virtual void commonOdomCallback(
+            const nav_msgs::OdometryConstPtr & odomMsg,
+            const rtabmap_ros::UserDataConstPtr & userDataMsg,
+            const rtabmap_ros::OdomInfoConstPtr& odomInfoMsg);
 
-	void defaultCallback(const nav_msgs::OdometryConstPtr & odomMsg);
+    void defaultCallback(const nav_msgs::OdometryConstPtr & odomMsg);
 
-	void processRequestedMap(const rtabmap_ros_msgs::MapData & map);
+    void processRequestedMap(const rtabmap_ros_msgs::MapData & map);
 
 private:
-	rtabmap::PreferencesDialog * prefDialog_;
-	rtabmap::MainWindow * mainWindow_;
-	std::string cameraNodeName_;
-	double lastOdomInfoUpdateTime_;
+    rtabmap::PreferencesDialog * prefDialog_;
+    rtabmap::MainWindow * mainWindow_;
+    std::string cameraNodeName_;
+    double lastOdomInfoUpdateTime_;
 
-	// odometry subscription stuffs
-	std::string frameId_;
-	std::string odomFrameId_;
-	bool waitForTransform_;
-	double waitForTransformDuration_;
-	bool odomSensorSync_;
-	double maxOdomUpdateRate_;
-	tf::TransformListener tfListener_;
+    // odometry subscription stuffs
+    std::string frameId_;
+    std::string odomFrameId_;
+    bool waitForTransform_;
+    double waitForTransformDuration_;
+    bool odomSensorSync_;
+    double maxOdomUpdateRate_;
+    tf::TransformListener tfListener_;
 
-	message_filters::Subscriber<rtabmap_ros_msgs::Info> infoTopic_;
-	message_filters::Subscriber<rtabmap_ros_msgs::MapData> mapDataTopic_;
+    message_filters::Subscriber<rtabmap_ros_msgs::Info> infoTopic_;
+    message_filters::Subscriber<rtabmap_ros_msgs::MapData> mapDataTopic_;
 
-	message_filters::Subscriber<rtabmap_ros_msgs::Goal> goalTopic_;
-	message_filters::Subscriber<nav_msgs::Path> pathTopic_;
-	ros::Subscriber goalReachedTopic_;
+    message_filters::Subscriber<rtabmap_ros_msgs::Goal> goalTopic_;
+    message_filters::Subscriber<nav_msgs::Path> pathTopic_;
+    ros::Subscriber goalReachedTopic_;
 
-	typedef message_filters::sync_policies::ExactTime<
-			rtabmap_ros_msgs::Info,
-			rtabmap_ros_msgs::MapData> MyInfoMapSyncPolicy;
-	message_filters::Synchronizer<MyInfoMapSyncPolicy> * infoMapSync_;
+    typedef message_filters::sync_policies::ExactTime<
+            rtabmap_ros_msgs::Info,
+            rtabmap_ros_msgs::MapData> MyInfoMapSyncPolicy;
+    message_filters::Synchronizer<MyInfoMapSyncPolicy> * infoMapSync_;
 
-	typedef message_filters::sync_policies::ExactTime<
-			rtabmap_ros_msgs::Goal,
-			nav_msgs::Path> MyGoalPathSyncPolicy;
-	message_filters::Synchronizer<MyGoalPathSyncPolicy> * goalPathSync_;
+    typedef message_filters::sync_policies::ExactTime<
+            rtabmap_ros_msgs::Goal,
+            nav_msgs::Path> MyGoalPathSyncPolicy;
+    message_filters::Synchronizer<MyGoalPathSyncPolicy> * goalPathSync_;
 };
 
 }

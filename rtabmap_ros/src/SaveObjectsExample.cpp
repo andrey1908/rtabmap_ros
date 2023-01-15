@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 class SaveObjectsExample
 {
 public:
-	SaveObjectsExample() :
+    SaveObjectsExample() :
         objFramePrefix_("object"),
         frameId_("base_link")
     {
@@ -108,31 +108,31 @@ public:
         // handle the case where we can receive only latest data, or if all data are published
         for(std::map<int, rtabmap::Signature>::iterator iter=signatures.begin(); iter!=signatures.end(); ++iter)
         {
-        	int id = iter->first;
-        	rtabmap::Signature & node = iter->second;
+            int id = iter->first;
+            rtabmap::Signature & node = iter->second;
 
-			nodeStamps_.insert(std::make_pair(node.getStamp(), node.id()));
+            nodeStamps_.insert(std::make_pair(node.getStamp(), node.id()));
 
-			if(!node.sensorData().userDataCompressed().empty() && nodeToObjects_.find(id)==nodeToObjects_.end())
-			{
-				cv::Mat data = rtabmap::uncompressData(node.sensorData().userDataCompressed());
-				ROS_ASSERT(data.cols == 9 && data.type() == CV_64FC1);
-				ROS_INFO("Node %d has %d object(s)", id, data.rows);
-				nodeToObjects_.insert(std::make_pair(id, data));
-			}
+            if(!node.sensorData().userDataCompressed().empty() && nodeToObjects_.find(id)==nodeToObjects_.end())
+            {
+                cv::Mat data = rtabmap::uncompressData(node.sensorData().userDataCompressed());
+                ROS_ASSERT(data.cols == 9 && data.type() == CV_64FC1);
+                ROS_INFO("Node %d has %d object(s)", id, data.rows);
+                nodeToObjects_.insert(std::make_pair(id, data));
+            }
         }
 
-		// for the logic below, we should keep only stamps for
-		// nodes still in the graph (in case nodes are ignored when not moving)
-		std::map<double, int> nodeStamps;
-		for(std::map<double, int>::iterator iter=nodeStamps_.begin(); iter!=nodeStamps_.end(); ++iter)
-		{
-			std::map<int, rtabmap::Transform>::const_iterator jter = poses.find(iter->second);
-			if(jter != poses.end())
-			{
-				nodeStamps.insert(*iter);
-			}
-		}
+        // for the logic below, we should keep only stamps for
+        // nodes still in the graph (in case nodes are ignored when not moving)
+        std::map<double, int> nodeStamps;
+        for(std::map<double, int>::iterator iter=nodeStamps_.begin(); iter!=nodeStamps_.end(); ++iter)
+        {
+            std::map<int, rtabmap::Transform>::const_iterator jter = poses.find(iter->second);
+            if(jter != poses.end())
+            {
+                nodeStamps.insert(*iter);
+            }
+        }
 
         // Publish markers accordingly to current optimized graph
         std::map<int, float> objectsAdded;

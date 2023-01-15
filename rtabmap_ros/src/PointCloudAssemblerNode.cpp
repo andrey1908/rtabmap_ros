@@ -30,15 +30,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 int main(int argc, char **argv)
 {
-	ros::init(argc, argv, "point_cloud_assembler");
+    ros::init(argc, argv, "point_cloud_assembler");
 
-	nodelet::Loader nodelet;
-	nodelet::V_string nargv;
-	nodelet::M_string remap(ros::names::getRemappings());
-	std::string nodelet_name = ros::this_node::getName();
-	nodelet.load(nodelet_name, "rtabmap_ros/point_cloud_assembler", remap, nargv);
-	ros::spin();
-	return 0;
+    nodelet::Loader nodelet;
+    nodelet::V_string nargv;
+    nodelet::M_string remap(ros::names::getRemappings());
+    std::string nodelet_name = ros::this_node::getName();
+    nodelet.load(nodelet_name, "rtabmap_ros/point_cloud_assembler", remap, nargv);
+    ros::spin();
+    return 0;
 }
 
 

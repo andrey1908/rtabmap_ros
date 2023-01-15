@@ -49,185 +49,185 @@ namespace rtabmap_ros
 class DataThrottleNodelet : public nodelet::Nodelet
 {
 public:
-	//Constructor
-	DataThrottleNodelet():
-		rate_(0),
-		approxSync_(0),
-		exactSync_(0),
-		decimation_(1)
-	{
-	}
+    //Constructor
+    DataThrottleNodelet():
+        rate_(0),
+        approxSync_(0),
+        exactSync_(0),
+        decimation_(1)
+    {
+    }
 
-	virtual ~DataThrottleNodelet()
-	{
-		if(approxSync_)
-		{
-			delete approxSync_;
-		}
-		if(exactSync_)
-		{
-			delete exactSync_;
-		}
-	}
+    virtual ~DataThrottleNodelet()
+    {
+        if(approxSync_)
+        {
+            delete approxSync_;
+        }
+        if(exactSync_)
+        {
+            delete exactSync_;
+        }
+    }
 
 private:
-	ros::Time last_update_;
-	double rate_;
-	virtual void onInit()
-	{
-		ros::NodeHandle& nh = getNodeHandle();
-		ros::NodeHandle& private_nh = getPrivateNodeHandle();
+    ros::Time last_update_;
+    double rate_;
+    virtual void onInit()
+    {
+        ros::NodeHandle& nh = getNodeHandle();
+        ros::NodeHandle& private_nh = getPrivateNodeHandle();
 
-		ros::NodeHandle rgb_nh(nh, "rgb");
-		ros::NodeHandle depth_nh(nh, "depth");
-		ros::NodeHandle rgb_pnh(private_nh, "rgb");
-		ros::NodeHandle depth_pnh(private_nh, "depth");
-		image_transport::ImageTransport rgb_it(rgb_nh);
-		image_transport::ImageTransport depth_it(depth_nh);
-		image_transport::TransportHints hintsRgb("raw", ros::TransportHints(), rgb_pnh);
-		image_transport::TransportHints hintsDepth("raw", ros::TransportHints(), depth_pnh);
+        ros::NodeHandle rgb_nh(nh, "rgb");
+        ros::NodeHandle depth_nh(nh, "depth");
+        ros::NodeHandle rgb_pnh(private_nh, "rgb");
+        ros::NodeHandle depth_pnh(private_nh, "depth");
+        image_transport::ImageTransport rgb_it(rgb_nh);
+        image_transport::ImageTransport depth_it(depth_nh);
+        image_transport::TransportHints hintsRgb("raw", ros::TransportHints(), rgb_pnh);
+        image_transport::TransportHints hintsDepth("raw", ros::TransportHints(), depth_pnh);
 
-		int queueSize = 10;
-		bool approxSync = true;
-		if(private_nh.getParam("max_rate", rate_))
-		{
-			NODELET_WARN("\"max_rate\" is now known as \"rate\".");
-		}
-		private_nh.param("rate", rate_, rate_);
-		private_nh.param("queue_size", queueSize, queueSize);
-		private_nh.param("approx_sync", approxSync, approxSync);
-		private_nh.param("decimation", decimation_, decimation_);
-		ROS_ASSERT(decimation_ >= 1);
-		NODELET_INFO("Rate=%f Hz", rate_);
-		NODELET_INFO("Decimation=%d", decimation_);
-		NODELET_INFO("Approximate time sync = %s", approxSync?"true":"false");
+        int queueSize = 10;
+        bool approxSync = true;
+        if(private_nh.getParam("max_rate", rate_))
+        {
+            NODELET_WARN("\"max_rate\" is now known as \"rate\".");
+        }
+        private_nh.param("rate", rate_, rate_);
+        private_nh.param("queue_size", queueSize, queueSize);
+        private_nh.param("approx_sync", approxSync, approxSync);
+        private_nh.param("decimation", decimation_, decimation_);
+        ROS_ASSERT(decimation_ >= 1);
+        NODELET_INFO("Rate=%f Hz", rate_);
+        NODELET_INFO("Decimation=%d", decimation_);
+        NODELET_INFO("Approximate time sync = %s", approxSync?"true":"false");
 
-		if(approxSync)
-		{
-			approxSync_ = new message_filters::Synchronizer<MyApproxSyncPolicy>(MyApproxSyncPolicy(queueSize), image_sub_, image_depth_sub_, info_sub_);
-			approxSync_->registerCallback(boost::bind(&DataThrottleNodelet::callback, this, _1, _2, _3));
-		}
-		else
-		{
-			exactSync_ = new message_filters::Synchronizer<MyExactSyncPolicy>(MyExactSyncPolicy(queueSize), image_sub_, image_depth_sub_, info_sub_);
-			exactSync_->registerCallback(boost::bind(&DataThrottleNodelet::callback, this, _1, _2, _3));
-		}
+        if(approxSync)
+        {
+            approxSync_ = new message_filters::Synchronizer<MyApproxSyncPolicy>(MyApproxSyncPolicy(queueSize), image_sub_, image_depth_sub_, info_sub_);
+            approxSync_->registerCallback(boost::bind(&DataThrottleNodelet::callback, this, _1, _2, _3));
+        }
+        else
+        {
+            exactSync_ = new message_filters::Synchronizer<MyExactSyncPolicy>(MyExactSyncPolicy(queueSize), image_sub_, image_depth_sub_, info_sub_);
+            exactSync_->registerCallback(boost::bind(&DataThrottleNodelet::callback, this, _1, _2, _3));
+        }
 
-		image_sub_.subscribe(rgb_it, rgb_nh.resolveName("image_in"), 1, hintsRgb);
-		image_depth_sub_.subscribe(depth_it, depth_nh.resolveName("image_in"), 1, hintsDepth);
-		info_sub_.subscribe(rgb_nh, "camera_info_in", 1);
+        image_sub_.subscribe(rgb_it, rgb_nh.resolveName("image_in"), 1, hintsRgb);
+        image_depth_sub_.subscribe(depth_it, depth_nh.resolveName("image_in"), 1, hintsDepth);
+        info_sub_.subscribe(rgb_nh, "camera_info_in", 1);
 
-		imagePub_ = rgb_it.advertise("image_out", 1);
-		imageDepthPub_ = depth_it.advertise("image_out", 1);
-		infoPub_ = rgb_nh.advertise<sensor_msgs::CameraInfo>("camera_info_out", 1);
-	};
+        imagePub_ = rgb_it.advertise("image_out", 1);
+        imageDepthPub_ = depth_it.advertise("image_out", 1);
+        infoPub_ = rgb_nh.advertise<sensor_msgs::CameraInfo>("camera_info_out", 1);
+    };
 
-	void callback(const sensor_msgs::ImageConstPtr& image,
-			const sensor_msgs::ImageConstPtr& imageDepth,
-			const sensor_msgs::CameraInfoConstPtr& camInfo)
-	{
-		if (rate_ > 0.0)
-		{
-			NODELET_DEBUG("update set to %f", rate_);
-			if ( last_update_ + ros::Duration(1.0/rate_) > ros::Time::now())
-			{
-				NODELET_DEBUG("throttle last update at %f skipping", last_update_.toSec());
-				return;
-			}
-		}
-		else
-			NODELET_DEBUG("rate unset continuing");
+    void callback(const sensor_msgs::ImageConstPtr& image,
+            const sensor_msgs::ImageConstPtr& imageDepth,
+            const sensor_msgs::CameraInfoConstPtr& camInfo)
+    {
+        if (rate_ > 0.0)
+        {
+            NODELET_DEBUG("update set to %f", rate_);
+            if ( last_update_ + ros::Duration(1.0/rate_) > ros::Time::now())
+            {
+                NODELET_DEBUG("throttle last update at %f skipping", last_update_.toSec());
+                return;
+            }
+        }
+        else
+            NODELET_DEBUG("rate unset continuing");
 
-		last_update_ = ros::Time::now();
+        last_update_ = ros::Time::now();
 
-		double rgbStamp = image->header.stamp.toSec();
-		double depthStamp = imageDepth->header.stamp.toSec();
-		double infoStamp = camInfo->header.stamp.toSec();
+        double rgbStamp = image->header.stamp.toSec();
+        double depthStamp = imageDepth->header.stamp.toSec();
+        double infoStamp = camInfo->header.stamp.toSec();
 
-		if(infoPub_.getNumSubscribers())
-		{
-			if(decimation_ > 1)
-			{
-				sensor_msgs::CameraInfo info = *camInfo;
-				info.height /= decimation_;
-				info.width /= decimation_;
-				info.roi.height /= decimation_;
-				info.roi.width /= decimation_;
-				info.K[2]/=float(decimation_); // cx
-				info.K[5]/=float(decimation_); // cy
-				info.K[0]/=float(decimation_); // fx
-				info.K[4]/=float(decimation_); // fy
-				info.P[2]/=float(decimation_); // cx
-				info.P[6]/=float(decimation_); // cy
-				info.P[0]/=float(decimation_); // fx
-				info.P[5]/=float(decimation_); // fy
-				infoPub_.publish(info);
-			}
-			else
-			{
-				infoPub_.publish(camInfo);
-			}
-		}
-		if(imagePub_.getNumSubscribers())
-		{
-			if(decimation_ > 1)
-			{
-				cv_bridge::CvImageConstPtr imagePtr = cv_bridge::toCvShare(image);
-				cv_bridge::CvImage out;
-				out.header = imagePtr->header;
-				out.encoding = imagePtr->encoding;
-				out.image = rtabmap::util2d::decimate(imagePtr->image, decimation_);
-				imagePub_.publish(out.toImageMsg());
-			}
-			else
-			{
-				imagePub_.publish(image);
-			}
-		}
+        if(infoPub_.getNumSubscribers())
+        {
+            if(decimation_ > 1)
+            {
+                sensor_msgs::CameraInfo info = *camInfo;
+                info.height /= decimation_;
+                info.width /= decimation_;
+                info.roi.height /= decimation_;
+                info.roi.width /= decimation_;
+                info.K[2]/=float(decimation_); // cx
+                info.K[5]/=float(decimation_); // cy
+                info.K[0]/=float(decimation_); // fx
+                info.K[4]/=float(decimation_); // fy
+                info.P[2]/=float(decimation_); // cx
+                info.P[6]/=float(decimation_); // cy
+                info.P[0]/=float(decimation_); // fx
+                info.P[5]/=float(decimation_); // fy
+                infoPub_.publish(info);
+            }
+            else
+            {
+                infoPub_.publish(camInfo);
+            }
+        }
+        if(imagePub_.getNumSubscribers())
+        {
+            if(decimation_ > 1)
+            {
+                cv_bridge::CvImageConstPtr imagePtr = cv_bridge::toCvShare(image);
+                cv_bridge::CvImage out;
+                out.header = imagePtr->header;
+                out.encoding = imagePtr->encoding;
+                out.image = rtabmap::util2d::decimate(imagePtr->image, decimation_);
+                imagePub_.publish(out.toImageMsg());
+            }
+            else
+            {
+                imagePub_.publish(image);
+            }
+        }
 
-		if(imageDepthPub_.getNumSubscribers())
-		{
-			if(decimation_ > 1)
-			{
-				cv_bridge::CvImageConstPtr imagePtr = cv_bridge::toCvShare(imageDepth);
-				cv_bridge::CvImage out;
-				out.header = imagePtr->header;
-				out.encoding = imagePtr->encoding;
-				out.image = rtabmap::util2d::decimate(imagePtr->image, decimation_);
-				imageDepthPub_.publish(out.toImageMsg());
-			}
-			else
-			{
-				imageDepthPub_.publish(imageDepth);
-			}
-		}
+        if(imageDepthPub_.getNumSubscribers())
+        {
+            if(decimation_ > 1)
+            {
+                cv_bridge::CvImageConstPtr imagePtr = cv_bridge::toCvShare(imageDepth);
+                cv_bridge::CvImage out;
+                out.header = imagePtr->header;
+                out.encoding = imagePtr->encoding;
+                out.image = rtabmap::util2d::decimate(imagePtr->image, decimation_);
+                imageDepthPub_.publish(out.toImageMsg());
+            }
+            else
+            {
+                imageDepthPub_.publish(imageDepth);
+            }
+        }
 
-		if( rgbStamp != image->header.stamp.toSec() ||
-			depthStamp != imageDepth->header.stamp.toSec())
-		{
-			NODELET_ERROR("Input stamps changed between the beginning and the end of the callback! Make "
-					"sure the node publishing the topics doesn't override the same data after publishing them. A "
-					"solution is to use this node within another nodelet manager. Stamps: "
-					"rgb=%f->%f depth=%f->%f",
-					rgbStamp, image->header.stamp.toSec(),
-					depthStamp, imageDepth->header.stamp.toSec());
-		}
-	}
+        if( rgbStamp != image->header.stamp.toSec() ||
+            depthStamp != imageDepth->header.stamp.toSec())
+        {
+            NODELET_ERROR("Input stamps changed between the beginning and the end of the callback! Make "
+                    "sure the node publishing the topics doesn't override the same data after publishing them. A "
+                    "solution is to use this node within another nodelet manager. Stamps: "
+                    "rgb=%f->%f depth=%f->%f",
+                    rgbStamp, image->header.stamp.toSec(),
+                    depthStamp, imageDepth->header.stamp.toSec());
+        }
+    }
 
-	image_transport::Publisher imagePub_;
-	image_transport::Publisher imageDepthPub_;
-	ros::Publisher infoPub_;
+    image_transport::Publisher imagePub_;
+    image_transport::Publisher imageDepthPub_;
+    ros::Publisher infoPub_;
 
-	image_transport::SubscriberFilter image_sub_;
-	image_transport::SubscriberFilter image_depth_sub_;
-	message_filters::Subscriber<sensor_msgs::CameraInfo> info_sub_;
+    image_transport::SubscriberFilter image_sub_;
+    image_transport::SubscriberFilter image_depth_sub_;
+    message_filters::Subscriber<sensor_msgs::CameraInfo> info_sub_;
 
-	typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyApproxSyncPolicy;
-	message_filters::Synchronizer<MyApproxSyncPolicy> * approxSync_;
-	typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyExactSyncPolicy;
-	message_filters::Synchronizer<MyExactSyncPolicy> * exactSync_;
+    typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyApproxSyncPolicy;
+    message_filters::Synchronizer<MyApproxSyncPolicy> * approxSync_;
+    typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyExactSyncPolicy;
+    message_filters::Synchronizer<MyExactSyncPolicy> * exactSync_;
 
-	int decimation_;
+    int decimation_;
 
 };
 

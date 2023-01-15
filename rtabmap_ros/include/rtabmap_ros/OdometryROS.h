@@ -54,98 +54,98 @@ class OdometryROS : public nodelet::Nodelet
 {
 
 public:
-	OdometryROS(bool stereoParams, bool visParams, bool icpParams);
-	virtual ~OdometryROS();
+    OdometryROS(bool stereoParams, bool visParams, bool icpParams);
+    virtual ~OdometryROS();
 
-	void processData(rtabmap::SensorData & data, const std_msgs::Header & header);
+    void processData(rtabmap::SensorData & data, const std_msgs::Header & header);
 
-	bool reset(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
-	bool resetToPose(rtabmap_ros::ResetPose::Request&, rtabmap_ros::ResetPose::Response&);
-	bool pause(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
-	bool resume(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
-	bool setLogDebug(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
-	bool setLogInfo(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
-	bool setLogWarn(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
-	bool setLogError(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
+    bool reset(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
+    bool resetToPose(rtabmap_ros::ResetPose::Request&, rtabmap_ros::ResetPose::Response&);
+    bool pause(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
+    bool resume(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
+    bool setLogDebug(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
+    bool setLogInfo(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
+    bool setLogWarn(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
+    bool setLogError(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
 
-	const std::string & frameId() const {return frameId_;}
-	const std::string & odomFrameId() const {return odomFrameId_;}
-	const rtabmap::ParametersMap & parameters() const {return parameters_;}
-	bool isPaused() const {return paused_;}
-	rtabmap::Transform getTransform(const std::string & fromFrameId, const std::string & toFrameId, const ros::Time & stamp) const;
+    const std::string & frameId() const {return frameId_;}
+    const std::string & odomFrameId() const {return odomFrameId_;}
+    const rtabmap::ParametersMap & parameters() const {return parameters_;}
+    bool isPaused() const {return paused_;}
+    rtabmap::Transform getTransform(const std::string & fromFrameId, const std::string & toFrameId, const ros::Time & stamp) const;
 
 protected:
-	void startWarningThread(const std::string & subscribedTopicsMsg, bool approxSync);
-	void callbackCalled() {callbackCalled_ = true;}
+    void startWarningThread(const std::string & subscribedTopicsMsg, bool approxSync);
+    void callbackCalled() {callbackCalled_ = true;}
 
-	virtual void flushCallbacks() = 0;
-	tf::TransformListener & tfListener() {return tfListener_;}
-	virtual void postProcessData(const rtabmap::SensorData & data, const std_msgs::Header & header) const {}
-
-private:
-	void warningLoop(const std::string & subscribedTopicsMsg, bool approxSync);
-	virtual void onInit();
-	virtual void onOdomInit() = 0;
-	virtual void updateParameters(rtabmap::ParametersMap & parameters) {}
-
-	void callbackIMU(const sensor_msgs::ImuConstPtr& msg);
-	void reset(const rtabmap::Transform & pose = rtabmap::Transform::getIdentity());
+    virtual void flushCallbacks() = 0;
+    tf::TransformListener & tfListener() {return tfListener_;}
+    virtual void postProcessData(const rtabmap::SensorData & data, const std_msgs::Header & header) const {}
 
 private:
-	rtabmap::Odometry * odometry_;
-	boost::thread * warningThread_;
-	bool callbackCalled_;
+    void warningLoop(const std::string & subscribedTopicsMsg, bool approxSync);
+    virtual void onInit();
+    virtual void onOdomInit() = 0;
+    virtual void updateParameters(rtabmap::ParametersMap & parameters) {}
 
-	// parameters
-	std::string frameId_;
-	std::string odomFrameId_;
-	std::string groundTruthFrameId_;
-	std::string groundTruthBaseFrameId_;
-	std::string guessFrameId_;
-	double guessMinTranslation_;
-	double guessMinRotation_;
-	double guessMinTime_;
-	bool publishTf_;
-	bool waitForTransform_;
-	double waitForTransformDuration_;
-	bool publishNullWhenLost_;
-	rtabmap::ParametersMap parameters_;
+    void callbackIMU(const sensor_msgs::ImuConstPtr& msg);
+    void reset(const rtabmap::Transform & pose = rtabmap::Transform::getIdentity());
 
-	ros::Publisher odomPub_;
-	ros::Publisher odomInfoPub_;
-	ros::Publisher odomInfoLitePub_;
-	ros::Publisher odomLocalMap_;
-	ros::Publisher odomLocalScanMap_;
-	ros::Publisher odomLastFrame_;
-	ros::Publisher odomRgbdImagePub_;
-	ros::ServiceServer resetSrv_;
-	ros::ServiceServer resetToPoseSrv_;
-	ros::ServiceServer pauseSrv_;
-	ros::ServiceServer resumeSrv_;
-	ros::ServiceServer setLogDebugSrv_;
-	ros::ServiceServer setLogInfoSrv_;
-	ros::ServiceServer setLogWarnSrv_;
-	ros::ServiceServer setLogErrorSrv_;
-	tf2_ros::TransformBroadcaster tfBroadcaster_;
-	tf::TransformListener tfListener_;
-	ros::Subscriber imuSub_;
+private:
+    rtabmap::Odometry * odometry_;
+    boost::thread * warningThread_;
+    bool callbackCalled_;
 
-	bool paused_;
-	int resetCountdown_;
-	int resetCurrentCount_;
-	bool stereoParams_;
-	bool visParams_;
-	bool icpParams_;
-	rtabmap::Transform guess_;
-	rtabmap::Transform guessPreviousPose_;
-	double previousStamp_;
-	double expectedUpdateRate_;
-	double maxUpdateRate_;
-	int odomStrategy_;
-	bool waitIMUToinit_;
-	bool imuProcessed_;
-	std::map<double, rtabmap::IMU> imus_;
-	std::pair<rtabmap::SensorData, std_msgs::Header > bufferedData_;
+    // parameters
+    std::string frameId_;
+    std::string odomFrameId_;
+    std::string groundTruthFrameId_;
+    std::string groundTruthBaseFrameId_;
+    std::string guessFrameId_;
+    double guessMinTranslation_;
+    double guessMinRotation_;
+    double guessMinTime_;
+    bool publishTf_;
+    bool waitForTransform_;
+    double waitForTransformDuration_;
+    bool publishNullWhenLost_;
+    rtabmap::ParametersMap parameters_;
+
+    ros::Publisher odomPub_;
+    ros::Publisher odomInfoPub_;
+    ros::Publisher odomInfoLitePub_;
+    ros::Publisher odomLocalMap_;
+    ros::Publisher odomLocalScanMap_;
+    ros::Publisher odomLastFrame_;
+    ros::Publisher odomRgbdImagePub_;
+    ros::ServiceServer resetSrv_;
+    ros::ServiceServer resetToPoseSrv_;
+    ros::ServiceServer pauseSrv_;
+    ros::ServiceServer resumeSrv_;
+    ros::ServiceServer setLogDebugSrv_;
+    ros::ServiceServer setLogInfoSrv_;
+    ros::ServiceServer setLogWarnSrv_;
+    ros::ServiceServer setLogErrorSrv_;
+    tf2_ros::TransformBroadcaster tfBroadcaster_;
+    tf::TransformListener tfListener_;
+    ros::Subscriber imuSub_;
+
+    bool paused_;
+    int resetCountdown_;
+    int resetCurrentCount_;
+    bool stereoParams_;
+    bool visParams_;
+    bool icpParams_;
+    rtabmap::Transform guess_;
+    rtabmap::Transform guessPreviousPose_;
+    double previousStamp_;
+    double expectedUpdateRate_;
+    double maxUpdateRate_;
+    int odomStrategy_;
+    bool waitIMUToinit_;
+    bool imuProcessed_;
+    std::map<double, rtabmap::IMU> imus_;
+    std::pair<rtabmap::SensorData, std_msgs::Header > bufferedData_;
 };
 
 }

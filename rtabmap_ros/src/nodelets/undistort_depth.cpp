@@ -48,72 +48,72 @@ namespace rtabmap_ros
 class UndistortDepth : public nodelet::Nodelet
 {
 public:
-	UndistortDepth()
-	{}
+    UndistortDepth()
+    {}
 
-	virtual ~UndistortDepth()
-	{
-	}
-
-private:
-	virtual void onInit()
-	{
-		ros::NodeHandle & nh = getNodeHandle();
-		ros::NodeHandle & pnh = getPrivateNodeHandle();
-
-		std::string modelPath;
-		pnh.param("model", modelPath, modelPath);
-
-		if(modelPath.empty())
-		{
-			NODELET_ERROR("undistort_depth: \"model\" parameter should be set!");
-		}
-
-		model_.load(modelPath);
-		if(!model_.isValid())
-		{
-			NODELET_ERROR("Loaded distortion model from \"%s\" is not valid!", modelPath.c_str());
-		}
-		else
-		{
-			image_transport::ImageTransport it(nh);
-			sub_ = it.subscribe("depth", 1, &UndistortDepth::callback, this);
-			pub_ = it.advertise(uFormat("%s_undistorted", nh.resolveName("depth").c_str()), 1);
-		}
-	}
-
-	void callback(const sensor_msgs::ImageConstPtr& depth)
-	{
-		if(depth->encoding.compare(sensor_msgs::image_encodings::TYPE_16UC1)!=0 &&
-		   depth->encoding.compare(sensor_msgs::image_encodings::TYPE_32FC1)!=0 &&
-		   depth->encoding.compare(sensor_msgs::image_encodings::MONO16)!=0)
-		{
-			NODELET_ERROR("Input type depth=32FC1,16UC1,MONO16");
-			return;
-		}
-
-		if(pub_.getNumSubscribers())
-		{
-			if(depth->width == model_.getWidth() && depth->width == model_.getWidth())
-			{
-				cv_bridge::CvImagePtr imageDepthPtr = cv_bridge::toCvCopy(depth);
-				model_.undistort(imageDepthPtr->image);
-				pub_.publish(imageDepthPtr->toImageMsg());
-			}
-			else
-			{
-				NODELET_ERROR("Input depth image size (%dx%d) and distortion model "
-						"size (%dx%d) don't match! Cannot undistort image.",
-						depth->width, depth->height,
-						model_.getWidth(), model_.getHeight());
-			}
-		}
-	}
+    virtual ~UndistortDepth()
+    {
+    }
 
 private:
-	clams::DiscreteDepthDistortionModel model_;
-	image_transport::Publisher pub_;
-	image_transport::Subscriber sub_;
+    virtual void onInit()
+    {
+        ros::NodeHandle & nh = getNodeHandle();
+        ros::NodeHandle & pnh = getPrivateNodeHandle();
+
+        std::string modelPath;
+        pnh.param("model", modelPath, modelPath);
+
+        if(modelPath.empty())
+        {
+            NODELET_ERROR("undistort_depth: \"model\" parameter should be set!");
+        }
+
+        model_.load(modelPath);
+        if(!model_.isValid())
+        {
+            NODELET_ERROR("Loaded distortion model from \"%s\" is not valid!", modelPath.c_str());
+        }
+        else
+        {
+            image_transport::ImageTransport it(nh);
+            sub_ = it.subscribe("depth", 1, &UndistortDepth::callback, this);
+            pub_ = it.advertise(uFormat("%s_undistorted", nh.resolveName("depth").c_str()), 1);
+        }
+    }
+
+    void callback(const sensor_msgs::ImageConstPtr& depth)
+    {
+        if(depth->encoding.compare(sensor_msgs::image_encodings::TYPE_16UC1)!=0 &&
+           depth->encoding.compare(sensor_msgs::image_encodings::TYPE_32FC1)!=0 &&
+           depth->encoding.compare(sensor_msgs::image_encodings::MONO16)!=0)
+        {
+            NODELET_ERROR("Input type depth=32FC1,16UC1,MONO16");
+            return;
+        }
+
+        if(pub_.getNumSubscribers())
+        {
+            if(depth->width == model_.getWidth() && depth->width == model_.getWidth())
+            {
+                cv_bridge::CvImagePtr imageDepthPtr = cv_bridge::toCvCopy(depth);
+                model_.undistort(imageDepthPtr->image);
+                pub_.publish(imageDepthPtr->toImageMsg());
+            }
+            else
+            {
+                NODELET_ERROR("Input depth image size (%dx%d) and distortion model "
+                        "size (%dx%d) don't match! Cannot undistort image.",
+                        depth->width, depth->height,
+                        model_.getWidth(), model_.getHeight());
+            }
+        }
+    }
+
+private:
+    clams::DiscreteDepthDistortionModel model_;
+    image_transport::Publisher pub_;
+    image_transport::Subscriber sub_;
 };
 
 PLUGINLIB_EXPORT_CLASS(rtabmap_ros::UndistortDepth, nodelet::Nodelet);

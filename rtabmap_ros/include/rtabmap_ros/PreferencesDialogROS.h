@@ -36,22 +36,22 @@ using namespace rtabmap;
 class PreferencesDialogROS : public PreferencesDialog
 {
 public:
-	PreferencesDialogROS(const QString & configFile);
-	virtual ~PreferencesDialogROS();
+    PreferencesDialogROS(const QString & configFile);
+    virtual ~PreferencesDialogROS();
 
-	virtual QString getIniFilePath() const;
-	virtual QString getTmpIniFilePath() const;
+    virtual QString getIniFilePath() const;
+    virtual QString getTmpIniFilePath() const;
 
 protected:
-	virtual QString getParamMessage();
+    virtual QString getParamMessage();
 
-	virtual void readCameraSettings(const QString & filePath);
-	virtual bool readCoreSettings(const QString & filePath);
-	virtual void writeCameraSettings(const QString & filePath) const {}
-	virtual void writeCoreSettings(const QString & filePath) const;
+    virtual void readCameraSettings(const QString & filePath);
+    virtual bool readCoreSettings(const QString & filePath);
+    virtual void writeCameraSettings(const QString & filePath) const {}
+    virtual void writeCoreSettings(const QString & filePath) const;
 
 private:
-	QString configFile_;
+    QString configFile_;
 };
 
 #endif /* PREFERENCESDIALOGROS_H_ */
