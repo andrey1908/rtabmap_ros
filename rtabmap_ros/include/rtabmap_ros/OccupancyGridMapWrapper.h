@@ -14,7 +14,7 @@
 #include <optimization_results_msgs/OptimizationResults.h>
 #include <rtabmap_ros_msgs/DoorCorners.h>
 
-#include <rtabmap/core/OccupancyGridMap.h>
+#include <rtabmap/core/TimedOccupancyGridMap.h>
 #include <rtabmap/core/LaserScan.h>
 #include <rtabmap/core/Transform.h>
 #include <rtabmap/core/Signature.h>
@@ -42,13 +42,7 @@ private:
 	rtabmap::ParametersMap readRtabmapParameters(int argc, char** argv, const ros::NodeHandle& pnh);
 	void readRtabmapRosParameters(const ros::NodeHandle& pnh);
 
-	void save();
-	void load();
-
 	void updatePoses(const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults);
-	std::optional<rtabmap::Transform> getOptimizedPose(ros::Time time,
-		const rtabmap::Transform* odometryPose = nullptr, ros::Duration maxExtrapolationTime = ros::Duration(0),
-		bool defaultIdentityOdometryCorrection = false);
 
 	void commonLaserScanCallback(
 		const nav_msgs::OdometryConstPtr& odomMsg,
@@ -77,7 +71,7 @@ private:
 		const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
 		const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
 	void addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
-		const rtabmap::Transform& odometryPose, bool temporary = false);
+		bool temporary = false);
 	void publishOccupancyGridMaps(const ros::Time& stamp);
 	void publishLastDilatedSemantic(const ros::Time& stamp, const std::string& frame_id);
 	void tryToPublishDoorCorners(const ros::Time& stamp);
@@ -113,16 +107,10 @@ private:
 	tf::TransformListener tfListener_;
 
 	int nodeId_;
-	rtabmap::OccupancyGridMap occupancyGridMap_;
-
-	std::map<int, ros::Time> times_;
-	std::map<int, rtabmap::Transform> posesAfterLastUpdate_;
-	std::list<std::pair<ros::Time, rtabmap::Transform>> temporaryTimesPoses_;
+	std::unique_ptr<rtabmap::TimedOccupancyGridMap> timedOccupancyGridMap_;
 
 	ros::Time lastOptimizedPoseTime_;
-	std::set<ros::Time> optimizedPosesTimes_;
-	std::list<tf2_ros::Buffer> trajectoryBuffers_;
-	std::optional<rtabmap::Transform> odometryCorrection_;
+	rtabmap::Transform odometryCorrection_;
 
 	rtabmap::DoorTracking doorTracking_;
 	rtabmap::DoorTracking::Cell doorCenterInMapFrame_;
@@ -134,15 +122,12 @@ private:
 	std::string mapFrame_;
 	std::string odomFrame_;
 	std::string baseLinkFrame_;
+	std::string updatedPosesFrame_;
 
 	std::string loadMapPath_;
 	std::string saveMapPath_;
 
-	bool cacheMap_;
 	bool needsLocalization_;
-	double maxInterpolationTimeError_;
-	double updateMaxExtrapolationTime_;
-
 	bool accumulativeMapping_;
 	bool temporaryMapping_;
 
