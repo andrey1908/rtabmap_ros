@@ -204,7 +204,8 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv) :
         nodeId_ = timedOccupancyGridMap_->load(loadMapPath_);
         if (needsLocalization_)
         {
-            timedOccupancyGridMap_->updatePoses({}, {});
+            timedOccupancyGridMap_->updatePoses(
+                rtabmap::TimedOccupancyGridMap::Trajectories());
         }
     }
     if (accumulativeMapping_)
@@ -272,7 +273,7 @@ void OccupancyGridMapWrapper::updatePoses(
     {
         odometryCorrection_ = rtabmap::Transform::getIdentity();
     }
-    timedOccupancyGridMap_->updatePoses(trajectories, true);
+    timedOccupancyGridMap_->updatePoses(trajectories);
 }
 
 void OccupancyGridMapWrapper::commonLaserScanCallback(
