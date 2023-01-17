@@ -108,9 +108,7 @@ private:
 
     int nodeId_;
     std::unique_ptr<rtabmap::TimedOccupancyGridMap> timedOccupancyGridMap_;
-
-    ros::Time lastOptimizedPoseTime_;
-    rtabmap::Transform odometryCorrection_;
+    rtabmap::Transform globalToOdometry_;
 
     rtabmap::DoorTracking doorTracking_;
     rtabmap::DoorTracking::Cell doorCenterInMapFrame_;

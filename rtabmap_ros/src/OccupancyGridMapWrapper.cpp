@@ -190,7 +190,7 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv) :
 
     timedOccupancyGridMap_ =
         std::make_unique<rtabmap::TimedOccupancyGridMap>(parameters);
-    odometryCorrection_ = rtabmap::Transform::getIdentity();
+    globalToOdometry_ = rtabmap::Transform::getIdentity();
     float cellSize = timedOccupancyGridMap_->cellSize();
     doorTracking_.initialize(std::lround(doorTrackingSmallRadius_ / cellSize),
         std::lround(doorTrackingLargeRadius_ / cellSize));
@@ -257,21 +257,20 @@ void OccupancyGridMapWrapper::updatePoses(
             trajectories.addPose(trajectory_index, time, global_pose);
         }
     }
-    if (optimizationResults->active_trajectory_index != -1)
+    if (optimizationResults->current_trajectory_index != -1)
     {
-        UASSERT(optimizationResults->active_trajectory_odometry_correction.
-            header.frame_id == mapFrame_);
+        UASSERT(optimizationResults->current_global_to_odometry.header.frame_id ==
+            mapFrame_);
         UASSERT(odomFrame_.empty() ||
-            optimizationResults->active_trajectory_odometry_correction.
-                child_frame_id == odomFrame_);
-        UASSERT(optimizationResults->active_trajectory_child_frame_id ==
-            updatedPosesFrame_);
-        odometryCorrection_ = transformFromGeometryMsg(
-            optimizationResults->active_trajectory_odometry_correction.transform);
+            optimizationResults->current_global_to_odometry.child_frame_id ==
+                odomFrame_);
+        UASSERT(optimizationResults->current_child_frame_id == updatedPosesFrame_);
+        globalToOdometry_ = transformFromGeometryMsg(
+            optimizationResults->current_global_to_odometry.transform);
     }
     else
     {
-        odometryCorrection_ = rtabmap::Transform::getIdentity();
+        globalToOdometry_ = rtabmap::Transform::getIdentity();
     }
     timedOccupancyGridMap_->updatePoses(trajectories);
 }
@@ -319,7 +318,7 @@ void OccupancyGridMapWrapper::mappingPipeline(
     }
 
     rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
-    rtabmap::Transform globalPose = odometryCorrection_ * odometryPose;
+    rtabmap::Transform globalPose = globalToOdometry_ * odometryPose;
     rtabmap::Signature signature = createSignature(
         globalPose,
         odomMsg->header.stamp,
