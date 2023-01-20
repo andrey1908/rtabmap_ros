@@ -381,16 +381,16 @@ void OccupancyGridMapWrapper::addSignatureToOccupancyGrid(
         ros::Time(time.sec, time.nsec), fromUpdatedPoseTF);
     std::shared_ptr<const rtabmap::LocalMap> localMap =
         timedOccupancyGridMap_->createLocalMap(
-            signature, rtabmap_ros::transformFromTF(fromUpdatedPoseTF));
+            signature, time, rtabmap_ros::transformFromTF(fromUpdatedPoseTF));
     if (temporary)
     {
         timedOccupancyGridMap_->addTemporaryLocalMap(
-            time, signature.getPose(), localMap);
+            signature.getPose(), localMap);
     }
     else
     {
         timedOccupancyGridMap_->addLocalMap(
-            nodeId_, time, signature.getPose(), localMap);
+            nodeId_, signature.getPose(), localMap);
         nodeId_++;
     }
 }
