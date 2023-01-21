@@ -30,25 +30,25 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace rtabmap_ros {
 
 void CommonDataSubscriber::odomCallback(
-		const nav_msgs::OdometryConstPtr& odomMsg)
+        const nav_msgs::OdometryConstPtr& odomMsg)
 {
-	callbackCalled();
-	commonOdomCallback_(odomMsg);
+    callbackCalled();
+    commonOdomCallback_(odomMsg);
 }
 
 void CommonDataSubscriber::setupOdomCallback(
-		ros::NodeHandle & nh,
-		ros::NodeHandle & pnh,
-		int queueSize,
-		bool approxSync)
+        ros::NodeHandle & nh,
+        ros::NodeHandle & pnh,
+        int queueSize,
+        bool approxSync)
 {
-	ROS_INFO("Setup odom callback");
+    ROS_INFO("Setup odom callback");
 
-	odomSubOnly_ = nh.subscribe("odom", queueSize, &CommonDataSubscriber::odomCallback, this);
-	subscribedTopicsMsg_ =
-			uFormat("\n%s subscribed to:\n   %s",
-			ros::this_node::getName().c_str(),
-			odomSubOnly_.getTopic().c_str());
+    odomSubOnly_ = nh.subscribe("odom", queueSize, &CommonDataSubscriber::odomCallback, this);
+    subscribedTopicsMsg_ =
+            uFormat("\n%s subscribed to:\n   %s",
+            ros::this_node::getName().c_str(),
+            odomSubOnly_.getTopic().c_str());
 }
 
 } /* namespace rtabmap_ros */

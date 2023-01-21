@@ -51,99 +51,99 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // values between 1 and 99 using linear interpolation.
 inline int quality2dBm(int quality)
 {
-	// Quality to dBm:
-	if(quality <= 0)
-		return -100;
-	else if(quality >= 100)
-		return -50;
-	else
-		return (quality / 2) - 100;
+    // Quality to dBm:
+    if(quality <= 0)
+        return -100;
+    else if(quality >= 100)
+        return -50;
+    else
+        return (quality / 2) - 100;
 }
 
 int main(int argc, char** argv)
 {
-	ros::init(argc, argv, "wifi_signal_pub");
+    ros::init(argc, argv, "wifi_signal_pub");
 
-	ros::NodeHandle nh;
-	ros::NodeHandle pnh("~");
+    ros::NodeHandle nh;
+    ros::NodeHandle pnh("~");
 
-	std::string interface = "wlan0";
-	double rateHz = 0.5; // Hz
-	std::string frameId = "base_link";
+    std::string interface = "wlan0";
+    double rateHz = 0.5; // Hz
+    std::string frameId = "base_link";
 
-	pnh.param("interface", interface, interface);
-	pnh.param("rate", rateHz, rateHz);
-	pnh.param("frame_id", frameId, frameId);
+    pnh.param("interface", interface, interface);
+    pnh.param("rate", rateHz, rateHz);
+    pnh.param("frame_id", frameId, frameId);
 
-	ros::Rate rate(rateHz);
+    ros::Rate rate(rateHz);
 
-	ros::Publisher wifiPub = nh.advertise<rtabmap_ros_msgs::UserData>("wifi_signal", 1);
+    ros::Publisher wifiPub = nh.advertise<rtabmap_ros_msgs::UserData>("wifi_signal", 1);
 
-	while(ros::ok())
-	{
-		int dBm = 0;
+    while(ros::ok())
+    {
+        int dBm = 0;
 
-		// Code inspired from http://blog.ajhodges.com/2011/10/using-ioctl-to-gather-wifi-information.html
+        // Code inspired from http://blog.ajhodges.com/2011/10/using-ioctl-to-gather-wifi-information.html
 
-		//have to use a socket for ioctl
-		int sockfd;
-		/* Any old socket will do, and a datagram socket is pretty cheap */
-		if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-			ROS_ERROR("Could not create simple datagram socket");
-			return -1;
-		}
+        //have to use a socket for ioctl
+        int sockfd;
+        /* Any old socket will do, and a datagram socket is pretty cheap */
+        if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+            ROS_ERROR("Could not create simple datagram socket");
+            return -1;
+        }
 
-		struct iwreq req;
-		struct iw_statistics stats;
+        struct iwreq req;
+        struct iw_statistics stats;
 
-		strncpy(req.ifr_name, interface.c_str(), IFNAMSIZ);
+        strncpy(req.ifr_name, interface.c_str(), IFNAMSIZ);
 
-		//make room for the iw_statistics object
-		req.u.data.pointer = (caddr_t) &stats;
-		req.u.data.length = sizeof(stats);
-		// clear updated flag
-		req.u.data.flags = 1;
+        //make room for the iw_statistics object
+        req.u.data.pointer = (caddr_t) &stats;
+        req.u.data.length = sizeof(stats);
+        // clear updated flag
+        req.u.data.flags = 1;
 
-		//this will gather the signal strength
-		if(ioctl(sockfd, SIOCGIWSTATS, &req) == -1)
-		{
-			//die with error, invalid interface
-			ROS_ERROR("Invalid interface (\"%s\"). Tip: Try with sudo!", interface.c_str());
-		}
-		else if(((iw_statistics *)req.u.data.pointer)->qual.updated & IW_QUAL_DBM)
-		{
-			//signal is measured in dBm and is valid for us to use
-			dBm = ((iw_statistics *)req.u.data.pointer)->qual.level - 256;
-		}
-		else
-		{
-			ROS_ERROR("Could not get signal level.");
-		}
+        //this will gather the signal strength
+        if(ioctl(sockfd, SIOCGIWSTATS, &req) == -1)
+        {
+            //die with error, invalid interface
+            ROS_ERROR("Invalid interface (\"%s\"). Tip: Try with sudo!", interface.c_str());
+        }
+        else if(((iw_statistics *)req.u.data.pointer)->qual.updated & IW_QUAL_DBM)
+        {
+            //signal is measured in dBm and is valid for us to use
+            dBm = ((iw_statistics *)req.u.data.pointer)->qual.level - 256;
+        }
+        else
+        {
+            ROS_ERROR("Could not get signal level.");
+        }
 
-		close(sockfd);
+        close(sockfd);
 
-		if(dBm != 0)
-		{
-			ros::Time stamp = ros::Time::now();
+        if(dBm != 0)
+        {
+            ros::Time stamp = ros::Time::now();
 
-			// Create user data [level] with the value
-			cv::Mat data(1, 2, CV_64FC1);
-			data.at<double>(0) = double(dBm);
+            // Create user data [level] with the value
+            cv::Mat data(1, 2, CV_64FC1);
+            data.at<double>(0) = double(dBm);
 
-			// we should set stamp in data to be able to
-			// retrieve it from rtabmap map data to get precise
-			// position in the graph afterward
-			data.at<double>(1) = stamp.toSec();
+            // we should set stamp in data to be able to
+            // retrieve it from rtabmap map data to get precise
+            // position in the graph afterward
+            data.at<double>(1) = stamp.toSec();
 
-			rtabmap_ros_msgs::UserData dataMsg;
-			dataMsg.header.frame_id = frameId;
-			dataMsg.header.stamp = stamp;
-			rtabmap_ros::userDataToROS(data, dataMsg, false);
-			wifiPub.publish<rtabmap_ros_msgs::UserData>(dataMsg);
-		}
-		ros::spinOnce();
-		rate.sleep();
-	}
+            rtabmap_ros_msgs::UserData dataMsg;
+            dataMsg.header.frame_id = frameId;
+            dataMsg.header.stamp = stamp;
+            rtabmap_ros::userDataToROS(data, dataMsg, false);
+            wifiPub.publish<rtabmap_ros_msgs::UserData>(dataMsg);
+        }
+        ros::spinOnce();
+        rate.sleep();
+    }
 
-	return 0;
+    return 0;
 }

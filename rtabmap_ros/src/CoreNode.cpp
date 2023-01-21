@@ -36,64 +36,64 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 int main(int argc, char** argv)
 {
-	ROS_INFO("Starting node...");
+    ROS_INFO("Starting node...");
 
-	ULogger::setType(ULogger::kTypeConsole);
-	ULogger::setLevel(ULogger::kWarning);
+    ULogger::setType(ULogger::kTypeConsole);
+    ULogger::setLevel(ULogger::kWarning);
 
-	ros::init(argc, argv, "rtabmap");
+    ros::init(argc, argv, "rtabmap");
 
-	nodelet::V_string nargv;
-	for(int i=1;i<argc;++i)
-	{
-		if(strcmp(argv[i], "--params") == 0 || strcmp(argv[i], "--params-all") == 0)
-		{
-			rtabmap::ParametersMap parameters = rtabmap::Parameters::getDefaultParameters();
-			uInsert(parameters, rtabmap::ParametersPair(rtabmap::Parameters::kRGBDCreateOccupancyGrid(), "true")); // default true in ROS
-			char * rosHomePath = getenv("ROS_HOME");
-			std::string workingDir = rosHomePath?rosHomePath:UDirectory::homeDir()+"/.ros";
-			uInsert(parameters,	rtabmap::ParametersPair(rtabmap::Parameters::kRtabmapWorkingDirectory(), workingDir)); // change default to ~/.ros
+    nodelet::V_string nargv;
+    for(int i=1;i<argc;++i)
+    {
+        if(strcmp(argv[i], "--params") == 0 || strcmp(argv[i], "--params-all") == 0)
+        {
+            rtabmap::ParametersMap parameters = rtabmap::Parameters::getDefaultParameters();
+            uInsert(parameters, rtabmap::ParametersPair(rtabmap::Parameters::kRGBDCreateOccupancyGrid(), "true")); // default true in ROS
+            char * rosHomePath = getenv("ROS_HOME");
+            std::string workingDir = rosHomePath?rosHomePath:UDirectory::homeDir()+"/.ros";
+            uInsert(parameters,    rtabmap::ParametersPair(rtabmap::Parameters::kRtabmapWorkingDirectory(), workingDir)); // change default to ~/.ros
 
-			if(strcmp(argv[i], "--params") == 0)
-			{
-				// hide specific parameters
-				for(rtabmap::ParametersMap::iterator iter=parameters.begin(); iter!=parameters.end();)
-				{
-					if(iter->first.find("Odom") == 0)
-					{
-						parameters.erase(iter++);
-					}
-					else
-					{
-						++iter;
-					}
-				}
-			}
+            if(strcmp(argv[i], "--params") == 0)
+            {
+                // hide specific parameters
+                for(rtabmap::ParametersMap::iterator iter=parameters.begin(); iter!=parameters.end();)
+                {
+                    if(iter->first.find("Odom") == 0)
+                    {
+                        parameters.erase(iter++);
+                    }
+                    else
+                    {
+                        ++iter;
+                    }
+                }
+            }
 
-			for(rtabmap::ParametersMap::iterator iter=parameters.begin(); iter!=parameters.end(); ++iter)
-			{
-				std::string str = "Param: " + iter->first + " = \"" + iter->second + "\"";
-				std::cout <<
-						str <<
-						std::setw(60 - str.size()) <<
-						" [" <<
-						rtabmap::Parameters::getDescription(iter->first).c_str() <<
-						"]" <<
-						std::endl;
-			}
-			ROS_WARN("Node will now exit after showing default RTAB-Map parameters because "
-					 "argument \"--params\" is detected!");
-			exit(0);
-		}
-		nargv.push_back(argv[i]);
-	}
+            for(rtabmap::ParametersMap::iterator iter=parameters.begin(); iter!=parameters.end(); ++iter)
+            {
+                std::string str = "Param: " + iter->first + " = \"" + iter->second + "\"";
+                std::cout <<
+                        str <<
+                        std::setw(60 - str.size()) <<
+                        " [" <<
+                        rtabmap::Parameters::getDescription(iter->first).c_str() <<
+                        "]" <<
+                        std::endl;
+            }
+            ROS_WARN("Node will now exit after showing default RTAB-Map parameters because "
+                     "argument \"--params\" is detected!");
+            exit(0);
+        }
+        nargv.push_back(argv[i]);
+    }
 
-	nodelet::Loader nodelet;
-	nodelet::M_string remap(ros::names::getRemappings());
-	std::string nodelet_name = ros::this_node::getName();
-	nodelet.load(nodelet_name, "rtabmap_ros/rtabmap", remap, nargv);
-	ROS_INFO("rtabmap %s started...", RTABMAP_VERSION);
-	ros::spin();
+    nodelet::Loader nodelet;
+    nodelet::M_string remap(ros::names::getRemappings());
+    std::string nodelet_name = ros::this_node::getName();
+    nodelet.load(nodelet_name, "rtabmap_ros/rtabmap", remap, nargv);
+    ROS_INFO("rtabmap %s started...", RTABMAP_VERSION);
+    ros::spin();
 
-	return 0;
+    return 0;
 }

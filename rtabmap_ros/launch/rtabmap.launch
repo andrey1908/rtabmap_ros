@@ -346,7 +346,7 @@
       
       <remap     if="$(arg use_odom_features)" from="rgbd_image" to="odom_rgbd_image"/>
       <remap unless="$(arg use_odom_features)" from="rgbd_image" to="$(arg rgbd_topic_relay)"/>
-	
+    
       <remap from="left/image_rect"        to="$(arg left_image_topic_relay)"/>
       <remap from="right/image_rect"       to="$(arg right_image_topic_relay)"/>
       <remap from="left/camera_info"       to="$(arg left_camera_info_topic)"/>

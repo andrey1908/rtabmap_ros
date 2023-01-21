@@ -30,85 +30,85 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace rtabmap_ros {
 
 void CommonDataSubscriber::scan2dCallback(
-		const sensor_msgs::LaserScanConstPtr& scanMsg)
+        const sensor_msgs::LaserScanConstPtr& scanMsg)
 {
-	callbackCalled();
-	nav_msgs::OdometryConstPtr odomMsg; // Null
-	sensor_msgs::PointCloud2 scan3dMsg; // Null
-	commonLaserScanCallback_(odomMsg, *scanMsg, scan3dMsg);
+    callbackCalled();
+    nav_msgs::OdometryConstPtr odomMsg; // Null
+    sensor_msgs::PointCloud2 scan3dMsg; // Null
+    commonLaserScanCallback_(odomMsg, *scanMsg, scan3dMsg);
 }
 void CommonDataSubscriber::scan3dCallback(
-		const sensor_msgs::PointCloud2ConstPtr& scan3dMsg)
+        const sensor_msgs::PointCloud2ConstPtr& scan3dMsg)
 {
-	callbackCalled();
-	nav_msgs::OdometryConstPtr odomMsg; // Null
-	sensor_msgs::LaserScan scanMsg; // Null
-	commonLaserScanCallback_(odomMsg, scanMsg, *scan3dMsg);
+    callbackCalled();
+    nav_msgs::OdometryConstPtr odomMsg; // Null
+    sensor_msgs::LaserScan scanMsg; // Null
+    commonLaserScanCallback_(odomMsg, scanMsg, *scan3dMsg);
 }
 void CommonDataSubscriber::odomScan2dCallback(
-		const nav_msgs::OdometryConstPtr & odomMsg,
-		const sensor_msgs::LaserScanConstPtr& scanMsg)
+        const nav_msgs::OdometryConstPtr & odomMsg,
+        const sensor_msgs::LaserScanConstPtr& scanMsg)
 {
-	callbackCalled();
-	sensor_msgs::PointCloud2 scan3dMsg; // Null
-	commonLaserScanCallback_(odomMsg, *scanMsg, scan3dMsg);
+    callbackCalled();
+    sensor_msgs::PointCloud2 scan3dMsg; // Null
+    commonLaserScanCallback_(odomMsg, *scanMsg, scan3dMsg);
 }
 void CommonDataSubscriber::odomScan3dCallback(
-		const nav_msgs::OdometryConstPtr & odomMsg,
-		const sensor_msgs::PointCloud2ConstPtr& scan3dMsg)
+        const nav_msgs::OdometryConstPtr & odomMsg,
+        const sensor_msgs::PointCloud2ConstPtr& scan3dMsg)
 {
-	callbackCalled();
-	sensor_msgs::LaserScan scanMsg; // Null
-	commonLaserScanCallback_(odomMsg, scanMsg, *scan3dMsg);
+    callbackCalled();
+    sensor_msgs::LaserScan scanMsg; // Null
+    commonLaserScanCallback_(odomMsg, scanMsg, *scan3dMsg);
 }
 
 void CommonDataSubscriber::setupScanCallback(
-		ros::NodeHandle & nh,
-		ros::NodeHandle & pnh,
-		bool subscribeOdom,
-		bool scan2dTopic,
-		int queueSize,
-		bool approxSync)
+        ros::NodeHandle & nh,
+        ros::NodeHandle & pnh,
+        bool subscribeOdom,
+        bool scan2dTopic,
+        int queueSize,
+        bool approxSync)
 {
-	ROS_INFO("Setup scan callback");
+    ROS_INFO("Setup scan callback");
 
-	if(subscribeOdom)
-	{
-		odomSub_.subscribe(nh, "odom", queueSize);
-		if(scan2dTopic)
-		{
-			subscribedToScan2d_ = true;
-			scanSub_.subscribe(nh, "scan", queueSize);
-			SYNC_DECL2(CommonDataSubscriber, odomScan2d, approxSync, queueSize, odomSub_, scanSub_);
-		}
-		else
-		{
-			subscribedToScan3d_ = true;
-			scan3dSub_.subscribe(nh, "scan_cloud", queueSize);
-			SYNC_DECL2(CommonDataSubscriber, odomScan3d, approxSync, queueSize, odomSub_, scan3dSub_);
-		}
-	}
-	else
-	{
-		if(scan2dTopic)
-		{
-			subscribedToScan2d_ = true;
-			scan2dSubOnly_ = nh.subscribe("scan", queueSize, &CommonDataSubscriber::scan2dCallback, this);
-			subscribedTopicsMsg_ =
-					uFormat("\n%s subscribed to:\n   %s",
-					ros::this_node::getName().c_str(),
-					scan2dSubOnly_.getTopic().c_str());
-		}
-		else
-		{
-			subscribedToScan3d_ = true;
-			scan3dSubOnly_ = nh.subscribe("scan_cloud", queueSize, &CommonDataSubscriber::scan3dCallback, this);
-			subscribedTopicsMsg_ =
-					uFormat("\n%s subscribed to:\n   %s",
-					ros::this_node::getName().c_str(),
-					scan3dSubOnly_.getTopic().c_str());
-		}
-	}
+    if(subscribeOdom)
+    {
+        odomSub_.subscribe(nh, "odom", queueSize);
+        if(scan2dTopic)
+        {
+            subscribedToScan2d_ = true;
+            scanSub_.subscribe(nh, "scan", queueSize);
+            SYNC_DECL2(CommonDataSubscriber, odomScan2d, approxSync, queueSize, odomSub_, scanSub_);
+        }
+        else
+        {
+            subscribedToScan3d_ = true;
+            scan3dSub_.subscribe(nh, "scan_cloud", queueSize);
+            SYNC_DECL2(CommonDataSubscriber, odomScan3d, approxSync, queueSize, odomSub_, scan3dSub_);
+        }
+    }
+    else
+    {
+        if(scan2dTopic)
+        {
+            subscribedToScan2d_ = true;
+            scan2dSubOnly_ = nh.subscribe("scan", queueSize, &CommonDataSubscriber::scan2dCallback, this);
+            subscribedTopicsMsg_ =
+                    uFormat("\n%s subscribed to:\n   %s",
+                    ros::this_node::getName().c_str(),
+                    scan2dSubOnly_.getTopic().c_str());
+        }
+        else
+        {
+            subscribedToScan3d_ = true;
+            scan3dSubOnly_ = nh.subscribe("scan_cloud", queueSize, &CommonDataSubscriber::scan3dCallback, this);
+            subscribedTopicsMsg_ =
+                    uFormat("\n%s subscribed to:\n   %s",
+                    ros::this_node::getName().c_str(),
+                    scan3dSubOnly_.getTopic().c_str());
+        }
+    }
 }
 
 } /* namespace rtabmap_ros */

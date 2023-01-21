@@ -30,18 +30,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 int main(int argc, char **argv)
 {
-	ros::init(argc, argv, "rgbdx_sync");
+    ros::init(argc, argv, "rgbdx_sync");
 
-	nodelet::V_string nargv;
-	for(int i=1;i<argc;++i)
-	{
-		nargv.push_back(argv[i]);
-	}
+    nodelet::V_string nargv;
+    for(int i=1;i<argc;++i)
+    {
+        nargv.push_back(argv[i]);
+    }
 
-	nodelet::Loader nodelet;
-	nodelet::M_string remap(ros::names::getRemappings());
-	std::string nodelet_name = ros::this_node::getName();
-	nodelet.load(nodelet_name, "rtabmap_ros/rgbdx_sync", remap, nargv);
-	ros::spin();
-	return 0;
+    nodelet::Loader nodelet;
+    nodelet::M_string remap(ros::names::getRemappings());
+    std::string nodelet_name = ros::this_node::getName();
+    nodelet.load(nodelet_name, "rtabmap_ros/rgbdx_sync", remap, nargv);
+    ros::spin();
+    return 0;
 }

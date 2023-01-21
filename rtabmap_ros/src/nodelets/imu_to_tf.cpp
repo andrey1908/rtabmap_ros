@@ -39,81 +39,81 @@ namespace rtabmap_ros
 class ImuToTF : public nodelet::Nodelet
 {
 public:
-	ImuToTF() :
-		fixedFrameId_("odom"),
-		waitForTransformDuration_(0.1)
-	{}
+    ImuToTF() :
+        fixedFrameId_("odom"),
+        waitForTransformDuration_(0.1)
+    {}
 
-	virtual ~ImuToTF()
-	{
-	}
-
-private:
-	virtual void onInit()
-	{
-		ros::NodeHandle & nh = getNodeHandle();
-		ros::NodeHandle & pnh = getPrivateNodeHandle();
-
-		pnh.param("fixed_frame_id", fixedFrameId_, fixedFrameId_);
-		pnh.param("base_frame_id", baseFrameId_, baseFrameId_);
-		pnh.param("wait_for_transform_duration", waitForTransformDuration_, waitForTransformDuration_);
-		NODELET_INFO("fixed_frame_id: %s", fixedFrameId_.c_str());
-		NODELET_INFO("base_frame_id: %s", baseFrameId_.c_str());
-
-		sub_ = nh.subscribe<sensor_msgs::Imu>("imu/data", 1, &ImuToTF::imuCallback, this);
-	}
-
-	void imuCallback(const sensor_msgs::ImuConstPtr & msg)
-	{
-		tf::Quaternion q;
-		tf::quaternionMsgToTF(msg->orientation, q);
-		tf::StampedTransform st;
-		st.setRotation(q);
-
-		st.frame_id_ = fixedFrameId_;
-		st.stamp_ = msg->header.stamp;
-
-		if(!baseFrameId_.empty() &&
-			baseFrameId_.compare(msg->header.frame_id) != 0)
-		{
-			try
-			{
-				std::string errorMsg;
-				if(!tfListener_.waitForTransform(baseFrameId_, msg->header.frame_id, msg->header.stamp, ros::Duration(waitForTransformDuration_), ros::Duration(0.01), &errorMsg))
-				{
-					NODELET_ERROR("Could not get transform from %s to %s after %f seconds (for stamp=%f)! Error=\"%s\".",
-							baseFrameId_.c_str(), msg->header.frame_id.c_str(), 0.1, msg->header.stamp.toSec(), errorMsg.c_str());
-					return;
-				}
-
-				tf::StampedTransform tmp;
-				tfListener_.lookupTransform(msg->header.frame_id, baseFrameId_, msg->header.stamp, tmp);
-				tf::Transform t = tmp.inverse()*st*tmp;
-				st.setRotation(t.getRotation());
-				st.child_frame_id_ = baseFrameId_;
-			}
-			catch(tf::TransformException & ex)
-			{
-				NODELET_ERROR("(getting transform %s -> %s) %s", baseFrameId_.c_str(), msg->header.frame_id.c_str(), ex.what());
-				return;
-			}
-		}
-		else
-		{
-			st.child_frame_id_ = msg->header.frame_id;
-		}
-		st.setOrigin(tf::Vector3(0,0,0));
-
-		pub_.sendTransform(st);
-	}
+    virtual ~ImuToTF()
+    {
+    }
 
 private:
-	ros::Subscriber sub_;
-	tf::TransformBroadcaster pub_;
-	std::string fixedFrameId_;
-	std::string baseFrameId_;
-	tf::TransformListener tfListener_;
-	double waitForTransformDuration_;
+    virtual void onInit()
+    {
+        ros::NodeHandle & nh = getNodeHandle();
+        ros::NodeHandle & pnh = getPrivateNodeHandle();
+
+        pnh.param("fixed_frame_id", fixedFrameId_, fixedFrameId_);
+        pnh.param("base_frame_id", baseFrameId_, baseFrameId_);
+        pnh.param("wait_for_transform_duration", waitForTransformDuration_, waitForTransformDuration_);
+        NODELET_INFO("fixed_frame_id: %s", fixedFrameId_.c_str());
+        NODELET_INFO("base_frame_id: %s", baseFrameId_.c_str());
+
+        sub_ = nh.subscribe<sensor_msgs::Imu>("imu/data", 1, &ImuToTF::imuCallback, this);
+    }
+
+    void imuCallback(const sensor_msgs::ImuConstPtr & msg)
+    {
+        tf::Quaternion q;
+        tf::quaternionMsgToTF(msg->orientation, q);
+        tf::StampedTransform st;
+        st.setRotation(q);
+
+        st.frame_id_ = fixedFrameId_;
+        st.stamp_ = msg->header.stamp;
+
+        if(!baseFrameId_.empty() &&
+            baseFrameId_.compare(msg->header.frame_id) != 0)
+        {
+            try
+            {
+                std::string errorMsg;
+                if(!tfListener_.waitForTransform(baseFrameId_, msg->header.frame_id, msg->header.stamp, ros::Duration(waitForTransformDuration_), ros::Duration(0.01), &errorMsg))
+                {
+                    NODELET_ERROR("Could not get transform from %s to %s after %f seconds (for stamp=%f)! Error=\"%s\".",
+                            baseFrameId_.c_str(), msg->header.frame_id.c_str(), 0.1, msg->header.stamp.toSec(), errorMsg.c_str());
+                    return;
+                }
+
+                tf::StampedTransform tmp;
+                tfListener_.lookupTransform(msg->header.frame_id, baseFrameId_, msg->header.stamp, tmp);
+                tf::Transform t = tmp.inverse()*st*tmp;
+                st.setRotation(t.getRotation());
+                st.child_frame_id_ = baseFrameId_;
+            }
+            catch(tf::TransformException & ex)
+            {
+                NODELET_ERROR("(getting transform %s -> %s) %s", baseFrameId_.c_str(), msg->header.frame_id.c_str(), ex.what());
+                return;
+            }
+        }
+        else
+        {
+            st.child_frame_id_ = msg->header.frame_id;
+        }
+        st.setOrigin(tf::Vector3(0,0,0));
+
+        pub_.sendTransform(st);
+    }
+
+private:
+    ros::Subscriber sub_;
+    tf::TransformBroadcaster pub_;
+    std::string fixedFrameId_;
+    std::string baseFrameId_;
+    tf::TransformListener tfListener_;
+    double waitForTransformDuration_;
 };
 
 

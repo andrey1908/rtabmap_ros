@@ -34,59 +34,59 @@ class OdomMsgToTF
 {
 
 public:
-	OdomMsgToTF() :
-		frameId_(""),
-		odomFrameId_("")
-	{
-		ros::NodeHandle pnh("~");
-		pnh.param("frame_id", frameId_, frameId_);
-		pnh.param("odom_frame_id", odomFrameId_, odomFrameId_);
+    OdomMsgToTF() :
+        frameId_(""),
+        odomFrameId_("")
+    {
+        ros::NodeHandle pnh("~");
+        pnh.param("frame_id", frameId_, frameId_);
+        pnh.param("odom_frame_id", odomFrameId_, odomFrameId_);
 
-		ros::NodeHandle nh;
-		odomTopic_ = nh.subscribe("odom", 1, &OdomMsgToTF::odomReceivedCallback, this);
-	}
+        ros::NodeHandle nh;
+        odomTopic_ = nh.subscribe("odom", 1, &OdomMsgToTF::odomReceivedCallback, this);
+    }
 
-	virtual ~OdomMsgToTF(){}
+    virtual ~OdomMsgToTF(){}
 
-	void odomReceivedCallback(const nav_msgs::OdometryConstPtr & msg)
-	{
-		if(frameId_.empty())
-		{
-			frameId_ = msg->child_frame_id;
-		}
-		if(odomFrameId_.empty())
-		{
-			odomFrameId_ = msg->header.frame_id;
-		}
-		geometry_msgs::TransformStamped t;
-		rtabmap::Transform pose = rtabmap_ros::transformFromPoseMsg(msg->pose.pose);
-		if(pose.isNull())
-		{
-			ROS_WARN("Odometry received is null! Cannot send tf...");
-		}
-		else
-		{
-			t.child_frame_id = frameId_;
-			t.header.frame_id = odomFrameId_;
-			t.header.stamp = msg->header.stamp;
-			rtabmap_ros::transformToGeometryMsg(pose, t.transform);
-			tfBroadcaster_.sendTransform(t);
-		}
-	}
+    void odomReceivedCallback(const nav_msgs::OdometryConstPtr & msg)
+    {
+        if(frameId_.empty())
+        {
+            frameId_ = msg->child_frame_id;
+        }
+        if(odomFrameId_.empty())
+        {
+            odomFrameId_ = msg->header.frame_id;
+        }
+        geometry_msgs::TransformStamped t;
+        rtabmap::Transform pose = rtabmap_ros::transformFromPoseMsg(msg->pose.pose);
+        if(pose.isNull())
+        {
+            ROS_WARN("Odometry received is null! Cannot send tf...");
+        }
+        else
+        {
+            t.child_frame_id = frameId_;
+            t.header.frame_id = odomFrameId_;
+            t.header.stamp = msg->header.stamp;
+            rtabmap_ros::transformToGeometryMsg(pose, t.transform);
+            tfBroadcaster_.sendTransform(t);
+        }
+    }
 
 private:
-	std::string frameId_;
-	std::string odomFrameId_;
+    std::string frameId_;
+    std::string odomFrameId_;
 
-	ros::Subscriber odomTopic_;
-	tf2_ros::TransformBroadcaster tfBroadcaster_;
+    ros::Subscriber odomTopic_;
+    tf2_ros::TransformBroadcaster tfBroadcaster_;
 };
 
 
 int main(int argc, char** argv)
 {
-	ros::init(argc, argv, "odom_msg_to_tf");
-	OdomMsgToTF odomToTf;
-	ros::spin();
-	return 0;
+    ros::init(argc, argv, "odom_msg_to_tf");
+    OdomMsgToTF odomToTf;
+    ros::spin();
+    return 0;
 }

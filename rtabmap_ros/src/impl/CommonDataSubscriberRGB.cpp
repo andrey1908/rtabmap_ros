@@ -31,136 +31,136 @@ namespace rtabmap_ros {
 
 // RGB
 void CommonDataSubscriber::rgbCallback(
-		const sensor_msgs::ImageConstPtr& imageMsg,
-		const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg)
+        const sensor_msgs::ImageConstPtr& imageMsg,
+        const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg)
 {
-	callbackCalled();
-	nav_msgs::OdometryConstPtr odomMsg; // Null
-	sensor_msgs::LaserScan scanMsg; // Null
-	sensor_msgs::PointCloud2 scan3dMsg; // Null
-	commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, scanMsg, scan3dMsg);
+    callbackCalled();
+    nav_msgs::OdometryConstPtr odomMsg; // Null
+    sensor_msgs::LaserScan scanMsg; // Null
+    sensor_msgs::PointCloud2 scan3dMsg; // Null
+    commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, scanMsg, scan3dMsg);
 }
 void CommonDataSubscriber::rgbScan2dCallback(
-		const sensor_msgs::ImageConstPtr& imageMsg,
-		const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
-		const sensor_msgs::LaserScanConstPtr& scanMsg)
+        const sensor_msgs::ImageConstPtr& imageMsg,
+        const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
+        const sensor_msgs::LaserScanConstPtr& scanMsg)
 {
-	callbackCalled();
-	nav_msgs::OdometryConstPtr odomMsg; // Null
-	sensor_msgs::PointCloud2 scan3dMsg; // Null
-	commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, *scanMsg, scan3dMsg);
+    callbackCalled();
+    nav_msgs::OdometryConstPtr odomMsg; // Null
+    sensor_msgs::PointCloud2 scan3dMsg; // Null
+    commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, *scanMsg, scan3dMsg);
 }
 void CommonDataSubscriber::rgbScan3dCallback(
-		const sensor_msgs::ImageConstPtr& imageMsg,
-		const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
-		const sensor_msgs::PointCloud2ConstPtr& scan3dMsg)
+        const sensor_msgs::ImageConstPtr& imageMsg,
+        const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
+        const sensor_msgs::PointCloud2ConstPtr& scan3dMsg)
 {
-	callbackCalled();
-	nav_msgs::OdometryConstPtr odomMsg; // Null
-	sensor_msgs::LaserScan scanMsg; // Null
-	commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, scanMsg, *scan3dMsg);
+    callbackCalled();
+    nav_msgs::OdometryConstPtr odomMsg; // Null
+    sensor_msgs::LaserScan scanMsg; // Null
+    commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, scanMsg, *scan3dMsg);
 }
 
 // RGB + Odom
 void CommonDataSubscriber::rgbOdomCallback(
-		const nav_msgs::OdometryConstPtr & odomMsg,
-		const sensor_msgs::ImageConstPtr& imageMsg,
-		const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg)
+        const nav_msgs::OdometryConstPtr & odomMsg,
+        const sensor_msgs::ImageConstPtr& imageMsg,
+        const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg)
 {
-	callbackCalled();
-	sensor_msgs::LaserScan scanMsg; // Null
-	sensor_msgs::PointCloud2 scan3dMsg; // null
-	commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, scanMsg, scan3dMsg);
+    callbackCalled();
+    sensor_msgs::LaserScan scanMsg; // Null
+    sensor_msgs::PointCloud2 scan3dMsg; // null
+    commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, scanMsg, scan3dMsg);
 }
 void CommonDataSubscriber::rgbOdomScan2dCallback(
-		const nav_msgs::OdometryConstPtr & odomMsg,
-		const sensor_msgs::ImageConstPtr& imageMsg,
-		const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
-		const sensor_msgs::LaserScanConstPtr& scanMsg)
+        const nav_msgs::OdometryConstPtr & odomMsg,
+        const sensor_msgs::ImageConstPtr& imageMsg,
+        const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
+        const sensor_msgs::LaserScanConstPtr& scanMsg)
 {
-	callbackCalled();
-	sensor_msgs::PointCloud2 scan3dMsg; // Null
-	commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, *scanMsg, scan3dMsg);
+    callbackCalled();
+    sensor_msgs::PointCloud2 scan3dMsg; // Null
+    commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, *scanMsg, scan3dMsg);
 }
 void CommonDataSubscriber::rgbOdomScan3dCallback(
-		const nav_msgs::OdometryConstPtr & odomMsg,
-		const sensor_msgs::ImageConstPtr& imageMsg,
-		const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
-		const sensor_msgs::PointCloud2ConstPtr& scan3dMsg)
+        const nav_msgs::OdometryConstPtr & odomMsg,
+        const sensor_msgs::ImageConstPtr& imageMsg,
+        const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
+        const sensor_msgs::PointCloud2ConstPtr& scan3dMsg)
 {
-	callbackCalled();
-	sensor_msgs::LaserScan scanMsg; // Null
-	commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, scanMsg, *scan3dMsg);
+    callbackCalled();
+    sensor_msgs::LaserScan scanMsg; // Null
+    commonRGBCallback_(odomMsg, {cv_bridge::toCvShare(imageMsg)}, {*cameraInfoMsg}, scanMsg, *scan3dMsg);
 }
 
 void CommonDataSubscriber::setupRGBCallback(
-		ros::NodeHandle & nh,
-		ros::NodeHandle & pnh,
-		bool subscribeOdom,
-		bool subscribeScan2d,
-		bool subscribeScan3d,
-		int queueSize,
-		bool approxSync)
+        ros::NodeHandle & nh,
+        ros::NodeHandle & pnh,
+        bool subscribeOdom,
+        bool subscribeScan2d,
+        bool subscribeScan3d,
+        int queueSize,
+        bool approxSync)
 {
-	ROS_INFO("Setup rgb callback");
+    ROS_INFO("Setup rgb callback");
 
-	std::string rgbPrefix = "rgb";
-	ros::NodeHandle rgb_nh(nh, rgbPrefix);
-	ros::NodeHandle rgb_pnh(pnh, rgbPrefix);
-	image_transport::ImageTransport rgb_it(rgb_nh);
-	image_transport::TransportHints hintsRgb("raw", ros::TransportHints(), rgb_pnh);
+    std::string rgbPrefix = "rgb";
+    ros::NodeHandle rgb_nh(nh, rgbPrefix);
+    ros::NodeHandle rgb_pnh(pnh, rgbPrefix);
+    image_transport::ImageTransport rgb_it(rgb_nh);
+    image_transport::TransportHints hintsRgb("raw", ros::TransportHints(), rgb_pnh);
 
-	imageSubs_.resize(1);
-	imageSubs_[0] = std::make_unique<image_transport::SubscriberFilter>();
-	cameraInfoSubs_.resize(1);
-	cameraInfoSubs_[0] = std::make_unique<message_filters::Subscriber<sensor_msgs::CameraInfo>>();
-	imageSubs_[0]->subscribe(rgb_it, rgb_nh.resolveName("image"), queueSize, hintsRgb);
-	cameraInfoSubs_[0]->subscribe(rgb_nh, "camera_info", queueSize);
-	if(subscribeOdom)
-	{
-		odomSub_.subscribe(nh, "odom", queueSize);
-	}
-	if(subscribeScan2d)
-	{
-		subscribedToScan2d_ = true;
-		scanSub_.subscribe(nh, "scan", queueSize);
-	}
-	else if(subscribeScan3d)
-	{
-		subscribedToScan3d_ = true;
-		scan3dSub_.subscribe(nh, "scan_cloud", queueSize);
-	}
+    imageSubs_.resize(1);
+    imageSubs_[0] = std::make_unique<image_transport::SubscriberFilter>();
+    cameraInfoSubs_.resize(1);
+    cameraInfoSubs_[0] = std::make_unique<message_filters::Subscriber<sensor_msgs::CameraInfo>>();
+    imageSubs_[0]->subscribe(rgb_it, rgb_nh.resolveName("image"), queueSize, hintsRgb);
+    cameraInfoSubs_[0]->subscribe(rgb_nh, "camera_info", queueSize);
+    if(subscribeOdom)
+    {
+        odomSub_.subscribe(nh, "odom", queueSize);
+    }
+    if(subscribeScan2d)
+    {
+        subscribedToScan2d_ = true;
+        scanSub_.subscribe(nh, "scan", queueSize);
+    }
+    else if(subscribeScan3d)
+    {
+        subscribedToScan3d_ = true;
+        scan3dSub_.subscribe(nh, "scan_cloud", queueSize);
+    }
 
-	if(subscribeOdom)
-	{
-		if(subscribeScan2d)
-		{
-			SYNC_DECL4(CommonDataSubscriber, rgbOdomScan2d, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scanSub_);
-		}
-		else if(subscribeScan3d)
-		{
-			SYNC_DECL4(CommonDataSubscriber, rgbOdomScan3d, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scan3dSub_);
-		}
-		else
-		{
-			SYNC_DECL3(CommonDataSubscriber, rgbOdom, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*cameraInfoSubs_[0]));
-		}
-	}
-	else
-	{
-		if(subscribeScan2d)
-		{
-			SYNC_DECL3(CommonDataSubscriber, rgbScan2d, approxSync, queueSize, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scanSub_);
-		}
-		else if(subscribeScan3d)
-		{
-			SYNC_DECL3(CommonDataSubscriber, rgbScan3d, approxSync, queueSize, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scan3dSub_);
-		}
-		else
-		{
-			SYNC_DECL2(CommonDataSubscriber, rgb, approxSync, queueSize, (*imageSubs_[0]), (*cameraInfoSubs_[0]));
-		}
-	}
+    if(subscribeOdom)
+    {
+        if(subscribeScan2d)
+        {
+            SYNC_DECL4(CommonDataSubscriber, rgbOdomScan2d, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scanSub_);
+        }
+        else if(subscribeScan3d)
+        {
+            SYNC_DECL4(CommonDataSubscriber, rgbOdomScan3d, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scan3dSub_);
+        }
+        else
+        {
+            SYNC_DECL3(CommonDataSubscriber, rgbOdom, approxSync, queueSize, odomSub_, (*imageSubs_[0]), (*cameraInfoSubs_[0]));
+        }
+    }
+    else
+    {
+        if(subscribeScan2d)
+        {
+            SYNC_DECL3(CommonDataSubscriber, rgbScan2d, approxSync, queueSize, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scanSub_);
+        }
+        else if(subscribeScan3d)
+        {
+            SYNC_DECL3(CommonDataSubscriber, rgbScan3d, approxSync, queueSize, (*imageSubs_[0]), (*cameraInfoSubs_[0]), scan3dSub_);
+        }
+        else
+        {
+            SYNC_DECL2(CommonDataSubscriber, rgb, approxSync, queueSize, (*imageSubs_[0]), (*cameraInfoSubs_[0]));
+        }
+    }
 }
 
 } /* namespace rtabmap_ros */

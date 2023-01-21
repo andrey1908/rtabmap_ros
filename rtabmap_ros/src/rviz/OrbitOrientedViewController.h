@@ -37,8 +37,8 @@ class OrbitOrientedViewController: public rviz::OrbitViewController
 {
 Q_OBJECT
 public:
-	OrbitOrientedViewController() {}
-	virtual ~OrbitOrientedViewController() {}
+    OrbitOrientedViewController() {}
+    virtual ~OrbitOrientedViewController() {}
 
 protected:
   virtual void updateCamera();

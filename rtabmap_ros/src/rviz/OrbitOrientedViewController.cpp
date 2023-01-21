@@ -43,31 +43,31 @@ namespace rtabmap_ros
 
 void OrbitOrientedViewController::updateCamera()
 {
-	float distance = distance_property_->getFloat();
-	float yaw = yaw_property_->getFloat();
-	float pitch = pitch_property_->getFloat();
+    float distance = distance_property_->getFloat();
+    float yaw = yaw_property_->getFloat();
+    float pitch = pitch_property_->getFloat();
 
-	Ogre::Matrix3 rot;
-	reference_orientation_.ToRotationMatrix(rot);
-	Ogre::Radian rollTarget, pitchTarget, yawTarget;
-	rot.ToEulerAnglesXYZ(yawTarget, pitchTarget, rollTarget);
+    Ogre::Matrix3 rot;
+    reference_orientation_.ToRotationMatrix(rot);
+    Ogre::Radian rollTarget, pitchTarget, yawTarget;
+    rot.ToEulerAnglesXYZ(yawTarget, pitchTarget, rollTarget);
 
-	yaw += rollTarget.valueRadians();
-	pitch += pitchTarget.valueRadians();
+    yaw += rollTarget.valueRadians();
+    pitch += pitchTarget.valueRadians();
 
-	Ogre::Vector3 focal_point = focal_point_property_->getVector();
+    Ogre::Vector3 focal_point = focal_point_property_->getVector();
 
-	float x = distance * cos( yaw ) * cos( pitch ) + focal_point.x;
-	float y = distance * sin( yaw ) * cos( pitch ) + focal_point.y;
-	float z = distance *              sin( pitch ) + focal_point.z;
+    float x = distance * cos( yaw ) * cos( pitch ) + focal_point.x;
+    float y = distance * sin( yaw ) * cos( pitch ) + focal_point.y;
+    float z = distance *              sin( pitch ) + focal_point.z;
 
-	Ogre::Vector3 pos( x, y, z );
+    Ogre::Vector3 pos( x, y, z );
 
-	camera_->setPosition(pos);
-	camera_->setFixedYawAxis(true, target_scene_node_->getOrientation() * Ogre::Vector3::UNIT_Z);
-	camera_->setDirection(target_scene_node_->getOrientation() * (focal_point - pos));
+    camera_->setPosition(pos);
+    camera_->setFixedYawAxis(true, target_scene_node_->getOrientation() * Ogre::Vector3::UNIT_Z);
+    camera_->setDirection(target_scene_node_->getOrientation() * (focal_point - pos));
 
-	focal_shape_->setPosition( focal_point );
+    focal_shape_->setPosition( focal_point );
 }
 
 }

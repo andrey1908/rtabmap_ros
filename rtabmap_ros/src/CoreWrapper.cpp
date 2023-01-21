@@ -83,826 +83,826 @@ using namespace rtabmap;
 namespace rtabmap_ros {
 
 CoreWrapper::CoreWrapper() :
-		CommonDataSubscriber(false),
-		paused_(false),
-		lastPose_(Transform::getIdentity()),
-		lastPoseIntermediate_(false),
-		latestNodeWasReached_(false),
-		frameId_("base_link"),
-		odomFrameId_(""),
-		mapFrameId_("map"),
-		groundTruthFrameId_(""), // e.g., "world"
-		groundTruthBaseFrameId_(""), // e.g., "base_link_gt"
-		configPath_(""),
-		odomDefaultAngVariance_(0.001),
-		odomDefaultLinVariance_(0.001),
-		landmarkDefaultAngVariance_(0.001),
-		landmarkDefaultLinVariance_(0.001),
-		waitForTransform_(true),
-		waitForTransformDuration_(0.2), // 200 ms
-		useActionForGoal_(false),
-		useSavedMap_(true),
-		genScan_(false),
-		genScanMaxDepth_(4.0),
-		genScanMinDepth_(0.0),
-		genDepth_(false),
-		genDepthDecimation_(1),
-		genDepthFillHolesSize_(0),
-		genDepthFillIterations_(1),
-		genDepthFillHolesError_(0.1),
-		scanCloudMaxPoints_(0),
-		mapToOdom_(rtabmap::Transform::getIdentity()),
-		transformThread_(0),
-		tfThreadRunning_(false),
-		stereoToDepth_(false),
-		interOdomSync_(0),
-		odomSensorSync_(false),
-		rate_(Parameters::defaultRtabmapDetectionRate()),
-		createIntermediateNodes_(Parameters::defaultRtabmapCreateIntermediateNodes()),
-		mappingMaxNodes_(Parameters::defaultGridGlobalMaxNodes()),
-		mappingAltitudeDelta_(Parameters::defaultGridGlobalAltitudeDelta()),
-		alreadyRectifiedImages_(Parameters::defaultRtabmapImagesAlreadyRectified()),
-		twoDMapping_(Parameters::defaultRegForce3DoF()),
-		previousStamp_(0),
-		mbClient_(0)
+        CommonDataSubscriber(false),
+        paused_(false),
+        lastPose_(Transform::getIdentity()),
+        lastPoseIntermediate_(false),
+        latestNodeWasReached_(false),
+        frameId_("base_link"),
+        odomFrameId_(""),
+        mapFrameId_("map"),
+        groundTruthFrameId_(""), // e.g., "world"
+        groundTruthBaseFrameId_(""), // e.g., "base_link_gt"
+        configPath_(""),
+        odomDefaultAngVariance_(0.001),
+        odomDefaultLinVariance_(0.001),
+        landmarkDefaultAngVariance_(0.001),
+        landmarkDefaultLinVariance_(0.001),
+        waitForTransform_(true),
+        waitForTransformDuration_(0.2), // 200 ms
+        useActionForGoal_(false),
+        useSavedMap_(true),
+        genScan_(false),
+        genScanMaxDepth_(4.0),
+        genScanMinDepth_(0.0),
+        genDepth_(false),
+        genDepthDecimation_(1),
+        genDepthFillHolesSize_(0),
+        genDepthFillIterations_(1),
+        genDepthFillHolesError_(0.1),
+        scanCloudMaxPoints_(0),
+        mapToOdom_(rtabmap::Transform::getIdentity()),
+        transformThread_(0),
+        tfThreadRunning_(false),
+        stereoToDepth_(false),
+        interOdomSync_(0),
+        odomSensorSync_(false),
+        rate_(Parameters::defaultRtabmapDetectionRate()),
+        createIntermediateNodes_(Parameters::defaultRtabmapCreateIntermediateNodes()),
+        mappingMaxNodes_(Parameters::defaultGridGlobalMaxNodes()),
+        mappingAltitudeDelta_(Parameters::defaultGridGlobalAltitudeDelta()),
+        alreadyRectifiedImages_(Parameters::defaultRtabmapImagesAlreadyRectified()),
+        twoDMapping_(Parameters::defaultRegForce3DoF()),
+        previousStamp_(0),
+        mbClient_(0)
 {
-	char * rosHomePath = getenv("ROS_HOME");
-	std::string workingDir = rosHomePath?rosHomePath:UDirectory::homeDir()+"/.ros";
-	databasePath_ = workingDir+"/"+rtabmap::Parameters::getDefaultDatabaseName();
-	globalPose_.header.stamp = ros::Time(0);
+    char * rosHomePath = getenv("ROS_HOME");
+    std::string workingDir = rosHomePath?rosHomePath:UDirectory::homeDir()+"/.ros";
+    databasePath_ = workingDir+"/"+rtabmap::Parameters::getDefaultDatabaseName();
+    globalPose_.header.stamp = ros::Time(0);
 }
 
 void CoreWrapper::onInit()
 {
-	ros::NodeHandle & nh = getNodeHandle();
-	ros::NodeHandle & pnh = getPrivateNodeHandle();
+    ros::NodeHandle & nh = getNodeHandle();
+    ros::NodeHandle & pnh = getPrivateNodeHandle();
 
-	mapsManager_.init(nh, pnh, getName(), true);
+    mapsManager_.init(nh, pnh, getName(), true);
 
-	bool publishTf = true;
-	double tfDelay = 0.05; // 20 Hz
-	double tfTolerance = 0.1; // 100 ms
-	std::string odomFrameIdInit;
+    bool publishTf = true;
+    double tfDelay = 0.05; // 20 Hz
+    double tfTolerance = 0.1; // 100 ms
+    std::string odomFrameIdInit;
 
-	pnh.param("config_path",         configPath_, configPath_);
-	pnh.param("database_path",       databasePath_, databasePath_);
+    pnh.param("config_path",         configPath_, configPath_);
+    pnh.param("database_path",       databasePath_, databasePath_);
 
-	pnh.param("frame_id",            frameId_, frameId_);
-	pnh.param("odom_frame_id",       odomFrameId_, odomFrameId_); // set to use odom from TF
-	pnh.param("odom_frame_id_init",  odomFrameIdInit, odomFrameIdInit); // set to publish map->odom TF before receiving odom topic
-	pnh.param("map_frame_id",        mapFrameId_, mapFrameId_);
-	pnh.param("ground_truth_frame_id", groundTruthFrameId_, groundTruthFrameId_);
-	pnh.param("ground_truth_base_frame_id", groundTruthBaseFrameId_, frameId_);
-	if(pnh.hasParam("depth_cameras") && !pnh.hasParam("depth_cameras"))
-	{
-		NODELET_ERROR("\"depth_cameras\" parameter doesn't exist "
-				"anymore! It is replaced by \"rgbd_cameras\" parameter "
-				"used when \"subscribe_rgbd\" is true");
-	}
-	if(!odomFrameIdInit.empty())
-	{
-		if(odomFrameId_.empty())
-		{
-			ROS_INFO("rtabmap: odom_frame_id_init = %s", odomFrameIdInit.c_str());
-			odomFrameId_ = odomFrameIdInit;
-		}
-		else
-		{
-			ROS_WARN("odom_frame_id_init (%s) is ignored if odom_frame_id (%s) is set.", odomFrameIdInit.c_str(), odomFrameId_.c_str());
-		}
-	}
+    pnh.param("frame_id",            frameId_, frameId_);
+    pnh.param("odom_frame_id",       odomFrameId_, odomFrameId_); // set to use odom from TF
+    pnh.param("odom_frame_id_init",  odomFrameIdInit, odomFrameIdInit); // set to publish map->odom TF before receiving odom topic
+    pnh.param("map_frame_id",        mapFrameId_, mapFrameId_);
+    pnh.param("ground_truth_frame_id", groundTruthFrameId_, groundTruthFrameId_);
+    pnh.param("ground_truth_base_frame_id", groundTruthBaseFrameId_, frameId_);
+    if(pnh.hasParam("depth_cameras") && !pnh.hasParam("depth_cameras"))
+    {
+        NODELET_ERROR("\"depth_cameras\" parameter doesn't exist "
+                "anymore! It is replaced by \"rgbd_cameras\" parameter "
+                "used when \"subscribe_rgbd\" is true");
+    }
+    if(!odomFrameIdInit.empty())
+    {
+        if(odomFrameId_.empty())
+        {
+            ROS_INFO("rtabmap: odom_frame_id_init = %s", odomFrameIdInit.c_str());
+            odomFrameId_ = odomFrameIdInit;
+        }
+        else
+        {
+            ROS_WARN("odom_frame_id_init (%s) is ignored if odom_frame_id (%s) is set.", odomFrameIdInit.c_str(), odomFrameId_.c_str());
+        }
+    }
 
-	pnh.param("publish_tf",          publishTf, publishTf);
-	pnh.param("tf_delay",            tfDelay, tfDelay);
-	if(pnh.hasParam("tf_prefix"))
-	{
-		ROS_ERROR("tf_prefix parameter has been removed, use directly map_frame_id, odom_frame_id and frame_id parameters.");
-	}
-	pnh.param("tf_tolerance",        tfTolerance, tfTolerance);
-	pnh.param("odom_tf_angular_variance", odomDefaultAngVariance_, odomDefaultAngVariance_);
-	pnh.param("odom_tf_linear_variance", odomDefaultLinVariance_, odomDefaultLinVariance_);
-	pnh.param("landmark_angular_variance", landmarkDefaultAngVariance_, landmarkDefaultAngVariance_);
-	pnh.param("landmark_linear_variance", landmarkDefaultLinVariance_, landmarkDefaultLinVariance_);
-	pnh.param("wait_for_transform",  waitForTransform_, waitForTransform_);
-	pnh.param("wait_for_transform_duration",  waitForTransformDuration_, waitForTransformDuration_);
-	pnh.param("use_action_for_goal", useActionForGoal_, useActionForGoal_);
-	pnh.param("use_saved_map", useSavedMap_, useSavedMap_);
-	pnh.param("gen_scan",            genScan_, genScan_);
-	pnh.param("gen_scan_max_depth",  genScanMaxDepth_, genScanMaxDepth_);
-	pnh.param("gen_scan_min_depth",  genScanMinDepth_, genScanMinDepth_);
-	pnh.param("gen_depth",                  genDepth_, genDepth_);
-	pnh.param("gen_depth_decimation",       genDepthDecimation_, genDepthDecimation_);
-	pnh.param("gen_depth_fill_holes_size",  genDepthFillHolesSize_, genDepthFillHolesSize_);
-	pnh.param("gen_depth_fill_iterations",  genDepthFillIterations_, genDepthFillIterations_);
-	pnh.param("gen_depth_fill_holes_error", genDepthFillHolesError_, genDepthFillHolesError_);
-	pnh.param("scan_cloud_max_points",  scanCloudMaxPoints_, scanCloudMaxPoints_);
-	if(pnh.hasParam("scan_cloud_normal_k"))
-	{
-		ROS_WARN("rtabmap: Parameter \"scan_cloud_normal_k\" has been removed. RTAB-Map's parameter \"%s\" should be used instead. "
-				"The value is copied. Use \"%s\" to avoid this warning.",
-				Parameters::kMemLaserScanNormalK().c_str(),
-				Parameters::kMemLaserScanNormalK().c_str());
-		double value;
-		pnh.getParam("scan_cloud_normal_k", value);
-		uInsert(parameters_, ParametersPair(Parameters::kMemLaserScanNormalK(), uNumber2Str(value)));
-	}
-	pnh.param("stereo_to_depth", stereoToDepth_, stereoToDepth_);
-	pnh.param("odom_sensor_sync", odomSensorSync_, odomSensorSync_);
-	if(pnh.hasParam("flip_scan"))
-	{
-		NODELET_WARN("Parameter \"flip_scan\" doesn't exist anymore. Rtabmap now "
-				"detects automatically if the laser is upside down with /tf, then if so, it "
-				"switches scan values.");
-	}
+    pnh.param("publish_tf",          publishTf, publishTf);
+    pnh.param("tf_delay",            tfDelay, tfDelay);
+    if(pnh.hasParam("tf_prefix"))
+    {
+        ROS_ERROR("tf_prefix parameter has been removed, use directly map_frame_id, odom_frame_id and frame_id parameters.");
+    }
+    pnh.param("tf_tolerance",        tfTolerance, tfTolerance);
+    pnh.param("odom_tf_angular_variance", odomDefaultAngVariance_, odomDefaultAngVariance_);
+    pnh.param("odom_tf_linear_variance", odomDefaultLinVariance_, odomDefaultLinVariance_);
+    pnh.param("landmark_angular_variance", landmarkDefaultAngVariance_, landmarkDefaultAngVariance_);
+    pnh.param("landmark_linear_variance", landmarkDefaultLinVariance_, landmarkDefaultLinVariance_);
+    pnh.param("wait_for_transform",  waitForTransform_, waitForTransform_);
+    pnh.param("wait_for_transform_duration",  waitForTransformDuration_, waitForTransformDuration_);
+    pnh.param("use_action_for_goal", useActionForGoal_, useActionForGoal_);
+    pnh.param("use_saved_map", useSavedMap_, useSavedMap_);
+    pnh.param("gen_scan",            genScan_, genScan_);
+    pnh.param("gen_scan_max_depth",  genScanMaxDepth_, genScanMaxDepth_);
+    pnh.param("gen_scan_min_depth",  genScanMinDepth_, genScanMinDepth_);
+    pnh.param("gen_depth",                  genDepth_, genDepth_);
+    pnh.param("gen_depth_decimation",       genDepthDecimation_, genDepthDecimation_);
+    pnh.param("gen_depth_fill_holes_size",  genDepthFillHolesSize_, genDepthFillHolesSize_);
+    pnh.param("gen_depth_fill_iterations",  genDepthFillIterations_, genDepthFillIterations_);
+    pnh.param("gen_depth_fill_holes_error", genDepthFillHolesError_, genDepthFillHolesError_);
+    pnh.param("scan_cloud_max_points",  scanCloudMaxPoints_, scanCloudMaxPoints_);
+    if(pnh.hasParam("scan_cloud_normal_k"))
+    {
+        ROS_WARN("rtabmap: Parameter \"scan_cloud_normal_k\" has been removed. RTAB-Map's parameter \"%s\" should be used instead. "
+                "The value is copied. Use \"%s\" to avoid this warning.",
+                Parameters::kMemLaserScanNormalK().c_str(),
+                Parameters::kMemLaserScanNormalK().c_str());
+        double value;
+        pnh.getParam("scan_cloud_normal_k", value);
+        uInsert(parameters_, ParametersPair(Parameters::kMemLaserScanNormalK(), uNumber2Str(value)));
+    }
+    pnh.param("stereo_to_depth", stereoToDepth_, stereoToDepth_);
+    pnh.param("odom_sensor_sync", odomSensorSync_, odomSensorSync_);
+    if(pnh.hasParam("flip_scan"))
+    {
+        NODELET_WARN("Parameter \"flip_scan\" doesn't exist anymore. Rtabmap now "
+                "detects automatically if the laser is upside down with /tf, then if so, it "
+                "switches scan values.");
+    }
 
-	NODELET_INFO("rtabmap: frame_id      = %s", frameId_.c_str());
-	if(!odomFrameId_.empty())
-	{
-		NODELET_INFO("rtabmap: odom_frame_id = %s", odomFrameId_.c_str());
-	}
-	if(!groundTruthFrameId_.empty())
-	{
-		NODELET_INFO("rtabmap: ground_truth_frame_id = %s -> ground_truth_base_frame_id = %s",
-				groundTruthFrameId_.c_str(),
-				groundTruthBaseFrameId_.c_str());
-	}
-	NODELET_INFO("rtabmap: map_frame_id  = %s", mapFrameId_.c_str());
-	NODELET_INFO("rtabmap: use_action_for_goal  = %s", useActionForGoal_?"true":"false");
-	NODELET_INFO("rtabmap: tf_delay      = %f", tfDelay);
-	NODELET_INFO("rtabmap: tf_tolerance  = %f", tfTolerance);
-	NODELET_INFO("rtabmap: odom_sensor_sync   = %s", odomSensorSync_?"true":"false");
-	bool subscribeStereo = false;
-	pnh.param("subscribe_stereo",      subscribeStereo, subscribeStereo);
-	if(subscribeStereo)
-	{
-		NODELET_INFO("rtabmap: stereo_to_depth = %s", stereoToDepth_?"true":"false");
-	}
+    NODELET_INFO("rtabmap: frame_id      = %s", frameId_.c_str());
+    if(!odomFrameId_.empty())
+    {
+        NODELET_INFO("rtabmap: odom_frame_id = %s", odomFrameId_.c_str());
+    }
+    if(!groundTruthFrameId_.empty())
+    {
+        NODELET_INFO("rtabmap: ground_truth_frame_id = %s -> ground_truth_base_frame_id = %s",
+                groundTruthFrameId_.c_str(),
+                groundTruthBaseFrameId_.c_str());
+    }
+    NODELET_INFO("rtabmap: map_frame_id  = %s", mapFrameId_.c_str());
+    NODELET_INFO("rtabmap: use_action_for_goal  = %s", useActionForGoal_?"true":"false");
+    NODELET_INFO("rtabmap: tf_delay      = %f", tfDelay);
+    NODELET_INFO("rtabmap: tf_tolerance  = %f", tfTolerance);
+    NODELET_INFO("rtabmap: odom_sensor_sync   = %s", odomSensorSync_?"true":"false");
+    bool subscribeStereo = false;
+    pnh.param("subscribe_stereo",      subscribeStereo, subscribeStereo);
+    if(subscribeStereo)
+    {
+        NODELET_INFO("rtabmap: stereo_to_depth = %s", stereoToDepth_?"true":"false");
+    }
 
-	NODELET_INFO("rtabmap: gen_scan  = %s", genScan_?"true":"false");
-	if(genScan_)
-	{
-		NODELET_INFO("rtabmap: gen_scan_max_depth  = %f", genScanMaxDepth_);
-		NODELET_INFO("rtabmap: gen_scan_min_depth  = %f", genScanMinDepth_);
-	}
+    NODELET_INFO("rtabmap: gen_scan  = %s", genScan_?"true":"false");
+    if(genScan_)
+    {
+        NODELET_INFO("rtabmap: gen_scan_max_depth  = %f", genScanMaxDepth_);
+        NODELET_INFO("rtabmap: gen_scan_min_depth  = %f", genScanMinDepth_);
+    }
 
-	NODELET_INFO("rtabmap: gen_depth  = %s", genDepth_?"true":"false");
-	if(genDepth_)
-	{
-		NODELET_INFO("rtabmap: gen_depth_decimation        = %d", genDepthDecimation_);
-		NODELET_INFO("rtabmap: gen_depth_fill_holes_size   = %d", genDepthFillHolesSize_);
-		NODELET_INFO("rtabmap: gen_depth_fill_iterations   = %d", genDepthFillIterations_);
-		NODELET_INFO("rtabmap: gen_depth_fill_holes_error  = %f", genDepthFillHolesError_);
-	}
-	bool subscribeScanCloud = false;
-	pnh.param("subscribe_scan_cloud",      subscribeScanCloud, subscribeScanCloud);
-	if(subscribeScanCloud)
-	{
-		NODELET_INFO("rtabmap: scan_cloud_max_points = %d", scanCloudMaxPoints_);
-	}
+    NODELET_INFO("rtabmap: gen_depth  = %s", genDepth_?"true":"false");
+    if(genDepth_)
+    {
+        NODELET_INFO("rtabmap: gen_depth_decimation        = %d", genDepthDecimation_);
+        NODELET_INFO("rtabmap: gen_depth_fill_holes_size   = %d", genDepthFillHolesSize_);
+        NODELET_INFO("rtabmap: gen_depth_fill_iterations   = %d", genDepthFillIterations_);
+        NODELET_INFO("rtabmap: gen_depth_fill_holes_error  = %f", genDepthFillHolesError_);
+    }
+    bool subscribeScanCloud = false;
+    pnh.param("subscribe_scan_cloud",      subscribeScanCloud, subscribeScanCloud);
+    if(subscribeScanCloud)
+    {
+        NODELET_INFO("rtabmap: scan_cloud_max_points = %d", scanCloudMaxPoints_);
+    }
 
-	infoPub_ = nh.advertise<rtabmap_ros_msgs::Info>("info", 1);
-	mapDataPub_ = nh.advertise<rtabmap_ros_msgs::MapData>("mapData", 1);
-	mapGraphPub_ = nh.advertise<rtabmap_ros_msgs::MapGraph>("mapGraph", 1);
-	landmarksPub_ = nh.advertise<geometry_msgs::PoseArray>("landmarks", 1);
-	labelsPub_ = nh.advertise<visualization_msgs::MarkerArray>("labels", 1);
-	mapPathPub_ = nh.advertise<nav_msgs::Path>("mapPath", 1);
-	localGridObstacle_ = nh.advertise<sensor_msgs::PointCloud2>("local_grid_obstacle", 1);
-	localGridEmpty_ = nh.advertise<sensor_msgs::PointCloud2>("local_grid_empty", 1);
-	localGridGround_ = nh.advertise<sensor_msgs::PointCloud2>("local_grid_ground", 1);
-	localizationPosePub_ = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("localization_pose", 1);
-	initialPoseSub_ = nh.subscribe("initialpose", 1, &CoreWrapper::initialPoseCallback, this);
+    infoPub_ = nh.advertise<rtabmap_ros_msgs::Info>("info", 1);
+    mapDataPub_ = nh.advertise<rtabmap_ros_msgs::MapData>("mapData", 1);
+    mapGraphPub_ = nh.advertise<rtabmap_ros_msgs::MapGraph>("mapGraph", 1);
+    landmarksPub_ = nh.advertise<geometry_msgs::PoseArray>("landmarks", 1);
+    labelsPub_ = nh.advertise<visualization_msgs::MarkerArray>("labels", 1);
+    mapPathPub_ = nh.advertise<nav_msgs::Path>("mapPath", 1);
+    localGridObstacle_ = nh.advertise<sensor_msgs::PointCloud2>("local_grid_obstacle", 1);
+    localGridEmpty_ = nh.advertise<sensor_msgs::PointCloud2>("local_grid_empty", 1);
+    localGridGround_ = nh.advertise<sensor_msgs::PointCloud2>("local_grid_ground", 1);
+    localizationPosePub_ = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("localization_pose", 1);
+    initialPoseSub_ = nh.subscribe("initialpose", 1, &CoreWrapper::initialPoseCallback, this);
 
-	// planning topics
-	goalSub_ = nh.subscribe("goal", 1, &CoreWrapper::goalCallback, this);
-	goalNodeSub_ = nh.subscribe("goal_node", 1, &CoreWrapper::goalNodeCallback, this);
-	nextMetricGoalPub_ = nh.advertise<geometry_msgs::PoseStamped>("goal_out", 1);
-	goalReachedPub_ = nh.advertise<std_msgs::Bool>("goal_reached", 1);
-	globalPathPub_ = nh.advertise<nav_msgs::Path>("global_path", 1);
-	localPathPub_ = nh.advertise<nav_msgs::Path>("local_path", 1);
-	globalPathNodesPub_ = nh.advertise<rtabmap_ros_msgs::Path>("global_path_nodes", 1);
-	localPathNodesPub_ = nh.advertise<rtabmap_ros_msgs::Path>("local_path_nodes", 1);
+    // planning topics
+    goalSub_ = nh.subscribe("goal", 1, &CoreWrapper::goalCallback, this);
+    goalNodeSub_ = nh.subscribe("goal_node", 1, &CoreWrapper::goalNodeCallback, this);
+    nextMetricGoalPub_ = nh.advertise<geometry_msgs::PoseStamped>("goal_out", 1);
+    goalReachedPub_ = nh.advertise<std_msgs::Bool>("goal_reached", 1);
+    globalPathPub_ = nh.advertise<nav_msgs::Path>("global_path", 1);
+    localPathPub_ = nh.advertise<nav_msgs::Path>("local_path", 1);
+    globalPathNodesPub_ = nh.advertise<rtabmap_ros_msgs::Path>("global_path_nodes", 1);
+    localPathNodesPub_ = nh.advertise<rtabmap_ros_msgs::Path>("local_path_nodes", 1);
 
-	ros::Publisher nextMetricGoal_;
-	ros::Publisher goalReached_;
-	ros::Publisher path_;
+    ros::Publisher nextMetricGoal_;
+    ros::Publisher goalReached_;
+    ros::Publisher path_;
 
-	configPath_ = uReplaceChar(configPath_, '~', UDirectory::homeDir());
-	databasePath_ = uReplaceChar(databasePath_, '~', UDirectory::homeDir());
+    configPath_ = uReplaceChar(configPath_, '~', UDirectory::homeDir());
+    databasePath_ = uReplaceChar(databasePath_, '~', UDirectory::homeDir());
 #ifndef _WIN32
-	if(configPath_.size() && configPath_.at(0) != '/')
-	{
-		configPath_ = UDirectory::currentDir(true) + configPath_;
-	}
-	if(databasePath_.size() && databasePath_.at(0) != '/')
-	{
-		databasePath_ = UDirectory::currentDir(true) + databasePath_;
-	}
+    if(configPath_.size() && configPath_.at(0) != '/')
+    {
+        configPath_ = UDirectory::currentDir(true) + configPath_;
+    }
+    if(databasePath_.size() && databasePath_.at(0) != '/')
+    {
+        databasePath_ = UDirectory::currentDir(true) + databasePath_;
+    }
 #endif
 
-	ParametersMap allParameters = Parameters::getDefaultParameters();
-	// remove Odom parameters
-	for(ParametersMap::iterator iter=allParameters.begin(); iter!=allParameters.end();)
-	{
-		if(iter->first.find("Odom") == 0)
-		{
-			allParameters.erase(iter++);
-		}
-		else
-		{
-			++iter;
-		}
-	}
-	uInsert(allParameters, ParametersPair(Parameters::kRGBDCreateOccupancyGrid(), "true")); // default true in ROS
-	char * rosHomePath = getenv("ROS_HOME");
-	std::string workingDir = rosHomePath?rosHomePath:UDirectory::homeDir()+"/.ros";
-	uInsert(allParameters, ParametersPair(Parameters::kRtabmapWorkingDirectory(), workingDir)); // change default to ~/.ros
+    ParametersMap allParameters = Parameters::getDefaultParameters();
+    // remove Odom parameters
+    for(ParametersMap::iterator iter=allParameters.begin(); iter!=allParameters.end();)
+    {
+        if(iter->first.find("Odom") == 0)
+        {
+            allParameters.erase(iter++);
+        }
+        else
+        {
+            ++iter;
+        }
+    }
+    uInsert(allParameters, ParametersPair(Parameters::kRGBDCreateOccupancyGrid(), "true")); // default true in ROS
+    char * rosHomePath = getenv("ROS_HOME");
+    std::string workingDir = rosHomePath?rosHomePath:UDirectory::homeDir()+"/.ros";
+    uInsert(allParameters, ParametersPair(Parameters::kRtabmapWorkingDirectory(), workingDir)); // change default to ~/.ros
 
-	// load parameters
-	loadParameters(configPath_, parameters_);
-	for(ParametersMap::iterator iter=parameters_.begin(); iter!=parameters_.end();)
-	{
-		if(iter->first.find("Odom") == 0)
-		{
-			parameters_.erase(iter++);
-		}
-		else
-		{
-			++iter;
-		}
-	}
+    // load parameters
+    loadParameters(configPath_, parameters_);
+    for(ParametersMap::iterator iter=parameters_.begin(); iter!=parameters_.end();)
+    {
+        if(iter->first.find("Odom") == 0)
+        {
+            parameters_.erase(iter++);
+        }
+        else
+        {
+            ++iter;
+        }
+    }
 
-	// update parameters with user input parameters (private)
-	for(ParametersMap::iterator iter=allParameters.begin(); iter!=allParameters.end(); ++iter)
-	{
-		std::string vStr;
-		bool vBool;
-		int vInt;
-		double vDouble;
-		if(pnh.getParam(iter->first, vStr))
-		{
-			NODELET_INFO("Setting RTAB-Map parameter \"%s\"=\"%s\"", iter->first.c_str(), vStr.c_str());
+    // update parameters with user input parameters (private)
+    for(ParametersMap::iterator iter=allParameters.begin(); iter!=allParameters.end(); ++iter)
+    {
+        std::string vStr;
+        bool vBool;
+        int vInt;
+        double vDouble;
+        if(pnh.getParam(iter->first, vStr))
+        {
+            NODELET_INFO("Setting RTAB-Map parameter \"%s\"=\"%s\"", iter->first.c_str(), vStr.c_str());
 
-			if(iter->first.compare(Parameters::kRtabmapWorkingDirectory()) == 0)
-			{
-				vStr = uReplaceChar(vStr, '~', UDirectory::homeDir());
-			}
-			else if(iter->first.compare(Parameters::kKpDictionaryPath()) == 0)
-			{
-				vStr = uReplaceChar(vStr, '~', UDirectory::homeDir());
-			}
-			uInsert(parameters_, ParametersPair(iter->first, vStr));
-		}
-		else if(pnh.getParam(iter->first, vBool))
-		{
-			NODELET_INFO("Setting RTAB-Map parameter \"%s\"=\"%s\"", iter->first.c_str(), uBool2Str(vBool).c_str());
-			uInsert(parameters_, ParametersPair(iter->first, uBool2Str(vBool)));
-		}
-		else if(pnh.getParam(iter->first, vDouble))
-		{
-			NODELET_INFO("Setting RTAB-Map parameter \"%s\"=\"%s\"", iter->first.c_str(), uNumber2Str(vDouble).c_str());
-			uInsert(parameters_, ParametersPair(iter->first, uNumber2Str(vDouble)));
-		}
-		else if(pnh.getParam(iter->first, vInt))
-		{
-			NODELET_INFO("Setting RTAB-Map parameter \"%s\"=\"%s\"", iter->first.c_str(), uNumber2Str(vInt).c_str());
-			uInsert(parameters_, ParametersPair(iter->first, uNumber2Str(vInt)));
-		}
-	}
+            if(iter->first.compare(Parameters::kRtabmapWorkingDirectory()) == 0)
+            {
+                vStr = uReplaceChar(vStr, '~', UDirectory::homeDir());
+            }
+            else if(iter->first.compare(Parameters::kKpDictionaryPath()) == 0)
+            {
+                vStr = uReplaceChar(vStr, '~', UDirectory::homeDir());
+            }
+            uInsert(parameters_, ParametersPair(iter->first, vStr));
+        }
+        else if(pnh.getParam(iter->first, vBool))
+        {
+            NODELET_INFO("Setting RTAB-Map parameter \"%s\"=\"%s\"", iter->first.c_str(), uBool2Str(vBool).c_str());
+            uInsert(parameters_, ParametersPair(iter->first, uBool2Str(vBool)));
+        }
+        else if(pnh.getParam(iter->first, vDouble))
+        {
+            NODELET_INFO("Setting RTAB-Map parameter \"%s\"=\"%s\"", iter->first.c_str(), uNumber2Str(vDouble).c_str());
+            uInsert(parameters_, ParametersPair(iter->first, uNumber2Str(vDouble)));
+        }
+        else if(pnh.getParam(iter->first, vInt))
+        {
+            NODELET_INFO("Setting RTAB-Map parameter \"%s\"=\"%s\"", iter->first.c_str(), uNumber2Str(vInt).c_str());
+            uInsert(parameters_, ParametersPair(iter->first, uNumber2Str(vInt)));
+        }
+    }
 
-	//parse input arguments
-	std::vector<std::string> argList = getMyArgv();
-	char ** argv = new char*[argList.size()];
-	bool deleteDbOnStart = false;
-	for(unsigned int i=0; i<argList.size(); ++i)
-	{
-		argv[i] = &argList[i].at(0);
-		if(strcmp(argv[i], "--delete_db_on_start") == 0 || strcmp(argv[i], "-d") == 0)
-		{
-			deleteDbOnStart = true;
-		}
-	}
-	rtabmap::ParametersMap parameters = rtabmap::Parameters::parseArguments(argList.size(), argv);
-	delete [] argv;
-	for(ParametersMap::const_iterator iter=parameters.begin(); iter!=parameters.end(); ++iter)
-	{
-		uInsert(parameters_, ParametersPair(iter->first, iter->second));
-		NODELET_INFO("Update RTAB-Map parameter \"%s\"=\"%s\" from arguments", iter->first.c_str(), iter->second.c_str());
-	}
+    //parse input arguments
+    std::vector<std::string> argList = getMyArgv();
+    char ** argv = new char*[argList.size()];
+    bool deleteDbOnStart = false;
+    for(unsigned int i=0; i<argList.size(); ++i)
+    {
+        argv[i] = &argList[i].at(0);
+        if(strcmp(argv[i], "--delete_db_on_start") == 0 || strcmp(argv[i], "-d") == 0)
+        {
+            deleteDbOnStart = true;
+        }
+    }
+    rtabmap::ParametersMap parameters = rtabmap::Parameters::parseArguments(argList.size(), argv);
+    delete [] argv;
+    for(ParametersMap::const_iterator iter=parameters.begin(); iter!=parameters.end(); ++iter)
+    {
+        uInsert(parameters_, ParametersPair(iter->first, iter->second));
+        NODELET_INFO("Update RTAB-Map parameter \"%s\"=\"%s\" from arguments", iter->first.c_str(), iter->second.c_str());
+    }
 
-	// Backward compatibility
-	for(std::map<std::string, std::pair<bool, std::string> >::const_iterator iter=Parameters::getRemovedParameters().begin();
-		iter!=Parameters::getRemovedParameters().end();
-		++iter)
-	{
-		std::string vStr;
-		bool vBool;
-		int vInt;
-		double vDouble;
-		std::string paramValue;
-		if(pnh.getParam(iter->first, vStr))
-		{
-			paramValue = vStr;
-		}
-		else if(pnh.getParam(iter->first, vBool))
-		{
-			paramValue = uBool2Str(vBool);
-		}
-		else if(pnh.getParam(iter->first, vDouble))
-		{
-			paramValue = uNumber2Str(vDouble);
-		}
-		else if(pnh.getParam(iter->first, vInt))
-		{
-			paramValue = uNumber2Str(vInt);
-		}
-		if(!paramValue.empty())
-		{
-			if(iter->second.first)
-			{
-				// can be migrated
-				uInsert(parameters_, ParametersPair(iter->second.second, paramValue));
-				NODELET_WARN("Rtabmap: Parameter name changed: \"%s\" -> \"%s\". Please update your launch file accordingly. Value \"%s\" is still set to the new parameter name.",
-						iter->first.c_str(), iter->second.second.c_str(), paramValue.c_str());
-			}
-			else
-			{
-				if(iter->second.second.empty())
-				{
-					NODELET_ERROR("Rtabmap: Parameter \"%s\" doesn't exist anymore!",
-							iter->first.c_str());
-				}
-				else
-				{
-					NODELET_ERROR("Rtabmap: Parameter \"%s\" doesn't exist anymore! You may look at this similar parameter: \"%s\"",
-							iter->first.c_str(), iter->second.second.c_str());
-				}
-			}
-		}
-	}
+    // Backward compatibility
+    for(std::map<std::string, std::pair<bool, std::string> >::const_iterator iter=Parameters::getRemovedParameters().begin();
+        iter!=Parameters::getRemovedParameters().end();
+        ++iter)
+    {
+        std::string vStr;
+        bool vBool;
+        int vInt;
+        double vDouble;
+        std::string paramValue;
+        if(pnh.getParam(iter->first, vStr))
+        {
+            paramValue = vStr;
+        }
+        else if(pnh.getParam(iter->first, vBool))
+        {
+            paramValue = uBool2Str(vBool);
+        }
+        else if(pnh.getParam(iter->first, vDouble))
+        {
+            paramValue = uNumber2Str(vDouble);
+        }
+        else if(pnh.getParam(iter->first, vInt))
+        {
+            paramValue = uNumber2Str(vInt);
+        }
+        if(!paramValue.empty())
+        {
+            if(iter->second.first)
+            {
+                // can be migrated
+                uInsert(parameters_, ParametersPair(iter->second.second, paramValue));
+                NODELET_WARN("Rtabmap: Parameter name changed: \"%s\" -> \"%s\". Please update your launch file accordingly. Value \"%s\" is still set to the new parameter name.",
+                        iter->first.c_str(), iter->second.second.c_str(), paramValue.c_str());
+            }
+            else
+            {
+                if(iter->second.second.empty())
+                {
+                    NODELET_ERROR("Rtabmap: Parameter \"%s\" doesn't exist anymore!",
+                            iter->first.c_str());
+                }
+                else
+                {
+                    NODELET_ERROR("Rtabmap: Parameter \"%s\" doesn't exist anymore! You may look at this similar parameter: \"%s\"",
+                            iter->first.c_str(), iter->second.second.c_str());
+                }
+            }
+        }
+    }
 
-	// Backward compatibility (MapsManager)
-	mapsManager_.backwardCompatibilityParameters(pnh, parameters_);
+    // Backward compatibility (MapsManager)
+    mapsManager_.backwardCompatibilityParameters(pnh, parameters_);
 
-	bool subscribeScan2d = false;
-	bool subscribeScan3d = false;
-	pnh.param("subscribe_scan",      subscribeScan2d, subscribeScan2d);
-	pnh.param("subscribe_scan_cloud", subscribeScan3d, subscribeScan3d);
-	bool gridFromDepth = Parameters::defaultGridFromDepth();
-	if((subscribeScan2d || subscribeScan3d || genScan_) && parameters_.find(Parameters::kGridFromDepth()) == parameters_.end())
-	{
-		NODELET_WARN("Setting \"%s\" parameter to false (default true) as \"subscribe_scan\", \"subscribe_scan_cloud\" or \"gen_scan\" is "
-				"true. The occupancy grid map will be constructed from "
-				"laser scans. To get occupancy grid map from cloud projection, set \"%s\" "
-				"to true. To suppress this warning, "
-				"add <param name=\"%s\" type=\"string\" value=\"false\"/>",
-				Parameters::kGridFromDepth().c_str(),
-				Parameters::kGridFromDepth().c_str(),
-				Parameters::kGridFromDepth().c_str());
-		parameters_.insert(ParametersPair(Parameters::kGridFromDepth(), "false"));
-	}
-	Parameters::parse(parameters_, Parameters::kGridFromDepth(), gridFromDepth);
-	if((subscribeScan2d || subscribeScan3d || genScan_) && parameters_.find(Parameters::kGridRangeMax()) == parameters_.end() && !gridFromDepth)
-	{
-		NODELET_INFO("Setting \"%s\" parameter to 0 (default %f) as \"subscribe_scan\", \"subscribe_scan_cloud\" or \"gen_scan\" is true and %s is false.",
-				Parameters::kGridRangeMax().c_str(),
-				Parameters::defaultGridRangeMax(),
-				Parameters::kGridFromDepth().c_str());
-		parameters_.insert(ParametersPair(Parameters::kGridRangeMax(), "0"));
-	}
-	if(subscribeScan3d && parameters_.find(Parameters::kIcpPointToPlaneRadius()) == parameters_.end())
-	{
-		NODELET_INFO("Setting \"%s\" parameter to 0 (default %f) as \"subscribe_scan_cloud\" is true.",
-				Parameters::kIcpPointToPlaneRadius().c_str(),
-				Parameters::defaultIcpPointToPlaneRadius());
-		parameters_.insert(ParametersPair(Parameters::kIcpPointToPlaneRadius(), "0"));
-	}
-	int regStrategy = Parameters::defaultRegStrategy();
-	Parameters::parse(parameters_, Parameters::kRegStrategy(), regStrategy);
-	if(parameters_.find(Parameters::kRGBDProximityPathMaxNeighbors()) == parameters_.end() &&
-		(regStrategy == Registration::kTypeIcp || regStrategy == Registration::kTypeVisIcp))
-	{
-		if(subscribeScan2d)
-		{
-			NODELET_WARN("Setting \"%s\" parameter to 10 (default 0) as \"subscribe_scan\" is "
-					"true and \"%s\" uses ICP. Proximity detection by space will be also done by merging close "
-					"scans. To disable, set \"%s\" to 0. To suppress this warning, "
-					"add <param name=\"%s\" type=\"string\" value=\"10\"/>",
-					Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
-					Parameters::kRegStrategy().c_str(),
-					Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
-					Parameters::kRGBDProximityPathMaxNeighbors().c_str());
-			parameters_.insert(ParametersPair(Parameters::kRGBDProximityPathMaxNeighbors(), "10"));
-		}
-		else if(subscribeScan3d)
-		{
-			NODELET_WARN("Setting \"%s\" parameter to 1 (default 0) as \"subscribe_scan_cloud\" is "
-					"true and \"%s\" uses ICP. To disable, set \"%s\" to 0. To suppress this warning, "
-					"add <param name=\"%s\" type=\"string\" value=\"1\"/>",
-					Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
-					Parameters::kRegStrategy().c_str(),
-					Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
-					Parameters::kRGBDProximityPathMaxNeighbors().c_str());
-			parameters_.insert(ParametersPair(Parameters::kRGBDProximityPathMaxNeighbors(), "1"));
-		}
-	}
+    bool subscribeScan2d = false;
+    bool subscribeScan3d = false;
+    pnh.param("subscribe_scan",      subscribeScan2d, subscribeScan2d);
+    pnh.param("subscribe_scan_cloud", subscribeScan3d, subscribeScan3d);
+    bool gridFromDepth = Parameters::defaultGridFromDepth();
+    if((subscribeScan2d || subscribeScan3d || genScan_) && parameters_.find(Parameters::kGridFromDepth()) == parameters_.end())
+    {
+        NODELET_WARN("Setting \"%s\" parameter to false (default true) as \"subscribe_scan\", \"subscribe_scan_cloud\" or \"gen_scan\" is "
+                "true. The occupancy grid map will be constructed from "
+                "laser scans. To get occupancy grid map from cloud projection, set \"%s\" "
+                "to true. To suppress this warning, "
+                "add <param name=\"%s\" type=\"string\" value=\"false\"/>",
+                Parameters::kGridFromDepth().c_str(),
+                Parameters::kGridFromDepth().c_str(),
+                Parameters::kGridFromDepth().c_str());
+        parameters_.insert(ParametersPair(Parameters::kGridFromDepth(), "false"));
+    }
+    Parameters::parse(parameters_, Parameters::kGridFromDepth(), gridFromDepth);
+    if((subscribeScan2d || subscribeScan3d || genScan_) && parameters_.find(Parameters::kGridRangeMax()) == parameters_.end() && !gridFromDepth)
+    {
+        NODELET_INFO("Setting \"%s\" parameter to 0 (default %f) as \"subscribe_scan\", \"subscribe_scan_cloud\" or \"gen_scan\" is true and %s is false.",
+                Parameters::kGridRangeMax().c_str(),
+                Parameters::defaultGridRangeMax(),
+                Parameters::kGridFromDepth().c_str());
+        parameters_.insert(ParametersPair(Parameters::kGridRangeMax(), "0"));
+    }
+    if(subscribeScan3d && parameters_.find(Parameters::kIcpPointToPlaneRadius()) == parameters_.end())
+    {
+        NODELET_INFO("Setting \"%s\" parameter to 0 (default %f) as \"subscribe_scan_cloud\" is true.",
+                Parameters::kIcpPointToPlaneRadius().c_str(),
+                Parameters::defaultIcpPointToPlaneRadius());
+        parameters_.insert(ParametersPair(Parameters::kIcpPointToPlaneRadius(), "0"));
+    }
+    int regStrategy = Parameters::defaultRegStrategy();
+    Parameters::parse(parameters_, Parameters::kRegStrategy(), regStrategy);
+    if(parameters_.find(Parameters::kRGBDProximityPathMaxNeighbors()) == parameters_.end() &&
+        (regStrategy == Registration::kTypeIcp || regStrategy == Registration::kTypeVisIcp))
+    {
+        if(subscribeScan2d)
+        {
+            NODELET_WARN("Setting \"%s\" parameter to 10 (default 0) as \"subscribe_scan\" is "
+                    "true and \"%s\" uses ICP. Proximity detection by space will be also done by merging close "
+                    "scans. To disable, set \"%s\" to 0. To suppress this warning, "
+                    "add <param name=\"%s\" type=\"string\" value=\"10\"/>",
+                    Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
+                    Parameters::kRegStrategy().c_str(),
+                    Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
+                    Parameters::kRGBDProximityPathMaxNeighbors().c_str());
+            parameters_.insert(ParametersPair(Parameters::kRGBDProximityPathMaxNeighbors(), "10"));
+        }
+        else if(subscribeScan3d)
+        {
+            NODELET_WARN("Setting \"%s\" parameter to 1 (default 0) as \"subscribe_scan_cloud\" is "
+                    "true and \"%s\" uses ICP. To disable, set \"%s\" to 0. To suppress this warning, "
+                    "add <param name=\"%s\" type=\"string\" value=\"1\"/>",
+                    Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
+                    Parameters::kRegStrategy().c_str(),
+                    Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
+                    Parameters::kRGBDProximityPathMaxNeighbors().c_str());
+            parameters_.insert(ParametersPair(Parameters::kRGBDProximityPathMaxNeighbors(), "1"));
+        }
+    }
 
-	int estimationType = Parameters::defaultVisEstimationType();
-	Parameters::parse(parameters_, Parameters::kVisEstimationType(), estimationType);
-	int cameras = 0;
-	bool subscribeRGBD = false;
-	pnh.param("rgbd_cameras", cameras, cameras);
-	pnh.param("subscribe_rgbd", subscribeRGBD, subscribeRGBD);
-	if(subscribeRGBD && cameras> 1 && estimationType>0)
-	{
-		NODELET_WARN("Setting \"%s\" parameter to 0 (%d is not supported "
-				"for multi-cameras) as \"subscribe_rgbd\" is "
-				"true and \"rgbd_cameras\">1. Set \"%s\" to 0 to suppress this warning.",
-				Parameters::kVisEstimationType().c_str(),
-				estimationType,
-				Parameters::kVisEstimationType().c_str());
-		uInsert(parameters_, ParametersPair(Parameters::kVisEstimationType(), "0"));
-	}
+    int estimationType = Parameters::defaultVisEstimationType();
+    Parameters::parse(parameters_, Parameters::kVisEstimationType(), estimationType);
+    int cameras = 0;
+    bool subscribeRGBD = false;
+    pnh.param("rgbd_cameras", cameras, cameras);
+    pnh.param("subscribe_rgbd", subscribeRGBD, subscribeRGBD);
+    if(subscribeRGBD && cameras> 1 && estimationType>0)
+    {
+        NODELET_WARN("Setting \"%s\" parameter to 0 (%d is not supported "
+                "for multi-cameras) as \"subscribe_rgbd\" is "
+                "true and \"rgbd_cameras\">1. Set \"%s\" to 0 to suppress this warning.",
+                Parameters::kVisEstimationType().c_str(),
+                estimationType,
+                Parameters::kVisEstimationType().c_str());
+        uInsert(parameters_, ParametersPair(Parameters::kVisEstimationType(), "0"));
+    }
 
-	// modify default parameters with those in the database
-	if(!deleteDbOnStart)
-	{
-		ParametersMap dbParameters;
-		rtabmap::DBDriver * driver = rtabmap::DBDriver::create();
-		if(driver->openConnection(databasePath_))
-		{
-			dbParameters = driver->getLastParameters(); // parameter migration is already done
-		}
-		delete driver;
-		for(ParametersMap::iterator iter=dbParameters.begin(); iter!=dbParameters.end(); ++iter)
-		{
-			if(iter->first.compare(Parameters::kRtabmapWorkingDirectory()) == 0)
-			{
-				// ignore working directory
-				continue;
-			}
-			if(parameters_.find(iter->first) == parameters_.end() &&
-				allParameters.find(iter->first) != allParameters.end() &&
-				allParameters.find(iter->first)->second.compare(iter->second) !=0)
-			{
-				NODELET_INFO("Update RTAB-Map parameter \"%s\"=\"%s\" from database", iter->first.c_str(), iter->second.c_str());
-				parameters_.insert(*iter);
-			}
-		}
-	}
-	ParametersMap modifiedParameters = parameters_;
-	// Add all other parameters (not copied if already exists)
-	parameters_.insert(allParameters.begin(), allParameters.end());
+    // modify default parameters with those in the database
+    if(!deleteDbOnStart)
+    {
+        ParametersMap dbParameters;
+        rtabmap::DBDriver * driver = rtabmap::DBDriver::create();
+        if(driver->openConnection(databasePath_))
+        {
+            dbParameters = driver->getLastParameters(); // parameter migration is already done
+        }
+        delete driver;
+        for(ParametersMap::iterator iter=dbParameters.begin(); iter!=dbParameters.end(); ++iter)
+        {
+            if(iter->first.compare(Parameters::kRtabmapWorkingDirectory()) == 0)
+            {
+                // ignore working directory
+                continue;
+            }
+            if(parameters_.find(iter->first) == parameters_.end() &&
+                allParameters.find(iter->first) != allParameters.end() &&
+                allParameters.find(iter->first)->second.compare(iter->second) !=0)
+            {
+                NODELET_INFO("Update RTAB-Map parameter \"%s\"=\"%s\" from database", iter->first.c_str(), iter->second.c_str());
+                parameters_.insert(*iter);
+            }
+        }
+    }
+    ParametersMap modifiedParameters = parameters_;
+    // Add all other parameters (not copied if already exists)
+    parameters_.insert(allParameters.begin(), allParameters.end());
 
-	if(parameters_.find(Parameters::kRtabmapDetectionRate()) != parameters_.end())
-	{
-		Parameters::parse(parameters_, Parameters::kRtabmapDetectionRate(), rate_);
-		NODELET_INFO("RTAB-Map detection rate = %f Hz", rate_);
-	}
-	if(parameters_.find(Parameters::kRtabmapCreateIntermediateNodes()) != parameters_.end())
-	{
-		Parameters::parse(parameters_, Parameters::kRtabmapCreateIntermediateNodes(), createIntermediateNodes_);
-		if(createIntermediateNodes_)
-		{
-			NODELET_INFO("Create intermediate nodes");
-			if(rate_ == 0.0f)
-			{
-				bool interOdomInfo = false;
-				pnh.getParam("subscribe_inter_odom_info", interOdomInfo);
-				if(interOdomInfo)
-				{
-					NODELET_INFO("Subscribe to inter odom + info messages");
-					interOdomSync_ = new message_filters::Synchronizer<MyExactInterOdomSyncPolicy>(MyExactInterOdomSyncPolicy(100), interOdomSyncSub_, interOdomInfoSyncSub_);
-					interOdomSync_->registerCallback(boost::bind(&CoreWrapper::interOdomInfoCallback, this, _1, _2));
-					interOdomSyncSub_.subscribe(nh, "inter_odom", 1);
-					interOdomInfoSyncSub_.subscribe(nh, "inter_odom_info", 1);
-				}
-				else
-				{
-					NODELET_INFO("Subscribe to inter odom messages");
-					interOdomSub_ = nh.subscribe("inter_odom", 100, &CoreWrapper::interOdomCallback, this);
-				}
+    if(parameters_.find(Parameters::kRtabmapDetectionRate()) != parameters_.end())
+    {
+        Parameters::parse(parameters_, Parameters::kRtabmapDetectionRate(), rate_);
+        NODELET_INFO("RTAB-Map detection rate = %f Hz", rate_);
+    }
+    if(parameters_.find(Parameters::kRtabmapCreateIntermediateNodes()) != parameters_.end())
+    {
+        Parameters::parse(parameters_, Parameters::kRtabmapCreateIntermediateNodes(), createIntermediateNodes_);
+        if(createIntermediateNodes_)
+        {
+            NODELET_INFO("Create intermediate nodes");
+            if(rate_ == 0.0f)
+            {
+                bool interOdomInfo = false;
+                pnh.getParam("subscribe_inter_odom_info", interOdomInfo);
+                if(interOdomInfo)
+                {
+                    NODELET_INFO("Subscribe to inter odom + info messages");
+                    interOdomSync_ = new message_filters::Synchronizer<MyExactInterOdomSyncPolicy>(MyExactInterOdomSyncPolicy(100), interOdomSyncSub_, interOdomInfoSyncSub_);
+                    interOdomSync_->registerCallback(boost::bind(&CoreWrapper::interOdomInfoCallback, this, _1, _2));
+                    interOdomSyncSub_.subscribe(nh, "inter_odom", 1);
+                    interOdomInfoSyncSub_.subscribe(nh, "inter_odom_info", 1);
+                }
+                else
+                {
+                    NODELET_INFO("Subscribe to inter odom messages");
+                    interOdomSub_ = nh.subscribe("inter_odom", 100, &CoreWrapper::interOdomCallback, this);
+                }
 
-			}
-		}
-	}
-	if(parameters_.find(Parameters::kGridGlobalMaxNodes()) != parameters_.end())
-	{
-		Parameters::parse(parameters_, Parameters::kGridGlobalMaxNodes(), mappingMaxNodes_);
-		if(mappingMaxNodes_>0)
-		{
-			NODELET_INFO("Max mapping nodes = %d", mappingMaxNodes_);
-		}
-	}
-	if(parameters_.find(Parameters::kGridGlobalAltitudeDelta()) != parameters_.end())
-	{
-		Parameters::parse(parameters_, Parameters::kGridGlobalAltitudeDelta(), mappingAltitudeDelta_);
-		if(mappingAltitudeDelta_>0.0)
-		{
-			NODELET_INFO("Mapping altitude delta = %f", mappingAltitudeDelta_);
-		}
-	}
-	if(parameters_.find(Parameters::kRtabmapImagesAlreadyRectified()) != parameters_.end())
-	{
-		Parameters::parse(parameters_, Parameters::kRtabmapImagesAlreadyRectified(), alreadyRectifiedImages_);
-	}
-	if(parameters_.find(Parameters::kRegForce3DoF()) != parameters_.end())
-	{
-		Parameters::parse(parameters_, Parameters::kRegForce3DoF(), twoDMapping_);
-	}
+            }
+        }
+    }
+    if(parameters_.find(Parameters::kGridGlobalMaxNodes()) != parameters_.end())
+    {
+        Parameters::parse(parameters_, Parameters::kGridGlobalMaxNodes(), mappingMaxNodes_);
+        if(mappingMaxNodes_>0)
+        {
+            NODELET_INFO("Max mapping nodes = %d", mappingMaxNodes_);
+        }
+    }
+    if(parameters_.find(Parameters::kGridGlobalAltitudeDelta()) != parameters_.end())
+    {
+        Parameters::parse(parameters_, Parameters::kGridGlobalAltitudeDelta(), mappingAltitudeDelta_);
+        if(mappingAltitudeDelta_>0.0)
+        {
+            NODELET_INFO("Mapping altitude delta = %f", mappingAltitudeDelta_);
+        }
+    }
+    if(parameters_.find(Parameters::kRtabmapImagesAlreadyRectified()) != parameters_.end())
+    {
+        Parameters::parse(parameters_, Parameters::kRtabmapImagesAlreadyRectified(), alreadyRectifiedImages_);
+    }
+    if(parameters_.find(Parameters::kRegForce3DoF()) != parameters_.end())
+    {
+        Parameters::parse(parameters_, Parameters::kRegForce3DoF(), twoDMapping_);
+    }
 
-	if(paused_)
-	{
-		NODELET_WARN("Node paused... don't forget to call service \"resume\" to start rtabmap.");
-	}
+    if(paused_)
+    {
+        NODELET_WARN("Node paused... don't forget to call service \"resume\" to start rtabmap.");
+    }
 
-	if(deleteDbOnStart)
-	{
-		if(UFile::erase(databasePath_) == 0)
-		{
-			NODELET_INFO("rtabmap: Deleted database \"%s\" (--delete_db_on_start or -d are set).", databasePath_.c_str());
-		}
-	}
+    if(deleteDbOnStart)
+    {
+        if(UFile::erase(databasePath_) == 0)
+        {
+            NODELET_INFO("rtabmap: Deleted database \"%s\" (--delete_db_on_start or -d are set).", databasePath_.c_str());
+        }
+    }
 
-	if(databasePath_.size())
-	{
-		NODELET_INFO("rtabmap: Using database from \"%s\" (%ld MB).", databasePath_.c_str(), UFile::length(databasePath_)/(1024*1024));
-	}
-	else
-	{
-		NODELET_INFO("rtabmap: database_path parameter not set, the map will not be saved.");
-	}
+    if(databasePath_.size())
+    {
+        NODELET_INFO("rtabmap: Using database from \"%s\" (%ld MB).", databasePath_.c_str(), UFile::length(databasePath_)/(1024*1024));
+    }
+    else
+    {
+        NODELET_INFO("rtabmap: database_path parameter not set, the map will not be saved.");
+    }
 
-	mapsManager_.setParameters(parameters_);
+    mapsManager_.setParameters(parameters_);
 
-	// Init RTAB-Map
-	rtabmap_.init(parameters_, databasePath_);
+    // Init RTAB-Map
+    rtabmap_.init(parameters_, databasePath_);
 
-	if(rtabmap_.getMemory())
-	{
-		if(useSavedMap_ && !rtabmap_.getMemory()->isIncremental())
-		{
-			float xMin, yMin, gridCellSize;
-			cv::Mat map = rtabmap_.getMemory()->load2DMap(xMin, yMin, gridCellSize);
-			if(!map.empty())
-			{
-				NODELET_INFO("rtabmap: 2D occupancy grid map loaded (%dx%d).", map.cols, map.rows);
-				mapsManager_.set2DMap(map, xMin, yMin, gridCellSize, rtabmap_.getLocalOptimizedPoses(), rtabmap_.getMemory());
-			}
-		}
+    if(rtabmap_.getMemory())
+    {
+        if(useSavedMap_ && !rtabmap_.getMemory()->isIncremental())
+        {
+            float xMin, yMin, gridCellSize;
+            cv::Mat map = rtabmap_.getMemory()->load2DMap(xMin, yMin, gridCellSize);
+            if(!map.empty())
+            {
+                NODELET_INFO("rtabmap: 2D occupancy grid map loaded (%dx%d).", map.cols, map.rows);
+                mapsManager_.set2DMap(map, xMin, yMin, gridCellSize, rtabmap_.getLocalOptimizedPoses(), rtabmap_.getMemory());
+            }
+        }
 
-		if(rtabmap_.getMemory()->getWorkingMem().size()>1)
-		{
-			NODELET_INFO("rtabmap: Working Memory = %d, Local map = %d.",
-					(int)rtabmap_.getMemory()->getWorkingMem().size()-1,
-					(int)rtabmap_.getLocalOptimizedPoses().size());
-		}
+        if(rtabmap_.getMemory()->getWorkingMem().size()>1)
+        {
+            NODELET_INFO("rtabmap: Working Memory = %d, Local map = %d.",
+                    (int)rtabmap_.getMemory()->getWorkingMem().size()-1,
+                    (int)rtabmap_.getLocalOptimizedPoses().size());
+        }
 
-		if(databasePath_.size())
-		{
-			NODELET_INFO("rtabmap: Database version = \"%s\".", rtabmap_.getMemory()->getDatabaseVersion().c_str());
-		}
+        if(databasePath_.size())
+        {
+            NODELET_INFO("rtabmap: Database version = \"%s\".", rtabmap_.getMemory()->getDatabaseVersion().c_str());
+        }
 
-		if(rtabmap_.getMemory()->isIncremental())
-		{
-			NODELET_INFO("rtabmap: SLAM mode (%s=true)", Parameters::kMemIncrementalMemory().c_str());
-		}
-		else
-		{
-			NODELET_INFO("rtabmap: Localization mode (%s=false)", Parameters::kMemIncrementalMemory().c_str());
-		}
-	}
+        if(rtabmap_.getMemory()->isIncremental())
+        {
+            NODELET_INFO("rtabmap: SLAM mode (%s=true)", Parameters::kMemIncrementalMemory().c_str());
+        }
+        else
+        {
+            NODELET_INFO("rtabmap: Localization mode (%s=false)", Parameters::kMemIncrementalMemory().c_str());
+        }
+    }
 
-	// setup services
-	updateSrv_ = nh.advertiseService("update_parameters", &CoreWrapper::updateRtabmapCallback, this);
-	resetSrv_ = nh.advertiseService("reset", &CoreWrapper::resetRtabmapCallback, this);
-	pauseSrv_ = nh.advertiseService("pause", &CoreWrapper::pauseRtabmapCallback, this);
-	resumeSrv_ = nh.advertiseService("resume", &CoreWrapper::resumeRtabmapCallback, this);
-	loadDatabaseSrv_ = nh.advertiseService("load_database", &CoreWrapper::loadDatabaseCallback, this);
-	triggerNewMapSrv_ = nh.advertiseService("trigger_new_map", &CoreWrapper::triggerNewMapCallback, this);
-	backupDatabase_ = nh.advertiseService("backup", &CoreWrapper::backupDatabaseCallback, this);
-	setModeLocalizationSrv_ = nh.advertiseService("set_mode_localization", &CoreWrapper::setModeLocalizationCallback, this);
-	setModeMappingSrv_ = nh.advertiseService("set_mode_mapping", &CoreWrapper::setModeMappingCallback, this);
-	getNodeDataSrv_ = nh.advertiseService("get_node_data", &CoreWrapper::getNodeDataCallback, this);
-	getMapDataSrv_ = nh.advertiseService("get_map_data", &CoreWrapper::getMapDataCallback, this);
-	getMapData2Srv_ = nh.advertiseService("get_map_data2", &CoreWrapper::getMapData2Callback, this);
-	getMapSrv_ = nh.advertiseService("get_map", &CoreWrapper::getMapCallback, this);
-	getProbMapSrv_ = nh.advertiseService("get_prob_map", &CoreWrapper::getProbMapCallback, this);
-	getGridMapSrv_ = nh.advertiseService("get_grid_map", &CoreWrapper::getGridMapCallback, this);
-	getProjMapSrv_ = nh.advertiseService("get_proj_map", &CoreWrapper::getProjMapCallback, this);
-	publishMapDataSrv_ = nh.advertiseService("publish_map", &CoreWrapper::publishMapCallback, this);
-	getPlanSrv_ = nh.advertiseService("get_plan", &CoreWrapper::getPlanCallback, this);
-	getPlanNodesSrv_ = nh.advertiseService("get_plan_nodes", &CoreWrapper::getPlanNodesCallback, this);
-	setGoalSrv_ = nh.advertiseService("set_goal", &CoreWrapper::setGoalCallback, this);
-	cancelGoalSrv_ = nh.advertiseService("cancel_goal", &CoreWrapper::cancelGoalCallback, this);
-	setLabelSrv_ = nh.advertiseService("set_label", &CoreWrapper::setLabelCallback, this);
-	listLabelsSrv_ = nh.advertiseService("list_labels", &CoreWrapper::listLabelsCallback, this);
-	addLinkSrv_ = nh.advertiseService("add_link", &CoreWrapper::addLinkCallback, this);
-	getNodesInRadiusSrv_ = nh.advertiseService("get_nodes_in_radius", &CoreWrapper::getNodesInRadiusCallback, this);
+    // setup services
+    updateSrv_ = nh.advertiseService("update_parameters", &CoreWrapper::updateRtabmapCallback, this);
+    resetSrv_ = nh.advertiseService("reset", &CoreWrapper::resetRtabmapCallback, this);
+    pauseSrv_ = nh.advertiseService("pause", &CoreWrapper::pauseRtabmapCallback, this);
+    resumeSrv_ = nh.advertiseService("resume", &CoreWrapper::resumeRtabmapCallback, this);
+    loadDatabaseSrv_ = nh.advertiseService("load_database", &CoreWrapper::loadDatabaseCallback, this);
+    triggerNewMapSrv_ = nh.advertiseService("trigger_new_map", &CoreWrapper::triggerNewMapCallback, this);
+    backupDatabase_ = nh.advertiseService("backup", &CoreWrapper::backupDatabaseCallback, this);
+    setModeLocalizationSrv_ = nh.advertiseService("set_mode_localization", &CoreWrapper::setModeLocalizationCallback, this);
+    setModeMappingSrv_ = nh.advertiseService("set_mode_mapping", &CoreWrapper::setModeMappingCallback, this);
+    getNodeDataSrv_ = nh.advertiseService("get_node_data", &CoreWrapper::getNodeDataCallback, this);
+    getMapDataSrv_ = nh.advertiseService("get_map_data", &CoreWrapper::getMapDataCallback, this);
+    getMapData2Srv_ = nh.advertiseService("get_map_data2", &CoreWrapper::getMapData2Callback, this);
+    getMapSrv_ = nh.advertiseService("get_map", &CoreWrapper::getMapCallback, this);
+    getProbMapSrv_ = nh.advertiseService("get_prob_map", &CoreWrapper::getProbMapCallback, this);
+    getGridMapSrv_ = nh.advertiseService("get_grid_map", &CoreWrapper::getGridMapCallback, this);
+    getProjMapSrv_ = nh.advertiseService("get_proj_map", &CoreWrapper::getProjMapCallback, this);
+    publishMapDataSrv_ = nh.advertiseService("publish_map", &CoreWrapper::publishMapCallback, this);
+    getPlanSrv_ = nh.advertiseService("get_plan", &CoreWrapper::getPlanCallback, this);
+    getPlanNodesSrv_ = nh.advertiseService("get_plan_nodes", &CoreWrapper::getPlanNodesCallback, this);
+    setGoalSrv_ = nh.advertiseService("set_goal", &CoreWrapper::setGoalCallback, this);
+    cancelGoalSrv_ = nh.advertiseService("cancel_goal", &CoreWrapper::cancelGoalCallback, this);
+    setLabelSrv_ = nh.advertiseService("set_label", &CoreWrapper::setLabelCallback, this);
+    listLabelsSrv_ = nh.advertiseService("list_labels", &CoreWrapper::listLabelsCallback, this);
+    addLinkSrv_ = nh.advertiseService("add_link", &CoreWrapper::addLinkCallback, this);
+    getNodesInRadiusSrv_ = nh.advertiseService("get_nodes_in_radius", &CoreWrapper::getNodesInRadiusCallback, this);
 #ifdef WITH_OCTOMAP_MSGS
 #ifdef RTABMAP_OCTOMAP
-	octomapBinarySrv_ = nh.advertiseService("octomap_binary", &CoreWrapper::octomapBinaryCallback, this);
-	octomapFullSrv_ = nh.advertiseService("octomap_full", &CoreWrapper::octomapFullCallback, this);
+    octomapBinarySrv_ = nh.advertiseService("octomap_binary", &CoreWrapper::octomapBinaryCallback, this);
+    octomapFullSrv_ = nh.advertiseService("octomap_full", &CoreWrapper::octomapFullCallback, this);
 #endif
 #endif
-	//private services
-	setLogDebugSrv_ = pnh.advertiseService("log_debug", &CoreWrapper::setLogDebug, this);
-	setLogInfoSrv_ = pnh.advertiseService("log_info", &CoreWrapper::setLogInfo, this);
-	setLogWarnSrv_ = pnh.advertiseService("log_warning", &CoreWrapper::setLogWarn, this);
-	setLogErrorSrv_ = pnh.advertiseService("log_error", &CoreWrapper::setLogError, this);
+    //private services
+    setLogDebugSrv_ = pnh.advertiseService("log_debug", &CoreWrapper::setLogDebug, this);
+    setLogInfoSrv_ = pnh.advertiseService("log_info", &CoreWrapper::setLogInfo, this);
+    setLogWarnSrv_ = pnh.advertiseService("log_warning", &CoreWrapper::setLogWarn, this);
+    setLogErrorSrv_ = pnh.advertiseService("log_error", &CoreWrapper::setLogError, this);
 
-	int optimizeIterations = 0;
-	Parameters::parse(parameters_, Parameters::kOptimizerIterations(), optimizeIterations);
-	if(publishTf && optimizeIterations != 0)
-	{
-		tfThreadRunning_ = true;
-		transformThread_ = new boost::thread(boost::bind(&CoreWrapper::publishLoop, this, tfDelay, tfTolerance));
-	}
-	else if(publishTf)
-	{
-		NODELET_WARN("Graph optimization is disabled (%s=0), the tf between frame \"%s\" and odometry frame will not be published. You can safely ignore this warning if you are using map_optimizer node.",
-				Parameters::kOptimizerIterations().c_str(), mapFrameId_.c_str());
-	}
+    int optimizeIterations = 0;
+    Parameters::parse(parameters_, Parameters::kOptimizerIterations(), optimizeIterations);
+    if(publishTf && optimizeIterations != 0)
+    {
+        tfThreadRunning_ = true;
+        transformThread_ = new boost::thread(boost::bind(&CoreWrapper::publishLoop, this, tfDelay, tfTolerance));
+    }
+    else if(publishTf)
+    {
+        NODELET_WARN("Graph optimization is disabled (%s=0), the tf between frame \"%s\" and odometry frame will not be published. You can safely ignore this warning if you are using map_optimizer node.",
+                Parameters::kOptimizerIterations().c_str(), mapFrameId_.c_str());
+    }
 
-	setupCallbacks(nh, pnh, getName()); // do it at the end
-	if(!this->isDataSubscribed())
-	{
-		bool isRGBD = uStr2Bool(parameters_.at(Parameters::kRGBDEnabled()).c_str());
-		if(isRGBD)
-		{
-			NODELET_WARN("ROS param subscribe_depth, subscribe_stereo and subscribe_rgbd are false, but RTAB-Map "
-					  "parameter \"%s\" is true! Please set subscribe_depth, subscribe_stereo or subscribe_rgbd "
-					  "to true to use rtabmap node for RGB-D SLAM, set \"%s\" to false for loop closure "
-					  "detection on images-only or set subscribe_rgb to true to localize a single RGB camera against pre-built 3D map.",
-					  Parameters::kRGBDEnabled().c_str(),
-					  Parameters::kRGBDEnabled().c_str());
-		}
-		ros::NodeHandle rgb_nh(nh, "rgb");
-		ros::NodeHandle rgb_pnh(pnh, "rgb");
-		image_transport::ImageTransport rgb_it(rgb_nh);
-		image_transport::TransportHints hintsRgb("raw", ros::TransportHints(), rgb_pnh);
-		defaultSub_ = rgb_it.subscribe("image", 1, &CoreWrapper::defaultCallback, this);
+    setupCallbacks(nh, pnh, getName()); // do it at the end
+    if(!this->isDataSubscribed())
+    {
+        bool isRGBD = uStr2Bool(parameters_.at(Parameters::kRGBDEnabled()).c_str());
+        if(isRGBD)
+        {
+            NODELET_WARN("ROS param subscribe_depth, subscribe_stereo and subscribe_rgbd are false, but RTAB-Map "
+                      "parameter \"%s\" is true! Please set subscribe_depth, subscribe_stereo or subscribe_rgbd "
+                      "to true to use rtabmap node for RGB-D SLAM, set \"%s\" to false for loop closure "
+                      "detection on images-only or set subscribe_rgb to true to localize a single RGB camera against pre-built 3D map.",
+                      Parameters::kRGBDEnabled().c_str(),
+                      Parameters::kRGBDEnabled().c_str());
+        }
+        ros::NodeHandle rgb_nh(nh, "rgb");
+        ros::NodeHandle rgb_pnh(pnh, "rgb");
+        image_transport::ImageTransport rgb_it(rgb_nh);
+        image_transport::TransportHints hintsRgb("raw", ros::TransportHints(), rgb_pnh);
+        defaultSub_ = rgb_it.subscribe("image", 1, &CoreWrapper::defaultCallback, this);
 
-		NODELET_INFO("\n%s subscribed to:\n   %s", getName().c_str(), defaultSub_.getTopic().c_str());
-	}
-	else if(!this->isSubscribedToDepth() &&
-			!this->isSubscribedToStereo() &&
-			!this->isSubscribedToRGBD() &&
-			!this->isSubscribedToRGB() &&
-			(this->isSubscribedToScan2d() || this->isSubscribedToScan3d() || this->isSubscribedToOdom()))
-	{
-		NODELET_WARN("There is no image subscription, bag-of-words loop closure detection will be disabled...");
-		int kpMaxFeatures = Parameters::defaultKpMaxFeatures();
-		int registrationStrategy = Parameters::defaultRegStrategy();
-		Parameters::parse(parameters_, Parameters::kKpMaxFeatures(), kpMaxFeatures);
-		Parameters::parse(parameters_, Parameters::kRegStrategy(), registrationStrategy);
-		bool updateParams = false;
-		if(kpMaxFeatures!= -1)
-		{
-			uInsert(parameters_, ParametersPair(Parameters::kKpMaxFeatures(), "-1"));
-			NODELET_WARN("Setting %s=-1 (bag-of-words disabled)", Parameters::kKpMaxFeatures().c_str());
-			updateParams = true;
-		}
-		if((this->isSubscribedToScan2d() || this->isSubscribedToScan3d()) && registrationStrategy != 1)
-		{
-			uInsert(parameters_, ParametersPair(Parameters::kRegStrategy(), "1"));
-			NODELET_WARN("Setting %s=1 (ICP)", Parameters::kRegStrategy().c_str());
-			updateParams = true;
+        NODELET_INFO("\n%s subscribed to:\n   %s", getName().c_str(), defaultSub_.getTopic().c_str());
+    }
+    else if(!this->isSubscribedToDepth() &&
+            !this->isSubscribedToStereo() &&
+            !this->isSubscribedToRGBD() &&
+            !this->isSubscribedToRGB() &&
+            (this->isSubscribedToScan2d() || this->isSubscribedToScan3d() || this->isSubscribedToOdom()))
+    {
+        NODELET_WARN("There is no image subscription, bag-of-words loop closure detection will be disabled...");
+        int kpMaxFeatures = Parameters::defaultKpMaxFeatures();
+        int registrationStrategy = Parameters::defaultRegStrategy();
+        Parameters::parse(parameters_, Parameters::kKpMaxFeatures(), kpMaxFeatures);
+        Parameters::parse(parameters_, Parameters::kRegStrategy(), registrationStrategy);
+        bool updateParams = false;
+        if(kpMaxFeatures!= -1)
+        {
+            uInsert(parameters_, ParametersPair(Parameters::kKpMaxFeatures(), "-1"));
+            NODELET_WARN("Setting %s=-1 (bag-of-words disabled)", Parameters::kKpMaxFeatures().c_str());
+            updateParams = true;
+        }
+        if((this->isSubscribedToScan2d() || this->isSubscribedToScan3d()) && registrationStrategy != 1)
+        {
+            uInsert(parameters_, ParametersPair(Parameters::kRegStrategy(), "1"));
+            NODELET_WARN("Setting %s=1 (ICP)", Parameters::kRegStrategy().c_str());
+            updateParams = true;
 
-			if(modifiedParameters.find(Parameters::kRGBDProximityPathMaxNeighbors()) == modifiedParameters.end())
-			{
-				if(this->isSubscribedToScan2d())
-				{
-					NODELET_WARN("Setting \"%s\" parameter to 10 (default 0) as \"subscribe_scan\" is "
-							"true and \"%s\" uses ICP. Proximity detection by space will be also done by merging close "
-							"scans. To disable, set \"%s\" to 0. To suppress this warning, "
-							"add <param name=\"%s\" type=\"string\" value=\"10\"/>",
-							Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
-							Parameters::kRegStrategy().c_str(),
-							Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
-							Parameters::kRGBDProximityPathMaxNeighbors().c_str());
-					uInsert(parameters_, ParametersPair(Parameters::kRGBDProximityPathMaxNeighbors(), "10"));
-				}
-				else if(this->isSubscribedToScan3d())
-				{
-					NODELET_WARN("Setting \"%s\" parameter to 1 (default 0) as \"subscribe_scan_cloud\" is "
-							"true and \"%s\" uses ICP. To disable, set \"%s\" to 0. To suppress this warning, "
-							"add <param name=\"%s\" type=\"string\" value=\"1\"/>",
-							Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
-							Parameters::kRegStrategy().c_str(),
-							Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
-							Parameters::kRGBDProximityPathMaxNeighbors().c_str());
-					uInsert(parameters_, ParametersPair(Parameters::kRGBDProximityPathMaxNeighbors(), "1"));
-				}
-			}
-		}
-		if(updateParams)
-		{
-			rtabmap_.parseParameters(parameters_);
-		}
-	}
+            if(modifiedParameters.find(Parameters::kRGBDProximityPathMaxNeighbors()) == modifiedParameters.end())
+            {
+                if(this->isSubscribedToScan2d())
+                {
+                    NODELET_WARN("Setting \"%s\" parameter to 10 (default 0) as \"subscribe_scan\" is "
+                            "true and \"%s\" uses ICP. Proximity detection by space will be also done by merging close "
+                            "scans. To disable, set \"%s\" to 0. To suppress this warning, "
+                            "add <param name=\"%s\" type=\"string\" value=\"10\"/>",
+                            Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
+                            Parameters::kRegStrategy().c_str(),
+                            Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
+                            Parameters::kRGBDProximityPathMaxNeighbors().c_str());
+                    uInsert(parameters_, ParametersPair(Parameters::kRGBDProximityPathMaxNeighbors(), "10"));
+                }
+                else if(this->isSubscribedToScan3d())
+                {
+                    NODELET_WARN("Setting \"%s\" parameter to 1 (default 0) as \"subscribe_scan_cloud\" is "
+                            "true and \"%s\" uses ICP. To disable, set \"%s\" to 0. To suppress this warning, "
+                            "add <param name=\"%s\" type=\"string\" value=\"1\"/>",
+                            Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
+                            Parameters::kRegStrategy().c_str(),
+                            Parameters::kRGBDProximityPathMaxNeighbors().c_str(),
+                            Parameters::kRGBDProximityPathMaxNeighbors().c_str());
+                    uInsert(parameters_, ParametersPair(Parameters::kRGBDProximityPathMaxNeighbors(), "1"));
+                }
+            }
+        }
+        if(updateParams)
+        {
+            rtabmap_.parseParameters(parameters_);
+        }
+    }
 
-	// set public parameters
-	nh.setParam("is_rtabmap_paused", paused_);
-	for(ParametersMap::iterator iter=parameters_.begin(); iter!=parameters_.end(); ++iter)
-	{
-		nh.setParam(iter->first, iter->second);
-	}
+    // set public parameters
+    nh.setParam("is_rtabmap_paused", paused_);
+    for(ParametersMap::iterator iter=parameters_.begin(); iter!=parameters_.end(); ++iter)
+    {
+        nh.setParam(iter->first, iter->second);
+    }
 
-	userDataAsyncSub_ = nh.subscribe("user_data_async", 1, &CoreWrapper::userDataAsyncCallback, this);
-	globalPoseAsyncSub_ = nh.subscribe("global_pose", 1, &CoreWrapper::globalPoseAsyncCallback, this);
-	gpsFixAsyncSub_ = nh.subscribe("gps/fix", 1, &CoreWrapper::gpsFixAsyncCallback, this);
+    userDataAsyncSub_ = nh.subscribe("user_data_async", 1, &CoreWrapper::userDataAsyncCallback, this);
+    globalPoseAsyncSub_ = nh.subscribe("global_pose", 1, &CoreWrapper::globalPoseAsyncCallback, this);
+    gpsFixAsyncSub_ = nh.subscribe("gps/fix", 1, &CoreWrapper::gpsFixAsyncCallback, this);
 #ifdef WITH_APRILTAG_ROS
-	tagDetectionsSub_ = nh.subscribe("tag_detections", 1, &CoreWrapper::tagDetectionsAsyncCallback, this);
+    tagDetectionsSub_ = nh.subscribe("tag_detections", 1, &CoreWrapper::tagDetectionsAsyncCallback, this);
 #endif
-	imuSub_ = nh.subscribe("imu", 100, &CoreWrapper::imuAsyncCallback, this);
+    imuSub_ = nh.subscribe("imu", 100, &CoreWrapper::imuAsyncCallback, this);
 }
 
 CoreWrapper::~CoreWrapper()
 {
-	if(transformThread_)
-	{
-		tfThreadRunning_ = false;
-		transformThread_->join();
-		delete transformThread_;
-	}
+    if(transformThread_)
+    {
+        tfThreadRunning_ = false;
+        transformThread_->join();
+        delete transformThread_;
+    }
 
-	this->saveParameters(configPath_);
+    this->saveParameters(configPath_);
 
-	ros::NodeHandle nh;
-	for(ParametersMap::iterator iter=parameters_.begin(); iter!=parameters_.end(); ++iter)
-	{
-		nh.deleteParam(iter->first);
-	}
-	nh.deleteParam("is_rtabmap_paused");
+    ros::NodeHandle nh;
+    for(ParametersMap::iterator iter=parameters_.begin(); iter!=parameters_.end(); ++iter)
+    {
+        nh.deleteParam(iter->first);
+    }
+    nh.deleteParam("is_rtabmap_paused");
 
-	printf("rtabmap: Saving database/long-term memory... (located at %s)\n", databasePath_.c_str());
-	if(rtabmap_.getMemory())
-	{
-		// save the grid map
-		float xMin=0.0f, yMin=0.0f, gridCellSize = 0.05f;
-		cv::Mat pixels = mapsManager_.getGridMap(xMin, yMin, gridCellSize);
-		if(!pixels.empty())
-		{
-			printf("rtabmap: 2D occupancy grid map saved.\n");
-			rtabmap_.getMemory()->save2DMap(pixels, xMin, yMin, gridCellSize);
-		}
-	}
+    printf("rtabmap: Saving database/long-term memory... (located at %s)\n", databasePath_.c_str());
+    if(rtabmap_.getMemory())
+    {
+        // save the grid map
+        float xMin=0.0f, yMin=0.0f, gridCellSize = 0.05f;
+        cv::Mat pixels = mapsManager_.getGridMap(xMin, yMin, gridCellSize);
+        if(!pixels.empty())
+        {
+            printf("rtabmap: 2D occupancy grid map saved.\n");
+            rtabmap_.getMemory()->save2DMap(pixels, xMin, yMin, gridCellSize);
+        }
+    }
 
-	rtabmap_.close();
-	printf("rtabmap: Saving database/long-term memory...done! (located at %s, %ld MB)\n", databasePath_.c_str(), UFile::length(databasePath_)/(1024*1024));
+    rtabmap_.close();
+    printf("rtabmap: Saving database/long-term memory...done! (located at %s, %ld MB)\n", databasePath_.c_str(), UFile::length(databasePath_)/(1024*1024));
 
-	delete interOdomSync_;
-	delete mbClient_;
+    delete interOdomSync_;
+    delete mbClient_;
 }
 
 void CoreWrapper::loadParameters(const std::string & configFile, ParametersMap & parameters)
 {
-	if(!configFile.empty())
-	{
-		NODELET_INFO("Loading parameters from %s", configFile.c_str());
-		if(!UFile::exists(configFile.c_str()))
-		{
-			NODELET_WARN("Config file doesn't exist! It will be generated...");
-		}
-		Parameters::readINI(configFile.c_str(), parameters);
-	}
+    if(!configFile.empty())
+    {
+        NODELET_INFO("Loading parameters from %s", configFile.c_str());
+        if(!UFile::exists(configFile.c_str()))
+        {
+            NODELET_WARN("Config file doesn't exist! It will be generated...");
+        }
+        Parameters::readINI(configFile.c_str(), parameters);
+    }
 }
 
 void CoreWrapper::saveParameters(const std::string & configFile)
 {
-	if(!configFile.empty())
-	{
-		printf("Saving parameters to %s\n", configFile.c_str());
+    if(!configFile.empty())
+    {
+        printf("Saving parameters to %s\n", configFile.c_str());
 
-		if(!UFile::exists(configFile.c_str()))
-		{
-			printf("Config file doesn't exist, a new one will be created.\n");
-		}
-		Parameters::writeINI(configFile.c_str(), parameters_);
-	}
-	else
-	{
-		NODELET_INFO("Parameters are not saved! (No configuration file provided...)");
-	}
+        if(!UFile::exists(configFile.c_str()))
+        {
+            printf("Config file doesn't exist, a new one will be created.\n");
+        }
+        Parameters::writeINI(configFile.c_str(), parameters_);
+    }
+    else
+    {
+        NODELET_INFO("Parameters are not saved! (No configuration file provided...)");
+    }
 }
 
 void CoreWrapper::publishLoop(double tfDelay, double tfTolerance)
 {
-	if(tfDelay == 0)
-		return;
-	ros::Rate r(1.0 / tfDelay);
-	while(tfThreadRunning_)
-	{
-		if(!odomFrameId_.empty())
-		{
-			mapToOdomMutex_.lock();
-			ros::Time tfExpiration = ros::Time::now() + ros::Duration(tfTolerance);
-			geometry_msgs::TransformStamped msg;
-			msg.child_frame_id = odomFrameId_;
-			msg.header.frame_id = mapFrameId_;
-			msg.header.stamp = tfExpiration;
-			rtabmap_ros::transformToGeometryMsg(mapToOdom_, msg.transform);
-			tfBroadcaster_.sendTransform(msg);
+    if(tfDelay == 0)
+        return;
+    ros::Rate r(1.0 / tfDelay);
+    while(tfThreadRunning_)
+    {
+        if(!odomFrameId_.empty())
+        {
+            mapToOdomMutex_.lock();
+            ros::Time tfExpiration = ros::Time::now() + ros::Duration(tfTolerance);
+            geometry_msgs::TransformStamped msg;
+            msg.child_frame_id = odomFrameId_;
+            msg.header.frame_id = mapFrameId_;
+            msg.header.stamp = tfExpiration;
+            rtabmap_ros::transformToGeometryMsg(mapToOdom_, msg.transform);
+        	tfBroadcaster_.sendTransform(msg);
 			mapToOdomMutex_.unlock();
 		}
 		r.sleep();

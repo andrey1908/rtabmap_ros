@@ -37,47 +37,47 @@ QApplication * app = 0;
 ros::AsyncSpinner * spinner = 0;
 
 void my_handler(int s){
-	ROS_INFO("rtabmapviz: ctrl-c catched! Exiting Qt app...");
-	ros::shutdown();
-	app->exit(-1);
+    ROS_INFO("rtabmapviz: ctrl-c catched! Exiting Qt app...");
+    ros::shutdown();
+    app->exit(-1);
 }
 
 int main(int argc, char** argv)
 {
-	ROS_INFO("Starting node...");
+    ROS_INFO("Starting node...");
 
-	ULogger::setType(ULogger::kTypeConsole);
-	ULogger::setLevel(ULogger::kWarning);
+    ULogger::setType(ULogger::kTypeConsole);
+    ULogger::setLevel(ULogger::kWarning);
 
-	ros::init(argc, argv, "rtabmapviz");
+    ros::init(argc, argv, "rtabmapviz");
 
-	app = new QApplication(argc, argv);
-	app->connect( app, SIGNAL( lastWindowClosed() ), app, SLOT( quit() ) );
+    app = new QApplication(argc, argv);
+    app->connect( app, SIGNAL( lastWindowClosed() ), app, SLOT( quit() ) );
 
-	rtabmap_ros::GuiWrapper * gui = new rtabmap_ros::GuiWrapper(argc, argv);
+    rtabmap_ros::GuiWrapper * gui = new rtabmap_ros::GuiWrapper(argc, argv);
 
-	// Catch ctrl-c to close the gui
-	// (Place this after QApplication's constructor)
-	struct sigaction sigIntHandler;
-	sigIntHandler.sa_handler = my_handler;
-	sigemptyset(&sigIntHandler.sa_mask);
-	sigIntHandler.sa_flags = 0;
-	sigaction(SIGINT, &sigIntHandler, NULL);
+    // Catch ctrl-c to close the gui
+    // (Place this after QApplication's constructor)
+    struct sigaction sigIntHandler;
+    sigIntHandler.sa_handler = my_handler;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
+    sigaction(SIGINT, &sigIntHandler, NULL);
 
-	// Here start the ROS events loop
-	spinner = new ros::AsyncSpinner(1); // Use 1 thread
-	spinner->start();
+    // Here start the ROS events loop
+    spinner = new ros::AsyncSpinner(1); // Use 1 thread
+    spinner->start();
 
-	ROS_INFO("rtabmapviz started.");
-	// Now wait for application to finish
-	int r = app->exec();// MUST be called by the Main Thread
+    ROS_INFO("rtabmapviz started.");
+    // Now wait for application to finish
+    int r = app->exec();// MUST be called by the Main Thread
 
-	ROS_INFO("rtabmapviz stopping spinner...");
-	delete spinner;
+    ROS_INFO("rtabmapviz stopping spinner...");
+    delete spinner;
 
-	ROS_INFO("rtabmapviz deleting qt stuff...");
-	delete gui;
-	delete app;
-	ROS_INFO("rtabmapviz: All done! Closing...");
-	return r;
+    ROS_INFO("rtabmapviz deleting qt stuff...");
+    delete gui;
+    delete app;
+    ROS_INFO("rtabmapviz: All done! Closing...");
+    return r;
 }

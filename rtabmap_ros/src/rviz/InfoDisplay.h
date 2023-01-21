@@ -41,29 +41,29 @@ class InfoDisplay: public rviz::MessageFilterDisplay<rtabmap_ros_msgs::Info>
 {
 Q_OBJECT
 public:
-	InfoDisplay();
-	virtual ~InfoDisplay();
+    InfoDisplay();
+    virtual ~InfoDisplay();
 
-	virtual void reset();
-	virtual void update( float wall_dt, float ros_dt );
+    virtual void reset();
+    virtual void update( float wall_dt, float ros_dt );
 
 protected:
-	/** @brief Do initialization. Overridden from MessageFilterDisplay. */
-	virtual void onInitialize();
+    /** @brief Do initialization. Overridden from MessageFilterDisplay. */
+    virtual void onInitialize();
 
-	/** @brief Process a single message.  Overridden from MessageFilterDisplay. */
-	virtual void processMessage( const rtabmap_ros::InfoConstPtr& cloud );
+    /** @brief Process a single message.  Overridden from MessageFilterDisplay. */
+    virtual void processMessage( const rtabmap_ros::InfoConstPtr& cloud );
 
 private:
-	ros::AsyncSpinner spinner_;
-	ros::CallbackQueue cbqueue_;
+    ros::AsyncSpinner spinner_;
+    ros::CallbackQueue cbqueue_;
 
-	QString info_;
-	int globalCount_;
-	int localCount_;
-	std::map<std::string, float> statistics_;
-	rtabmap::Transform loopTransform_;
-	boost::mutex info_mutex_;
+    QString info_;
+    int globalCount_;
+    int localCount_;
+    std::map<std::string, float> statistics_;
+    rtabmap::Transform loopTransform_;
+    boost::mutex info_mutex_;
 };
 
 } // namespace rtabmap_ros

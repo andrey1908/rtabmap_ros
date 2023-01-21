@@ -32,47 +32,47 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 int main(int argc, char **argv)
 {
-	ULogger::setType(ULogger::kTypeConsole);
-	ULogger::setLevel(ULogger::kWarning);
-	ros::init(argc, argv, "rgbdicp_odometry");
+    ULogger::setType(ULogger::kTypeConsole);
+    ULogger::setLevel(ULogger::kWarning);
+    ros::init(argc, argv, "rgbdicp_odometry");
 
-	// process "--params" argument
-	nodelet::V_string nargv;
-	for(int i=1;i<argc;++i)
-	{
-		if(strcmp(argv[i], "--params") == 0)
-		{
-			rtabmap::ParametersMap parametersOdom = rtabmap::Parameters::getDefaultOdometryParameters(false, true, true);
-			for(rtabmap::ParametersMap::iterator iter=parametersOdom.begin(); iter!=parametersOdom.end(); ++iter)
-			{
-				std::string str = "Param: " + iter->first + " = \"" + iter->second + "\"";
-				std::cout <<
-						str <<
-						std::setw(60 - str.size()) <<
-						" [" <<
-						rtabmap::Parameters::getDescription(iter->first).c_str() <<
-						"]" <<
-						std::endl;
-			}
-			ROS_WARN("Node will now exit after showing default odometry parameters because "
-					 "argument \"--params\" is detected!");
-			exit(0);
-		}
-		else if(strcmp(argv[i], "--udebug") == 0)
-		{
-			ULogger::setLevel(ULogger::kDebug);
-		}
-		else if(strcmp(argv[i], "--uinfo") == 0)
-		{
-			ULogger::setLevel(ULogger::kInfo);
-		}
-		nargv.push_back(argv[i]);
-	}
+    // process "--params" argument
+    nodelet::V_string nargv;
+    for(int i=1;i<argc;++i)
+    {
+        if(strcmp(argv[i], "--params") == 0)
+        {
+            rtabmap::ParametersMap parametersOdom = rtabmap::Parameters::getDefaultOdometryParameters(false, true, true);
+            for(rtabmap::ParametersMap::iterator iter=parametersOdom.begin(); iter!=parametersOdom.end(); ++iter)
+            {
+                std::string str = "Param: " + iter->first + " = \"" + iter->second + "\"";
+                std::cout <<
+                        str <<
+                        std::setw(60 - str.size()) <<
+                        " [" <<
+                        rtabmap::Parameters::getDescription(iter->first).c_str() <<
+                        "]" <<
+                        std::endl;
+            }
+            ROS_WARN("Node will now exit after showing default odometry parameters because "
+                     "argument \"--params\" is detected!");
+            exit(0);
+        }
+        else if(strcmp(argv[i], "--udebug") == 0)
+        {
+            ULogger::setLevel(ULogger::kDebug);
+        }
+        else if(strcmp(argv[i], "--uinfo") == 0)
+        {
+            ULogger::setLevel(ULogger::kInfo);
+        }
+        nargv.push_back(argv[i]);
+    }
 
-	nodelet::Loader nodelet;
-	nodelet::M_string remap(ros::names::getRemappings());
-	std::string nodelet_name = ros::this_node::getName();
-	nodelet.load(nodelet_name, "rtabmap_ros/rgbdicp_odometry", remap, nargv);
-	ros::spin();
-	return 0;
+    nodelet::Loader nodelet;
+    nodelet::M_string remap(ros::names::getRemappings());
+    std::string nodelet_name = ros::this_node::getName();
+    nodelet.load(nodelet_name, "rtabmap_ros/rgbdicp_odometry", remap, nargv);
+    ros::spin();
+    return 0;
 }

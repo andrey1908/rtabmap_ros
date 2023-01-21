@@ -58,146 +58,146 @@ namespace rtabmap_ros
 class RGBDRelay : public nodelet::Nodelet
 {
 public:
-	RGBDRelay() :
-		compress_(false),
-		uncompress_(false)
-	{}
+    RGBDRelay() :
+        compress_(false),
+        uncompress_(false)
+    {}
 
-	virtual ~RGBDRelay()
-	{
-	}
-
-private:
-	virtual void onInit()
-	{
-		ros::NodeHandle & nh = getNodeHandle();
-		ros::NodeHandle & pnh = getPrivateNodeHandle();
-
-		int queueSize = 10;
-		bool approxSync = true;
-		pnh.param("queue_size", queueSize, queueSize);
-		pnh.param("compress", compress_, compress_);
-		pnh.param("uncompress", uncompress_, uncompress_);
-
-		NODELET_INFO("%s: queue_size  = %d", getName().c_str(), queueSize);
-
-		rgbdImageSub_ = nh.subscribe("rgbd_image", 1, &RGBDRelay::callback, this);
-		rgbdImagePub_ = nh.advertise<rtabmap_ros_msgs::RGBDImage>(nh.resolveName("rgbd_image") + "_relay", 1);
-	}
-
-	void callback(const rtabmap_ros::RGBDImageConstPtr& input)
-	{
-		if(rgbdImagePub_.getNumSubscribers())
-		{
-			if(!compress_ && !uncompress_)
-			{
-				//just republish it
-				rgbdImagePub_.publish(input);
-				return;
-			}
-
-			rtabmap_ros_msgs::RGBDImage output;
-			output.header = input->header;
-			output.rgb_camera_info = input->rgb_camera_info;
-			output.depth_camera_info = input->depth_camera_info;
-			output.key_points = input->key_points;
-			output.points = input->points;
-			output.descriptors = input->descriptors;
-			output.global_descriptor = input->global_descriptor;
-
-			rtabmap::StereoCameraModel stereoModel = stereoCameraModelFromROS(input->rgb_camera_info, input->depth_camera_info, rtabmap::Transform::getIdentity());
-
-			if(compress_)
-			{
-				if(!input->rgb_compressed.data.empty())
-				{
-					// already compressed, just copy pointer
-					output.rgb_compressed = input->rgb_compressed;
-				}
-				else if(!input->rgb.data.empty())
-				{
-#ifdef CV_BRIDGE_HYDRO
-					ROS_ERROR("Unsupported compressed image copy, please upgrade at least to ROS Indigo to use this.");
-#else
-					cv_bridge::CvImageConstPtr rgb = cv_bridge::toCvShare(input->rgb, input);
-					rgb->toCompressedImageMsg(output.rgb_compressed, cv_bridge::JPG);
-#endif
-				}
-
-				if(!input->depth_compressed.data.empty())
-				{
-					// already compressed, just copy pointer
-					output.depth_compressed = input->depth_compressed;
-				}
-				else if(!input->depth.data.empty())
-				{
-					if(stereoModel.isValidForProjection())
-					{
-						// right stereo image
-						cv_bridge::CvImageConstPtr imageRightPtr = cv_bridge::toCvShare(input->depth, input);
-						imageRightPtr->toCompressedImageMsg(output.depth_compressed, cv_bridge::JPG);
-					}
-					else
-					{
-						// depth image
-						cv_bridge::CvImageConstPtr imageDepthPtr = cv_bridge::toCvShare(input->depth, input);
-						output.depth_compressed.data = rtabmap::compressImage(imageDepthPtr->image, ".png");
-						output.depth_compressed.format = "png";
-					}
-				}
-			}
-			if(uncompress_)
-			{
-				if(!input->rgb.data.empty())
-				{
-					// already raw, just copy pointer
-					output.rgb = input->rgb;
-				}
-				if(!input->rgb_compressed.data.empty())
-				{
-#ifdef CV_BRIDGE_HYDRO
-					ROS_ERROR("Unsupported compressed image copy, please upgrade at least to ROS Indigo to use this.");
-#else
-					cv_bridge::toCvCopy(input->rgb_compressed)->toImageMsg(output.rgb);
-#endif
-				}
-
-				if(!input->depth.data.empty())
-				{
-					// already raw, just copy pointer
-					output.depth = input->depth;
-				}
-				else if(input->depth_compressed.format.compare("jpg")==0)
-				{
-					// right stereo image
-#ifdef CV_BRIDGE_HYDRO
-					ROS_ERROR("Unsupported compressed image copy, please upgrade at least to ROS Indigo to use this.");
-#else
-					cv_bridge::toCvCopy(input->depth_compressed)->toImageMsg(output.depth);
-#endif
-				}
-				else
-				{
-					// depth image
-					cv_bridge::CvImagePtr ptr = boost::make_shared<cv_bridge::CvImage>();
-					ptr->header = input->depth_compressed.header;
-					ptr->image = rtabmap::uncompressImage(input->depth_compressed.data);
-					ROS_ASSERT(ptr->image.empty() || ptr->image.type() == CV_32FC1 || ptr->image.type() == CV_16UC1);
-					ptr->encoding = ptr->image.empty()?"":ptr->image.type() == CV_32FC1?sensor_msgs::image_encodings::TYPE_32FC1:sensor_msgs::image_encodings::TYPE_16UC1;
-					ptr->toImageMsg(output.depth);
-				}
-			}
-
-			rgbdImagePub_.publish(output);
-		}
-	}
+    virtual ~RGBDRelay()
+    {
+    }
 
 private:
+    virtual void onInit()
+    {
+        ros::NodeHandle & nh = getNodeHandle();
+        ros::NodeHandle & pnh = getPrivateNodeHandle();
 
-	bool compress_;
-	bool uncompress_;
-	ros::Subscriber rgbdImageSub_;
-	ros::Publisher rgbdImagePub_;
+        int queueSize = 10;
+        bool approxSync = true;
+        pnh.param("queue_size", queueSize, queueSize);
+        pnh.param("compress", compress_, compress_);
+        pnh.param("uncompress", uncompress_, uncompress_);
+
+        NODELET_INFO("%s: queue_size  = %d", getName().c_str(), queueSize);
+
+        rgbdImageSub_ = nh.subscribe("rgbd_image", 1, &RGBDRelay::callback, this);
+        rgbdImagePub_ = nh.advertise<rtabmap_ros_msgs::RGBDImage>(nh.resolveName("rgbd_image") + "_relay", 1);
+    }
+
+    void callback(const rtabmap_ros::RGBDImageConstPtr& input)
+    {
+        if(rgbdImagePub_.getNumSubscribers())
+        {
+            if(!compress_ && !uncompress_)
+            {
+                //just republish it
+                rgbdImagePub_.publish(input);
+                return;
+            }
+
+            rtabmap_ros_msgs::RGBDImage output;
+            output.header = input->header;
+            output.rgb_camera_info = input->rgb_camera_info;
+            output.depth_camera_info = input->depth_camera_info;
+            output.key_points = input->key_points;
+            output.points = input->points;
+            output.descriptors = input->descriptors;
+            output.global_descriptor = input->global_descriptor;
+
+            rtabmap::StereoCameraModel stereoModel = stereoCameraModelFromROS(input->rgb_camera_info, input->depth_camera_info, rtabmap::Transform::getIdentity());
+
+            if(compress_)
+            {
+                if(!input->rgb_compressed.data.empty())
+                {
+                    // already compressed, just copy pointer
+                    output.rgb_compressed = input->rgb_compressed;
+                }
+                else if(!input->rgb.data.empty())
+                {
+#ifdef CV_BRIDGE_HYDRO
+                    ROS_ERROR("Unsupported compressed image copy, please upgrade at least to ROS Indigo to use this.");
+#else
+                    cv_bridge::CvImageConstPtr rgb = cv_bridge::toCvShare(input->rgb, input);
+                    rgb->toCompressedImageMsg(output.rgb_compressed, cv_bridge::JPG);
+#endif
+                }
+
+                if(!input->depth_compressed.data.empty())
+                {
+                    // already compressed, just copy pointer
+                    output.depth_compressed = input->depth_compressed;
+                }
+                else if(!input->depth.data.empty())
+                {
+                    if(stereoModel.isValidForProjection())
+                    {
+                        // right stereo image
+                        cv_bridge::CvImageConstPtr imageRightPtr = cv_bridge::toCvShare(input->depth, input);
+                        imageRightPtr->toCompressedImageMsg(output.depth_compressed, cv_bridge::JPG);
+                    }
+                    else
+                    {
+                        // depth image
+                        cv_bridge::CvImageConstPtr imageDepthPtr = cv_bridge::toCvShare(input->depth, input);
+                        output.depth_compressed.data = rtabmap::compressImage(imageDepthPtr->image, ".png");
+                        output.depth_compressed.format = "png";
+                    }
+                }
+            }
+            if(uncompress_)
+            {
+                if(!input->rgb.data.empty())
+                {
+                    // already raw, just copy pointer
+                    output.rgb = input->rgb;
+                }
+                if(!input->rgb_compressed.data.empty())
+                {
+#ifdef CV_BRIDGE_HYDRO
+                    ROS_ERROR("Unsupported compressed image copy, please upgrade at least to ROS Indigo to use this.");
+#else
+                    cv_bridge::toCvCopy(input->rgb_compressed)->toImageMsg(output.rgb);
+#endif
+                }
+
+                if(!input->depth.data.empty())
+                {
+                    // already raw, just copy pointer
+                    output.depth = input->depth;
+                }
+                else if(input->depth_compressed.format.compare("jpg")==0)
+                {
+                    // right stereo image
+#ifdef CV_BRIDGE_HYDRO
+                    ROS_ERROR("Unsupported compressed image copy, please upgrade at least to ROS Indigo to use this.");
+#else
+                    cv_bridge::toCvCopy(input->depth_compressed)->toImageMsg(output.depth);
+#endif
+                }
+                else
+                {
+                    // depth image
+                    cv_bridge::CvImagePtr ptr = boost::make_shared<cv_bridge::CvImage>();
+                    ptr->header = input->depth_compressed.header;
+                    ptr->image = rtabmap::uncompressImage(input->depth_compressed.data);
+                    ROS_ASSERT(ptr->image.empty() || ptr->image.type() == CV_32FC1 || ptr->image.type() == CV_16UC1);
+                    ptr->encoding = ptr->image.empty()?"":ptr->image.type() == CV_32FC1?sensor_msgs::image_encodings::TYPE_32FC1:sensor_msgs::image_encodings::TYPE_16UC1;
+                    ptr->toImageMsg(output.depth);
+                }
+            }
+
+            rgbdImagePub_.publish(output);
+        }
+    }
+
+private:
+
+    bool compress_;
+    bool uncompress_;
+    ros::Subscriber rgbdImageSub_;
+    ros::Publisher rgbdImagePub_;
 };
 
 PLUGINLIB_EXPORT_CLASS(rtabmap_ros::RGBDRelay, nodelet::Nodelet);

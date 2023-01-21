@@ -373,67 +373,67 @@ target_link_libraries(occupancy_grid_map occupancy_grid_map_wrapper)
     
 #     ## RVIZ plugin
 #     IF(QT4_FOUND)
-# 	  IF(WIN32)
+#       IF(WIN32)
 #         qt4_wrap_cpp(MOC_FILES
 #           src/rviz/MapCloudDisplay.h
 #           src/rviz/MapGraphDisplay.h
 #           src/rviz/InfoDisplay.h
 #         )
-# 	  ELSE()
-# 	    qt4_wrap_cpp(MOC_FILES
+#       ELSE()
+#         qt4_wrap_cpp(MOC_FILES
 #           src/rviz/MapCloudDisplay.h
 #           src/rviz/MapGraphDisplay.h
 #           src/rviz/InfoDisplay.h
 #           src/rviz/OrbitOrientedViewController.h
 #         )
-# 	  ENDIF()
+#       ENDIF()
 #     ELSE()
-# 	  IF(WIN32)
+#       IF(WIN32)
 #         qt5_wrap_cpp(MOC_FILES
 #           src/rviz/MapCloudDisplay.h
 #           src/rviz/MapGraphDisplay.h
 #           src/rviz/InfoDisplay.h
 #         )
-# 	  ELSE()
-# 	    qt5_wrap_cpp(MOC_FILES
+#       ELSE()
+#         qt5_wrap_cpp(MOC_FILES
 #           src/rviz/MapCloudDisplay.h
 #           src/rviz/MapGraphDisplay.h
 #           src/rviz/InfoDisplay.h
 #           src/rviz/OrbitOrientedViewController.h
 #         )
-# 	  ENDIF()
+#       ENDIF()
 #     ENDIF()
     
 #     # tf:message_filters, mixing boost and Qt signals
-# 	IF(WIN32)
+#     IF(WIN32)
 #       set_property(
 #         SOURCE src/rviz/MapCloudDisplay.cpp src/rviz/MapGraphDisplay.cpp src/rviz/InfoDisplay.cpp
 #         PROPERTY COMPILE_DEFINITIONS QT_NO_KEYWORDS
 #       )
-# 	ELSE()
-# 	  set_property(
+#     ELSE()
+#       set_property(
 #         SOURCE src/rviz/MapCloudDisplay.cpp src/rviz/MapGraphDisplay.cpp src/rviz/InfoDisplay.cpp src/rviz/OrbitOrientedViewController.cpp
 #         PROPERTY COMPILE_DEFINITIONS QT_NO_KEYWORDS
 #       )
-# 	ENDIF()
-# 	SET(SRC_FILES 
-# 	   src/rviz/MapCloudDisplay.cpp
+#     ENDIF()
+#     SET(SRC_FILES 
+#        src/rviz/MapCloudDisplay.cpp
 #        src/rviz/MapGraphDisplay.cpp
 #        src/rviz/InfoDisplay.cpp
 #        ${MOC_FILES}
-# 	)
-# 	IF(NOT WIN32)
-# 	  SET(SRC_FILES 
-# 	    ${SRC_FILES} 
-# 	    src/rviz/OrbitOrientedViewController.cpp
-# 	  )
-# 	ENDIF(NOT WIN32)
+#     )
+#     IF(NOT WIN32)
+#       SET(SRC_FILES 
+#         ${SRC_FILES} 
+#         src/rviz/OrbitOrientedViewController.cpp
+#       )
+#     ENDIF(NOT WIN32)
 #     add_library(rtabmap_rviz_plugins
 #        ${SRC_FILES}
 #     )
 #     target_link_libraries(rtabmap_rviz_plugins
 #       rtabmap_ros
-# 	  ${Libraries}
+#       ${Libraries}
 #     )
 #     IF(Qt5_FOUND)
 #         QT5_USE_MODULES(rtabmap_rviz_plugins Widgets Core Gui)
