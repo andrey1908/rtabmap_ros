@@ -398,16 +398,30 @@ void OccupancyGridMapWrapper::addSignatureToOccupancyGrid(
 void OccupancyGridMapWrapper::publishOccupancyGridMaps(const ros::Time& stamp)
 {
     MEASURE_BLOCK_TIME(publishOccupancyGridMaps);
-    nav_msgs::OccupancyGrid occupancyGridMsg = getOccupancyGridMsg(stamp);
-    occupancyGridPub_.publish(occupancyGridMsg);
 
-    colored_occupancy_grid_msgs::ColoredOccupancyGrid coloredOccupancyGridMsg;
-    coloredOccupancyGridMsg.header = occupancyGridMsg.header;
-    coloredOccupancyGridMsg.info = occupancyGridMsg.info;
-    coloredOccupancyGridMsg.data = occupancyGridMsg.data;
-    fillColorsInColoredOccupancyGridMsg(coloredOccupancyGridMsg);
-    maybeDrawDoorOnColoredOccupancyGridMsg(coloredOccupancyGridMsg);
-    coloredOccupancyGridPub_.publish(coloredOccupancyGridMsg);
+    bool occupancyGridSubscribed = (occupancyGridPub_.getNumSubscribers() > 0);
+    bool coloredOccupancyGridSubscribed = (coloredOccupancyGridPub_.getNumSubscribers() > 0);
+    nav_msgs::OccupancyGrid occupancyGridMsg;
+    if (occupancyGridSubscribed || coloredOccupancyGridSubscribed)
+    {
+        occupancyGridMsg = getOccupancyGridMsg(stamp);
+    }
+
+    if (occupancyGridSubscribed)
+    {
+        occupancyGridPub_.publish(occupancyGridMsg);
+    }
+
+    if (coloredOccupancyGridSubscribed)
+    {
+        colored_occupancy_grid_msgs::ColoredOccupancyGrid coloredOccupancyGridMsg;
+        coloredOccupancyGridMsg.header = occupancyGridMsg.header;
+        coloredOccupancyGridMsg.info = occupancyGridMsg.info;
+        coloredOccupancyGridMsg.data = occupancyGridMsg.data;
+        fillColorsInColoredOccupancyGridMsg(coloredOccupancyGridMsg);
+        maybeDrawDoorOnColoredOccupancyGridMsg(coloredOccupancyGridMsg);
+        coloredOccupancyGridPub_.publish(coloredOccupancyGridMsg);
+    }
 }
 
 nav_msgs::OccupancyGrid OccupancyGridMapWrapper::getOccupancyGridMsg(const ros::Time& stamp)
