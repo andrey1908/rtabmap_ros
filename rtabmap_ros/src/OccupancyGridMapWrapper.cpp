@@ -9,11 +9,12 @@
 #include <sensor_msgs/image_encodings.h>
 #include <cv_bridge/cv_bridge.h>
 
+#include <rtabmap/core/Trajectory.h>
 #include <rtabmap/core/SensorData.h>
-#include <rtabmap/core/util3d_transforms.h>
 #include <rtabmap/utilite/UFile.h>
 #include <rtabmap/utilite/ULogger.h>
 #include <rtabmap/utilite/UMath.h>
+#include <rtabmap/core/util3d_transforms.h>
 
 #include "rtabmap_ros/MsgConversion.h"
 
@@ -205,7 +206,7 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv) :
         if (needsLocalization_)
         {
             timedOccupancyGridMap_->updatePoses(
-                rtabmap::TimedOccupancyGridMap::Trajectories());
+                rtabmap::Trajectories());
         }
     }
     if (accumulativeMapping_)
@@ -244,18 +245,19 @@ void OccupancyGridMapWrapper::updatePoses(
 {
     UScopeMutex lock(mutex_);
     MEASURE_BLOCK_TIME(updatePoses);
-    rtabmap::TimedOccupancyGridMap::Trajectories trajectories;
+    rtabmap::Trajectories trajectories;
     for (const auto& trajectory_msg : optimizationResults->trajectories)
     {
-        int trajectory_index = trajectories.appendTrajectory();
+        rtabmap::Trajectory trajectory;
         for (const auto& global_pose_msg : trajectory_msg.global_poses)
         {
             UASSERT(global_pose_msg.header.frame_id == mapFrame_);
             const ros::Time& stamp = global_pose_msg.header.stamp;
             rtabmap::Time time(stamp.sec, stamp.nsec);
             rtabmap::Transform global_pose = transformFromPoseMsg(global_pose_msg.pose);
-            trajectories.addPose(trajectory_index, time, global_pose);
+            trajectory.addPose(time, global_pose);
         }
+        trajectories.addTrajectory(std::move(trajectory));
     }
     if (optimizationResults->current_trajectory_index != -1)
     {
