@@ -248,6 +248,8 @@ void OccupancyGridMapWrapper::updatePoses(
     rtabmap::Trajectories trajectories;
     for (const auto& trajectory_msg : optimizationResults->trajectories)
     {
+        UASSERT(trajectory_msg.child_frame_id.empty() ||
+            trajectory_msg.child_frame_id == updatedPosesFrame_);
         rtabmap::Trajectory trajectory;
         for (const auto& global_pose_msg : trajectory_msg.global_poses)
         {
@@ -259,16 +261,15 @@ void OccupancyGridMapWrapper::updatePoses(
         }
         trajectories.addTrajectory(std::move(trajectory));
     }
-    if (optimizationResults->current_trajectory_index != -1)
+    if (optimizationResults->global_to_odometry.header.frame_id.size())
     {
-        UASSERT(optimizationResults->current_global_to_odometry.header.frame_id ==
+        UASSERT(optimizationResults->global_to_odometry.header.frame_id ==
             mapFrame_);
         UASSERT(odomFrame_.empty() ||
-            optimizationResults->current_global_to_odometry.child_frame_id ==
+            optimizationResults->global_to_odometry.child_frame_id ==
                 odomFrame_);
-        UASSERT(optimizationResults->current_child_frame_id == updatedPosesFrame_);
         globalToOdometry_ = transformFromGeometryMsg(
-            optimizationResults->current_global_to_odometry.transform);
+            optimizationResults->global_to_odometry.transform);
     }
     else
     {
