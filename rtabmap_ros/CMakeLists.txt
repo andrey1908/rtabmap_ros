@@ -37,6 +37,7 @@ find_package(find_object_2d)
 find_package(RTABMap 0.20.13 REQUIRED)
 find_package(time_measurer REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 IF(RTABMAP_GUI)
 FIND_PACKAGE(PCL 1.7 REQUIRED QUIET COMPONENTS common io kdtree search surface filters registration sample_consensus segmentation visualization)
@@ -126,6 +127,7 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
   ${time_measurer_INCLUDE_DIRS}
+  ${YAML_INCLUDE_DIRS}
 )
 
 # libraries
@@ -135,6 +137,7 @@ SET(Libraries
    ${catkin_LIBRARIES}
    ${RTABMap_LIBRARIES}
    ${time_measurer_LIBRARIES}
+   ${YAML_CPP_LIBRARIES}
 )
 
 SET(rtabmap_ros_lib_src

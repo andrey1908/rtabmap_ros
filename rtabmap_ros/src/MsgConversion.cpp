@@ -32,7 +32,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ros/ros.h>
 #include <rtabmap/core/util3d.h>
 #include <rtabmap/core/util3d_transforms.h>
-#include <rtabmap/core/util3d_filtering.h>
 #include <rtabmap/utilite/UStl.h>
 #include <rtabmap/utilite/ULogger.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -42,7 +41,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <image_geometry/stereo_camera_model.h>
 #include <sensor_msgs/image_encodings.h>
 #include <laser_geometry/laser_geometry.h>
-#include <rtabmap/core/util3d_surface.h>
 
 namespace rtabmap_ros {
 
@@ -873,7 +871,7 @@ bool convertStereoMsg(
                 waitForTransform);
         if(stereoTransform.isNull())
         {
-            ROS_ERROR("Parameter %s is false but we cannot get TF between the two cameras!", rtabmap::Parameters::kRtabmapImagesAlreadyRectified().c_str());
+            ROS_ERROR("Parameter ??? is false but we cannot get TF between the two cameras!");
             return false;
         }
     }
@@ -911,10 +909,9 @@ bool convertStereoMsg(
             static bool warned = false;
             if(!warned)
             {
-                ROS_WARN("Right camera info doesn't have Tx set but we are assuming that stereo images are already rectified (see %s parameter). While not "
+                ROS_WARN("Right camera info doesn't have Tx set but we are assuming that stereo images are already rectified. While not "
                         "recommended, we used TF to get the baseline (%s->%s = %fm) for convenience (e.g., D400 ir stereo issue). It is preferred to feed "
                         "a valid right camera info if stereo images are already rectified. This message is only printed once...",
-                        rtabmap::Parameters::kRtabmapImagesAlreadyRectified().c_str(),
                         rightCamInfoMsg.header.frame_id.c_str(), leftCamInfoMsg.header.frame_id.c_str(), stereoTransform.x());
                 warned = true;
             }

@@ -24,6 +24,8 @@
 
 #include "rtabmap_ros/CommonDataSubscriber.h"
 
+#include <yaml-cpp/yaml.h>
+
 #include <memory>
 #include <vector>
 #include <string>
@@ -39,8 +41,7 @@ public:
     ~OccupancyGridMapWrapper();
 
 private:
-    rtabmap::ParametersMap readRtabmapParameters(int argc, char** argv, const ros::NodeHandle& pnh);
-    void readRtabmapRosParameters(const ros::NodeHandle& pnh);
+    void readRosParameters(const ros::NodeHandle& pnh, const YAML::Node& params);
 
     void updatePoses(const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults);
 
@@ -122,6 +123,7 @@ private:
     std::string baseLinkFrame_;
     std::string updatedPosesFrame_;
 
+    std::string configPath_;
     std::string loadMapPath_;
     std::string saveMapPath_;
 

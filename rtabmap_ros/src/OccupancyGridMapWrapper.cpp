@@ -24,157 +24,20 @@
 
 namespace rtabmap_ros {
 
-rtabmap::ParametersMap OccupancyGridMapWrapper::readRtabmapParameters(int argc, char** argv, const ros::NodeHandle& pnh)
+void OccupancyGridMapWrapper::readRosParameters(
+    const ros::NodeHandle& pnh, const YAML::Node& params)
 {
-    std::string configPath;
-    pnh.param("config_path", configPath, configPath);
-
-    // parameters
-    rtabmap::ParametersMap parameters;
-    uInsert(parameters, rtabmap::Parameters::getDefaultParameters());
-
-    if(!configPath.empty())
-    {
-        if(UFile::exists(configPath.c_str()))
-        {
-            ROS_INFO("%s: Loading parameters from %s", ros::this_node::getName().c_str(), configPath.c_str());
-            rtabmap::ParametersMap allParameters;
-            rtabmap::Parameters::readINI(configPath.c_str(), allParameters);
-            // only update odometry parameters
-            for(rtabmap::ParametersMap::iterator iter=parameters.begin(); iter!=parameters.end(); ++iter)
-            {
-                rtabmap::ParametersMap::iterator jter = allParameters.find(iter->first);
-                if(jter!=allParameters.end())
-                {
-                    iter->second = jter->second;
-                }
-            }
-        }
-        else
-        {
-            ROS_ERROR("Config file \"%s\" not found!", configPath.c_str());
-        }
-    }
-
-    for(rtabmap::ParametersMap::iterator iter=parameters.begin(); iter!=parameters.end(); ++iter)
-    {
-        if (!pnh.hasParam(iter->first))
-        {
-            continue;
-        }
-
-        std::string vStr;
-        bool vBool;
-        double vDouble;
-        int vInt;
-
-        std::string sType = rtabmap::Parameters::getType(iter->first);
-        if (sType == "string")
-        {
-            if (!pnh.getParam(iter->first, vStr))
-            {
-                ROS_FATAL("Could not get parameter %s. This parameter does not appear to be string type.", iter->first.c_str());
-            }
-            iter->second = vStr;
-            ROS_INFO("Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), vStr.c_str());
-        }
-        else if (sType == "bool")
-        {
-            if (!pnh.getParam(iter->first, vBool))
-            {
-                ROS_FATAL("Could not get parameter %s. This parameter does not appear to be bool type.", iter->first.c_str());
-            }
-            iter->second = uBool2Str(vBool);
-            ROS_INFO("Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.c_str());
-        }
-        else if (sType == "float" || sType == "double")
-        {
-            if (!pnh.getParam(iter->first, vDouble))
-            {
-                ROS_FATAL("Could not get parameter %s. This parameter does not appear to be double type.", iter->first.c_str());
-            }
-            iter->second = uNumber2Str(vDouble);
-            ROS_INFO("Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.c_str());
-        }
-        else if (sType == "int")
-        {
-            if (!pnh.getParam(iter->first, vInt))
-            {
-                ROS_FATAL("Could not get parameter %s. This parameter does not appear to be int type.", iter->first.c_str());
-            }
-            iter->second = uNumber2Str(vInt);
-            ROS_INFO("Setting %s parameter \"%s\"=\"%s\"", ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.c_str());
-        }
-        else
-        {
-            UASSERT_MSG(false, uFormat("Unknown parameter type '%s' in parameters list", sType.c_str()).c_str());
-        }
-
-        if(iter->first.compare(rtabmap::Parameters::kVisMinInliers()) == 0 && atoi(iter->second.c_str()) < 8)
-        {
-            ROS_WARN("Parameter min_inliers must be >= 8, setting to 8...");
-            iter->second = uNumber2Str(8);
-        }
-    }
-
-    rtabmap::ParametersMap argParameters = rtabmap::Parameters::parseArguments(argc, argv);
-    for(rtabmap::ParametersMap::iterator iter=argParameters.begin(); iter!=argParameters.end(); ++iter)
-    {
-        rtabmap::ParametersMap::iterator jter = parameters.find(iter->first);
-        if(jter!=parameters.end())
-        {
-            ROS_INFO("Update %s parameter \"%s\"=\"%s\" from arguments", ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.c_str());
-            jter->second = iter->second;
-        }
-    }
-
-    // Backward compatibility
-    for(std::map<std::string, std::pair<bool, std::string> >::const_iterator iter=rtabmap::Parameters::getRemovedParameters().begin();
-        iter!=rtabmap::Parameters::getRemovedParameters().end();
-        ++iter)
-    {
-        std::string vStr;
-        if(pnh.getParam(iter->first, vStr))
-        {
-            if(iter->second.first && parameters.find(iter->second.second) != parameters.end())
-            {
-                // can be migrated
-                parameters.at(iter->second.second) = vStr;
-                ROS_WARN("%s: Parameter name changed: \"%s\" -> \"%s\". Please update your launch file accordingly. Value \"%s\" is still set to the new parameter name.",
-                        ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.second.c_str(), vStr.c_str());
-            }
-            else
-            {
-                if(iter->second.second.empty())
-                {
-                    ROS_ERROR("%s: Parameter \"%s\" doesn't exist anymore!",
-                            ros::this_node::getName().c_str(), iter->first.c_str());
-                }
-                else
-                {
-                    ROS_ERROR("%s: Parameter \"%s\" doesn't exist anymore! You may look at this similar parameter: \"%s\"",
-                            ros::this_node::getName().c_str(), iter->first.c_str(), iter->second.second.c_str());
-                }
-            }
-        }
-    }
-
-    return parameters;
-}
-
-void OccupancyGridMapWrapper::readRtabmapRosParameters(const ros::NodeHandle& pnh)
-{
-    pnh.param("map_frame", mapFrame_, std::string(""));
-    pnh.param("updated_poses_frame", updatedPosesFrame_, std::string(""));
+    mapFrame_ = params["map_frame"].as<std::string>("");
+    updatedPosesFrame_ = params["updated_poses_frame"].as<std::string>("");
     pnh.param("load_map_path", loadMapPath_, std::string(""));
     pnh.param("save_map_path", saveMapPath_, std::string(""));
-    pnh.param("needs_localization", needsLocalization_, true);
-    pnh.param("accumulative_mapping", accumulativeMapping_, true);
-    pnh.param("temporary_mapping", temporaryMapping_, false);
-    pnh.param("draw_door_center_estimation", drawDoorCenterEstimation_, false);
-    pnh.param("draw_door_corners", drawDoorCorners_, false);
-    pnh.param("door_tracking_small_radius", doorTrackingSmallRadius_, 0.3);
-    pnh.param("door_tracking_large_radius", doorTrackingLargeRadius_, 0.7);
+    needsLocalization_ = params["needs_localization"].as<bool>(true);
+    accumulativeMapping_ = params["accumulative_mapping"].as<bool>(true);
+    temporaryMapping_ = params["temporary_mapping"].as<bool>(false);
+    drawDoorCenterEstimation_ = params["draw_door_center_estimation"].as<bool>(false);
+    drawDoorCorners_ = params["draw_door_corners"].as<bool>(false);
+    doorTrackingSmallRadius_ = params["door_tracking_small_radius"].as<float>(0.3);
+    doorTrackingLargeRadius_ = params["door_tracking_large_radius"].as<float>(0.7);
 }
 
 OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv) :
@@ -183,12 +46,20 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv) :
 {
     ros::NodeHandle nh;
     ros::NodeHandle pnh("~");
-    rtabmap::ParametersMap parameters = readRtabmapParameters(argc, argv, pnh);
-    readRtabmapRosParameters(pnh);
+
+    pnh.param("config_path", configPath_, std::string(""));
+    UASSERT(!configPath_.empty());
+    YAML::Node config = YAML::LoadFile(configPath_);
+    readRosParameters(pnh, config);
     UASSERT(!mapFrame_.empty());
     UASSERT(!updatedPosesFrame_.empty());
+    UASSERT(!configPath_.empty());
     UASSERT(accumulativeMapping_ || temporaryMapping_);
 
+    UASSERT(config["TimedOccupancyGridMap"]);
+    rtabmap::TimedOccupancyGridMap::Parameters parameters =
+        rtabmap::TimedOccupancyGridMap::Parameters::createParameters(
+            config["TimedOccupancyGridMap"]);
     timedOccupancyGridMap_ =
         std::make_unique<rtabmap::TimedOccupancyGridMap>(parameters);
     globalToOdometry_ = rtabmap::Transform::getIdentity();
