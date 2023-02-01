@@ -12,13 +12,11 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <colored_occupancy_grid_msgs/ColoredOccupancyGrid.h>
 #include <optimization_results_msgs/OptimizationResults.h>
-#include <rtabmap_ros_msgs/DoorCorners.h>
 
 #include <rtabmap/core/TimedOccupancyGridMap.h>
 #include <rtabmap/core/LaserScan.h>
 #include <rtabmap/core/Transform.h>
 #include <rtabmap/core/Signature.h>
-#include <rtabmap/core/DoorTracking.h>
 #include <rtabmap/utilite/UStl.h>
 #include <rtabmap/utilite/UMutex.h>
 
@@ -42,6 +40,7 @@ public:
 
 private:
     void readRosParameters(const ros::NodeHandle& pnh, const YAML::Node& params);
+    std::string occupancyGridTopicPostfix(int index, int numBuilders);
 
     void updatePoses(const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults);
 
@@ -75,46 +74,26 @@ private:
         bool temporary = false);
     void publishOccupancyGridMaps(const ros::Time& stamp);
     void publishLastDilatedSemantic(const ros::Time& stamp, const std::string& frame_id);
-    void tryToPublishDoorCorners(const ros::Time& stamp);
 
-    nav_msgs::OccupancyGrid getOccupancyGridMsg(const ros::Time& stamp);
+    nav_msgs::OccupancyGrid getOccupancyGridMsg(const ros::Time& stamp, int index);
     void fillColorsInColoredOccupancyGridMsg(
-        colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg);
-    void maybeDrawDoorOnColoredOccupancyGridMsg(
-        colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg);
-    void drawDoorCenterUsedAsEstimationOnColoredOccupancyGrid(
         colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
-        const cv::Vec3b& color);
-    void drawDoorCornersOnColoredOccupancyGrid(
-        colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
-        const cv::Vec3b& color);
-
-    void startDoorTracking(const geometry_msgs::PointConstPtr& doorCenterEstimation);
-    void trackDoor();
-    void stopDoorTracking(const std_msgs::EmptyConstPtr& empty);
+        int index);
 
 private:
     CommonDataSubscriber commonDataSubscriber_;
     CommonDataSubscriber temporaryCommonDataSubscriber_;
 
-    ros::Publisher occupancyGridPub_;
-    ros::Publisher coloredOccupancyGridPub_;
+    std::vector<ros::Publisher> occupancyGridPubs_;
+    std::vector<ros::Publisher> coloredOccupancyGridPubs_;
     ros::Publisher dilatedSemanticPub_;
-    ros::Publisher doorCornersPub_;
     ros::Subscriber optimizationResultsSub_;
-    ros::Subscriber doorCenterEstimationSub_;
-    ros::Subscriber stopDoorTrackingSub_;
 
     tf::TransformListener tfListener_;
 
     int nodeId_;
     std::unique_ptr<rtabmap::TimedOccupancyGridMap> timedOccupancyGridMap_;
     rtabmap::Transform globalToOdometry_;
-
-    rtabmap::DoorTracking doorTracking_;
-    rtabmap::DoorTracking::Cell doorCenterInMapFrame_;
-    rtabmap::DoorTracking::Cell doorCenterUsedAsEstimationInMapFrame_;  // for visualization
-    std::pair<rtabmap::DoorTracking::Cell, rtabmap::DoorTracking::Cell> doorCornersInMapFrame_;
 
     UMutex mutex_;
 
@@ -130,11 +109,6 @@ private:
     bool needsLocalization_;
     bool accumulativeMapping_;
     bool temporaryMapping_;
-
-    double doorTrackingSmallRadius_;
-    double doorTrackingLargeRadius_;
-    bool drawDoorCenterEstimation_;
-    bool drawDoorCorners_;
 };
 
 }
