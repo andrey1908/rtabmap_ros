@@ -50,7 +50,7 @@
       <!-- use actionlib to send goals to move_base --> 
       <param name="use_action_for_goal" type="bool" value="true"/>
       <remap from="move_base"            to="/move_base"/>
-	
+    
       <!-- inputs -->
       <remap from="scan"            to="/scan"/>
       <remap from="odom"            to="/odom"/>
@@ -58,7 +58,7 @@
 
       <!-- output -->
       <remap from="grid_map" to="/map"/>
-	
+    
       <!-- RTAB-Map's parameters -->
       <param name="Reg/Strategy"                 type="string" value="1"/>
       <param name="Reg/Force3DoF"                type="string" value="true"/>

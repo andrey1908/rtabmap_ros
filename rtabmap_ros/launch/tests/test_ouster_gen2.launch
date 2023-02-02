@@ -108,7 +108,7 @@
         <param name="OdomF2M/ScanMaxSize"        type="string" value="15000"/>      
       </node>
 
-      <node pkg="rtabmap_ros" type="rtabmap" name="rtabmap" output="screen" args="-d">	  
+      <node pkg="rtabmap_ros" type="rtabmap" name="rtabmap" output="screen" args="-d">      
         <param name="frame_id"             type="string" value="$(arg frame_id)"/>  
         <param name="subscribe_depth"      type="bool" value="false"/>
         <param name="subscribe_rgb"        type="bool" value="false"/>

@@ -32,8 +32,8 @@ index bd9977c..b4f9382 100644
  
 +  try
 +    {
-+	  	tf_.lookupTransform(laser_frame_, base_frame_, scan.header.stamp, scan_to_base_);
-+	  	scan_to_base_.getOrigin().m_floats[2] = 0;
++          tf_.lookupTransform(laser_frame_, base_frame_, scan.header.stamp, scan_to_base_);
++          scan_to_base_.getOrigin().m_floats[2] = 0;
 +    }
 +    catch(tf::TransformException e)
 +    {
@@ -69,7 +69,7 @@ index bd9977c..b4f9382 100644
 +        ROS_DEBUG("Reading is NULL");
 +        continue;
 +      }
-+	  ++count;
++      ++count;
 +    }
 +  path.poses.resize(count);
 +  int oi = path.poses.size()-1;

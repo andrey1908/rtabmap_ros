@@ -29,7 +29,7 @@
       <remap from="rgb/image"       to="/camera/rgb/image_color"/>
       <remap from="depth/image"     to="/camera/depth/image"/>
       <remap from="rgb/camera_info" to="/camera/rgb/camera_info"/>
-	  
+      
       <param name="Odom/Strategy" type="string" value="0"/>      <!-- 0=Frame-to-Map, 1=Frame-to-KeyFrame -->
       <param name="Odom/ResetCountdown" type="string" value="15"/> 
       <param name="Odom/GuessSmoothingDelay" type="string" value="0"/>
@@ -53,7 +53,7 @@
       <param name="frame_id" type="string" value="kinect"/>
       <param name="ground_truth_frame_id" type="string" value="world"/> 
       <param name="ground_truth_base_frame_id" type="string" value="kinect_gt"/>
-	
+    
       <remap from="rgb/image" to="/camera/rgb/image_color"/>
       <remap from="depth/image" to="/camera/depth/image"/>
       <remap from="rgb/camera_info" to="/camera/rgb/camera_info"/>

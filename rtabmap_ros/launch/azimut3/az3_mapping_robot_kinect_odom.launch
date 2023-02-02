@@ -27,24 +27,24 @@
   <!-- args: "delete_db_on_start" and "udebug" -->
   <group ns="rtabmap">
     <node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="screen" args="--delete_db_on_start">
-	  <param name="frame_id" type="string" value="base_footprint"/>
-	  <param name="subscribe_depth" type="bool" value="true"/>
-	
-	  <remap from="odom" to="/base_controller/odom"/>
-	  <remap from="rgb/image" to="/camera/data_throttled_image"/>
-  	  <remap from="depth/image" to="/camera/data_throttled_image_depth"/>
-  	  <remap from="rgb/camera_info" to="/camera/data_throttled_camera_info"/>
-	
-	  <param name="queue_size" type="int" value="10"/>
-	
-	  <!-- RTAB-Map's parameters: do "rosrun rtabmap rtabmap (double-dash)params" to see the list of available parameters. -->
-	  <param name="RGBD/LocalLoopDetectionTime" type="string" value="false"/>    <!-- Local loop closure detection with locations in STM -->
-	  <param name="Mem/BadSignaturesIgnored" type="string" value="false"/>      <!-- Don't ignore bad images for 3D node creation (e.g. white walls) -->
-	  <param name="RGBD/AngularUpdate" type="string" value="0.01"/>             <!-- Update map only if the robot is moving -->
-	  <param name="RGBD/LinearUpdate" type="string" value="0.01"/>              <!-- Update map only if the robot is moving -->
-	  <param name="Rtabmap/TimeThr" type="string" value="700"/>
-	  <param name="Mem/RehearsalSimilarity" type="string" value="0.45"/>
-	  <param name="Mem/RehearsedNodesKept" type="string" value="false"/>   
+      <param name="frame_id" type="string" value="base_footprint"/>
+      <param name="subscribe_depth" type="bool" value="true"/>
+    
+      <remap from="odom" to="/base_controller/odom"/>
+      <remap from="rgb/image" to="/camera/data_throttled_image"/>
+        <remap from="depth/image" to="/camera/data_throttled_image_depth"/>
+        <remap from="rgb/camera_info" to="/camera/data_throttled_camera_info"/>
+    
+      <param name="queue_size" type="int" value="10"/>
+    
+      <!-- RTAB-Map's parameters: do "rosrun rtabmap rtabmap (double-dash)params" to see the list of available parameters. -->
+      <param name="RGBD/LocalLoopDetectionTime" type="string" value="false"/>    <!-- Local loop closure detection with locations in STM -->
+      <param name="Mem/BadSignaturesIgnored" type="string" value="false"/>      <!-- Don't ignore bad images for 3D node creation (e.g. white walls) -->
+      <param name="RGBD/AngularUpdate" type="string" value="0.01"/>             <!-- Update map only if the robot is moving -->
+      <param name="RGBD/LinearUpdate" type="string" value="0.01"/>              <!-- Update map only if the robot is moving -->
+      <param name="Rtabmap/TimeThr" type="string" value="700"/>
+      <param name="Mem/RehearsalSimilarity" type="string" value="0.45"/>
+      <param name="Mem/RehearsedNodesKept" type="string" value="false"/>   
     </node>
   </group>
 </launch>

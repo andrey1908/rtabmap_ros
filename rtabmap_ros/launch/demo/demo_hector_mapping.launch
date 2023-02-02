@@ -67,7 +67,7 @@
      <remap from="scan"      to="/jn0/base_scan"/>
      <remap from="odom"      to="/scanmatch_odom"/>
      <remap from="odom_info"      to="/rtabmap/odom_info"/>
-	  
+      
      <param name="frame_id"        type="string" value="base_footprint"/>
 
      <param if="$(arg odom_guess)" name="odom_frame_id"   type="string" value="icp_odom"/>
@@ -105,12 +105,12 @@
     <!-- args: "delete_db_on_start" and "udebug" -->
     <node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="screen" args="--delete_db_on_start">
       <param name="frame_id" type="string" value="base_footprint"/>
-	
+    
       <param name="subscribe_rgb"   type="bool" value="false"/>
       <param name="subscribe_depth" type="bool" value="false"/>
       <param name="subscribe_rgbd"  type="bool" value="$(arg camera)"/>
       <param name="subscribe_scan"  type="bool" value="true"/>
-	
+    
       <remap from="scan" to="/jn0/base_scan"/>
 
       <!-- As hector doesn't provide compatible covariance in the odometry topic, don't use the topic and fix the covariance -->
@@ -120,7 +120,7 @@
 
       <remap unless="$(arg hector)" from="odom" to="/scanmatch_odom"/>
       <param unless="$(arg hector)" name="subscribe_odom_info" type="bool" value="true"/>
-	
+    
       <!-- RTAB-Map's parameters -->
       <param name="Reg/Strategy"       type="string" value="1"/>    <!-- 0=Visual, 1=ICP, 2=Visual+ICP -->
       <param name="Reg/Force3DoF"      type="string" value="true"/>

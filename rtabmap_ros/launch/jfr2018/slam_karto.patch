@@ -25,7 +25,7 @@ index 712a9ca..0c0d885 100644
 +
 +  if(scans.empty())
 +  {
-+	  return;
++      return;
 +  }
    visualization_msgs::MarkerArray marray;
  
