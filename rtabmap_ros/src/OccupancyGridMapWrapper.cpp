@@ -46,8 +46,7 @@ std::string OccupancyGridMapWrapper::occupancyGridTopicPostfix(
     return "_" + std::to_string(index + 1);
 }
 
-OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv) :
-    nodeId_(0)
+OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
 {
     ros::NodeHandle nh;
     ros::NodeHandle pnh("~");
@@ -82,7 +81,7 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv) :
     dilatedSemanticPub_ = pnh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
     if (!loadMapPath_.empty())
     {
-        nodeId_ = timedOccupancyGridMap_->load(loadMapPath_);
+        timedOccupancyGridMap_->load(loadMapPath_);
         if (needsLocalization_)
         {
             timedOccupancyGridMap_->updatePoses(
@@ -200,15 +199,14 @@ void OccupancyGridMapWrapper::mappingPipeline(
 
     rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
     rtabmap::Transform globalPose = globalToOdometry_ * odometryPose;
-    rtabmap::Signature signature = createSignature(
-        globalPose,
-        odomMsg->header.stamp,
+    ros::Time stamp = odomMsg->header.stamp;
+    rtabmap::Time time(stamp.sec, stamp.nsec);
+    rtabmap::SensorData sensorData = createSensorData(
         scan3dMsg,
         imageMsgs,
         cameraInfoMsgs);
-    addSignatureToOccupancyGrid(signature, temporaryMapping);
+    addSensorDataToOccupancyGrid(sensorData, time, globalPose, temporaryMapping);
 
-    ros::Time stamp(signature.getSec(), signature.getNSec());
     publishOccupancyGridMaps(stamp);
     if (imageMsgs.size())
     {
@@ -216,9 +214,7 @@ void OccupancyGridMapWrapper::mappingPipeline(
     }
 }
 
-rtabmap::Signature OccupancyGridMapWrapper::createSignature(
-    const rtabmap::Transform& pose,
-    const ros::Time& time,
+rtabmap::SensorData OccupancyGridMapWrapper::createSensorData(
     const sensor_msgs::PointCloud2& scan3dMsg,
     const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
     const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs)
@@ -239,35 +235,31 @@ rtabmap::Signature OccupancyGridMapWrapper::createSignature(
         UASSERT(convertionOk);
     }
 
-    rtabmap::SensorData data;
-    data.setStamp(time.sec, time.nsec);
-    data.setLaserScan(scan);
-    data.setRGBImages(rgbs, cameraModels);
-    rtabmap::Signature signature(data);
-    signature.setPose(pose);
-    return signature;
+    rtabmap::SensorData sensorData;
+    sensorData.setLaserScan(std::move(scan));
+    sensorData.setImages(cameraModels, rgbs);
+    return sensorData;
 }
 
-void OccupancyGridMapWrapper::addSignatureToOccupancyGrid(
-    const rtabmap::Signature& signature, bool temporary /* false */)
+void OccupancyGridMapWrapper::addSensorDataToOccupancyGrid(
+    const rtabmap::SensorData& sensorData,
+    const rtabmap::Time& time, const rtabmap::Transform& pose,
+    bool temporary)
 {
-    rtabmap::Time time(signature.getSec(), signature.getNSec());
     tf::StampedTransform fromUpdatedPoseTF;
     tfListener_.lookupTransform(updatedPosesFrame_, baseLinkFrame_,
         ros::Time(time.sec, time.nsec), fromUpdatedPoseTF);
-    std::shared_ptr<const rtabmap::LocalMap> localMap =
-        timedOccupancyGridMap_->createLocalMap(
-            signature, time, rtabmap_ros::transformFromTF(fromUpdatedPoseTF));
+    rtabmap::Transform fromUpdatedPose =
+        rtabmap_ros::transformFromTF(fromUpdatedPoseTF);
     if (temporary)
     {
-        timedOccupancyGridMap_->addTemporaryLocalMap(
-            signature.getPose(), localMap);
+        timedOccupancyGridMap_->addTemporarySensorData(
+            sensorData, time, pose, fromUpdatedPose);
     }
     else
     {
-        timedOccupancyGridMap_->addLocalMap(
-            nodeId_, signature.getPose(), localMap);
-        nodeId_++;
+        timedOccupancyGridMap_->addSensorData(
+            sensorData, time, pose, fromUpdatedPose);
     }
 }
 

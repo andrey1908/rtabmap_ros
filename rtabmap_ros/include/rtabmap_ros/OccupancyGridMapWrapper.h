@@ -16,7 +16,7 @@
 #include <rtabmap/core/TimedOccupancyGridMap.h>
 #include <rtabmap/core/LaserScan.h>
 #include <rtabmap/core/Transform.h>
-#include <rtabmap/core/Signature.h>
+#include <rtabmap/core/SensorData.h>
 #include <rtabmap/utilite/UStl.h>
 #include <rtabmap/utilite/UMutex.h>
 
@@ -64,14 +64,13 @@ private:
         const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
         bool temporaryMapping);
 
-    rtabmap::Signature createSignature(
-        const rtabmap::Transform& pose,
-        const ros::Time& time,
+    rtabmap::SensorData createSensorData(
         const sensor_msgs::PointCloud2& scan3dMsg,
         const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
         const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
-    void addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
-        bool temporary = false);
+    void addSensorDataToOccupancyGrid(const rtabmap::SensorData& sensorData,
+        const rtabmap::Time& time, const rtabmap::Transform& pose,
+        bool temporary);
     void publishOccupancyGridMaps(const ros::Time& stamp);
     void publishLastDilatedSemantic(const ros::Time& stamp, const std::string& frame_id);
 
@@ -91,7 +90,6 @@ private:
 
     tf::TransformListener tfListener_;
 
-    int nodeId_;
     std::unique_ptr<rtabmap::TimedOccupancyGridMap> timedOccupancyGridMap_;
     rtabmap::Transform globalToOdometry_;
 

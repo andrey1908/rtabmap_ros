@@ -43,8 +43,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cv_bridge/cv_bridge.h>
 
 #include <rtabmap/core/Transform.h>
-#include <rtabmap/core/Signature.h>
 #include <rtabmap/core/StereoCameraModel.h>
+#include <rtabmap/core/EnvSensor.h>
+#include <rtabmap/core/Landmark.h>
+#include <rtabmap/core/LaserScan.h>
 
 #include <rtabmap_ros_msgs/KeyPoint.h>
 #include <rtabmap_ros_msgs/Point2f.h>
