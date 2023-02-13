@@ -250,8 +250,8 @@ void OccupancyGridMapWrapper::mappingPipeline(
 
         double v = std::sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy);
         trackedObjectMarker.scale.x = 1.0 * v;
-        trackedObjectMarker.scale.y = 0.1;
-        trackedObjectMarker.scale.z = 0.1;
+        trackedObjectMarker.scale.y = 0.2;
+        trackedObjectMarker.scale.z = 0.2;
 
         std::mt19937 colorGenerator;
         colorGenerator.seed(trackedObject.id);
@@ -287,6 +287,7 @@ rtabmap::Signature OccupancyGridMapWrapper::createSignature(
             rgbs, cameraModels, tfListener_, 0.0);
         UASSERT(convertionOk);
     }
+    cameraModels[0].setImageSize(cv::Size(1242, 375));
 
     rtabmap::SensorData data;
     data.setStamp(time.sec, time.nsec);
