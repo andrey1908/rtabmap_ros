@@ -145,8 +145,8 @@ rtabmap::Transform getTransform(
         double waitForTransform);
 
 bool convertRGBMsgs(
-        const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
-        const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
+        const std::vector<sensor_msgs::ImageConstPtr> & imageMsgs,
+        const std::vector<sensor_msgs::CameraInfoConstPtr> & cameraInfoMsgs,
         const std::string & frameId,
         const std::string & odomFrameId,
         const ros::Time & odomStamp,
@@ -156,10 +156,10 @@ bool convertRGBMsgs(
         double waitForTransform);
 
 bool convertRGBDMsgs(
-        const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
-        const std::vector<cv_bridge::CvImageConstPtr> & depthMsgs,
-        const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
-        const std::vector<sensor_msgs::CameraInfo> & depthCamInfoMsgs,
+        const std::vector<sensor_msgs::ImageConstPtr> & imageMsgs,
+        const std::vector<sensor_msgs::ImageConstPtr> & depthMsgs,
+        const std::vector<sensor_msgs::CameraInfoConstPtr> & cameraInfoMsgs,
+        const std::vector<sensor_msgs::CameraInfoConstPtr> & depthCamInfoMsgs,
         const std::string & frameId,
         const std::string & odomFrameId,
         const ros::Time & odomStamp,

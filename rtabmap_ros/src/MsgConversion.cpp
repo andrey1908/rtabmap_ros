@@ -626,8 +626,8 @@ rtabmap::Transform getTransform(
 }
 
 bool convertRGBMsgs(
-        const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
-        const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
+        const std::vector<sensor_msgs::ImageConstPtr> & imageMsgs,
+        const std::vector<sensor_msgs::CameraInfoConstPtr> & cameraInfoMsgs,
         const std::string & frameId,
         const std::string & odomFrameId,
         const ros::Time & odomStamp,
@@ -644,10 +644,10 @@ bool convertRGBMsgs(
 }
 
 bool convertRGBDMsgs(
-        const std::vector<cv_bridge::CvImageConstPtr> & imageMsgs,
-        const std::vector<cv_bridge::CvImageConstPtr> & depthMsgs,
-        const std::vector<sensor_msgs::CameraInfo> & cameraInfoMsgs,
-        const std::vector<sensor_msgs::CameraInfo> & depthCamInfoMsgs,
+        const std::vector<sensor_msgs::ImageConstPtr> & imageMsgs,
+        const std::vector<sensor_msgs::ImageConstPtr> & depthMsgs,
+        const std::vector<sensor_msgs::CameraInfoConstPtr> & cameraInfoMsgs,
+        const std::vector<sensor_msgs::CameraInfoConstPtr> & depthCamInfoMsgs,
         const std::string & frameId,
         const std::string & odomFrameId,
         const ros::Time & odomStamp,
@@ -707,68 +707,54 @@ bool convertRGBDMsgs(
                 localTransform = sensorT * localTransform;
             }
         }
-        cv_bridge::CvImageConstPtr ptrImage = imageMsgs[i];
-        if(ptrImage->encoding.compare(sensor_msgs::image_encodings::TYPE_8UC1)==0 ||
-            ptrImage->encoding.compare(sensor_msgs::image_encodings::MONO8) == 0 ||
-            ptrImage->encoding.compare(sensor_msgs::image_encodings::BGR8) == 0)
-        {
-            // do nothing
-        }
-        else if(imageMsgs[i]->encoding.compare(sensor_msgs::image_encodings::MONO16) == 0)
-        {
-            ptrImage = cv_bridge::cvtColor(ptrImage, "mono8");
-        }
-        else
-        {
-            ptrImage = cv_bridge::cvtColor(ptrImage, "bgr8");
-        }
-        rgbs.push_back(ptrImage->image.clone());
-        cameraModels.push_back(rtabmap_ros::cameraModelFromROS(cameraInfoMsgs[i], localTransform));
+        sensor_msgs::ImageConstPtr ptrImage = imageMsgs[i];
+        rgbs.push_back(cv_bridge::toCvCopy(ptrImage, "bgr8")->image);
+        cameraModels.push_back(rtabmap_ros::cameraModelFromROS(*cameraInfoMsgs[i], localTransform));
     }
 
-    for(unsigned int i=0; i<depthMsgs.size(); ++i)
-    {
-        if(!(depthMsgs[i]->encoding.compare(sensor_msgs::image_encodings::TYPE_16UC1) == 0 ||
-               depthMsgs[i]->encoding.compare(sensor_msgs::image_encodings::TYPE_32FC1) == 0 ||
-               depthMsgs[i]->encoding.compare(sensor_msgs::image_encodings::MONO16) == 0))
-        {
-            ROS_ERROR("Input depth type must be image_depth=32FC1,16UC1,mono16. Current depth=%s",
-                    depthMsgs[i]->encoding.c_str());
-            return false;
-        }
-        ros::Time stamp;
-        stamp = depthMsgs[i]->header.stamp;
-        rtabmap::Transform localTransform = rtabmap_ros::getTransform(frameId, depthMsgs[i]->header.frame_id, stamp, listener, waitForTransform);
-        if(localTransform.isNull())
-        {
-            ROS_ERROR("TF of received image %d at time %fs is not set!", i, stamp.toSec());
-            return false;
-        }
-        // sync with odometry stamp
-        if(!odomFrameId.empty() && odomStamp != stamp)
-        {
-            rtabmap::Transform sensorT = getTransform(
-                    frameId,
-                    odomFrameId,
-                    odomStamp,
-                    stamp,
-                    listener,
-                    waitForTransform);
-            if(sensorT.isNull())
-            {
-                ROS_WARN("Could not get odometry value for depth image stamp (%fs). Latest odometry "
-                        "stamp is %fs. The depth image pose will not be synchronized with odometry.", stamp.toSec(), odomStamp.toSec());
-            }
-            else
-            {
-                //ROS_WARN("RGBD correction = %s (time diff=%fs)", sensorT.prettyPrint().c_str(), fabs(stamp.toSec()-odomStamp.toSec()));
-                localTransform = sensorT * localTransform;
-            }
-        }
-        cv_bridge::CvImageConstPtr ptrDepth = depthMsgs[i];
-        depths.push_back(ptrDepth->image.clone());
-        depthCameraModels.push_back(rtabmap_ros::cameraModelFromROS(depthCamInfoMsgs[i], localTransform));
-    }
+    // for(unsigned int i=0; i<depthMsgs.size(); ++i)
+    // {
+    //     if(!(depthMsgs[i]->encoding.compare(sensor_msgs::image_encodings::TYPE_16UC1) == 0 ||
+    //            depthMsgs[i]->encoding.compare(sensor_msgs::image_encodings::TYPE_32FC1) == 0 ||
+    //            depthMsgs[i]->encoding.compare(sensor_msgs::image_encodings::MONO16) == 0))
+    //     {
+    //         ROS_ERROR("Input depth type must be image_depth=32FC1,16UC1,mono16. Current depth=%s",
+    //                 depthMsgs[i]->encoding.c_str());
+    //         return false;
+    //     }
+    //     ros::Time stamp;
+    //     stamp = depthMsgs[i]->header.stamp;
+    //     rtabmap::Transform localTransform = rtabmap_ros::getTransform(frameId, depthMsgs[i]->header.frame_id, stamp, listener, waitForTransform);
+    //     if(localTransform.isNull())
+    //     {
+    //         ROS_ERROR("TF of received image %d at time %fs is not set!", i, stamp.toSec());
+    //         return false;
+    //     }
+    //     // sync with odometry stamp
+    //     if(!odomFrameId.empty() && odomStamp != stamp)
+    //     {
+    //         rtabmap::Transform sensorT = getTransform(
+    //                 frameId,
+    //                 odomFrameId,
+    //                 odomStamp,
+    //                 stamp,
+    //                 listener,
+    //                 waitForTransform);
+    //         if(sensorT.isNull())
+    //         {
+    //             ROS_WARN("Could not get odometry value for depth image stamp (%fs). Latest odometry "
+    //                     "stamp is %fs. The depth image pose will not be synchronized with odometry.", stamp.toSec(), odomStamp.toSec());
+    //         }
+    //         else
+    //         {
+    //             //ROS_WARN("RGBD correction = %s (time diff=%fs)", sensorT.prettyPrint().c_str(), fabs(stamp.toSec()-odomStamp.toSec()));
+    //             localTransform = sensorT * localTransform;
+    //         }
+    //     }
+    //     cv_bridge::CvImageConstPtr ptrDepth = depthMsgs[i];
+    //     depths.push_back(ptrDepth->image.clone());
+    //     depthCameraModels.push_back(rtabmap_ros::cameraModelFromROS(depthCamInfoMsgs[i], localTransform));
+    // }
     return true;
 }
 

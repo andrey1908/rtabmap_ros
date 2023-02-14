@@ -1,4 +1,4 @@
-#include "rtabmap_ros/OccupancyGridMapWrapper.h"
+#include <rtabmap_ros/OccupancyGridMapWrapper.h>
 
 #include <tf/transform_datatypes.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -16,9 +16,9 @@
 #include <rtabmap/utilite/UMath.h>
 #include <rtabmap/core/util3d_transforms.h>
 
-#include "rtabmap_ros/MsgConversion.h"
+#include <rtabmap_ros/MsgConversion.h>
 
-#include "time_measurer/time_measurer.h"
+#include <time_measurer/time_measurer.h>
 
 #include <functional>
 
@@ -90,23 +90,22 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
     }
     if (accumulativeMapping_)
     {
-        commonDataSubscriber_.setCommonRGBCallback(std::bind(&OccupancyGridMapWrapper::commonRGBCallback,
+        dataSubscriber_.setDataCallback(std::bind(
+            &OccupancyGridMapWrapper::dataCallback,
             this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
             std::placeholders::_4, std::placeholders::_5, false));
-        commonDataSubscriber_.setCommonLaserScanCallback(std::bind(&OccupancyGridMapWrapper::commonLaserScanCallback,
-            this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, false));
-        commonDataSubscriber_.setupCallback(nh, "subscribe");
+        dataSubscriber_.setupCallback(nh, pnh, "accum");
     }
     if (temporaryMapping_)
     {
-        temporaryCommonDataSubscriber_.setCommonRGBCallback(std::bind(&OccupancyGridMapWrapper::commonRGBCallback,
+        temporaryDataSubscriber_.setDataCallback(std::bind(
+            &OccupancyGridMapWrapper::dataCallback,
             this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
             std::placeholders::_4, std::placeholders::_5, true));
-        temporaryCommonDataSubscriber_.setCommonLaserScanCallback(std::bind(&OccupancyGridMapWrapper::commonLaserScanCallback,
-            this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, true));
-        temporaryCommonDataSubscriber_.setupCallback(nh, "temporary_subscribe");
+        temporaryDataSubscriber_.setupCallback(nh, pnh, "temp");
     }
-    optimizationResultsSub_ = nh.subscribe("optimization_results", 1, &OccupancyGridMapWrapper::updatePoses, this);
+    optimizationResultsSub_ = nh.subscribe(
+        "optimization_results", 1, &OccupancyGridMapWrapper::updatePoses, this);
 }
 
 OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
@@ -155,56 +154,34 @@ void OccupancyGridMapWrapper::updatePoses(
     timedOccupancyGridMap_->updatePoses(trajectories);
 }
 
-void OccupancyGridMapWrapper::commonLaserScanCallback(
-    const nav_msgs::OdometryConstPtr& odomMsg,
-    const sensor_msgs::LaserScan& scanMsg,
-    const sensor_msgs::PointCloud2& scan3dMsg,
+void OccupancyGridMapWrapper::dataCallback(
+    const nav_msgs::Odometry& globalOdometryMsg,
+    const nav_msgs::Odometry& localOdometryMsg,
+    const sensor_msgs::PointCloud2& pointCloudMsg,
+    const std::vector<sensor_msgs::CameraInfoConstPtr>& cameraInfoMsgs,
+    const std::vector<sensor_msgs::ImageConstPtr>& imageMsgs,
     bool temporaryMapping)
 {
     UScopeMutex lock(mutex_);
-    MEASURE_BLOCK_TIME(commonLaserScanCallback);
-    mappingPipeline(odomMsg, scan3dMsg, {}, {}, temporaryMapping);
-}
-
-void OccupancyGridMapWrapper::commonRGBCallback(
-    const nav_msgs::OdometryConstPtr& odomMsg,
-    const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-    const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
-    const sensor_msgs::LaserScan& scanMsg,
-    const sensor_msgs::PointCloud2& scan3dMsg,
-    bool temporaryMapping)
-{
-    UScopeMutex lock(mutex_);
-    MEASURE_BLOCK_TIME(commonRGBCallback);
-    mappingPipeline(odomMsg, scan3dMsg, imageMsgs, cameraInfoMsgs, temporaryMapping);
-}
-
-void OccupancyGridMapWrapper::mappingPipeline(
-    const nav_msgs::OdometryConstPtr& odomMsg,
-    const sensor_msgs::PointCloud2& scan3dMsg,
-    const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-    const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
-    bool temporaryMapping)
-{
-    UASSERT(odomMsg);
-    UASSERT(scan3dMsg.data.size());
+    MEASURE_BLOCK_TIME(dataCallback);
+    UASSERT(pointCloudMsg.data.size());
     UASSERT(odomFrame_.empty() ||
-            (odomFrame_ == odomMsg->header.frame_id &&
-                baseLinkFrame_ == odomMsg->child_frame_id));
+            (odomFrame_ == localOdometryMsg.header.frame_id &&
+                baseLinkFrame_ == localOdometryMsg.child_frame_id));
     if (odomFrame_.empty())
     {
-        odomFrame_ = odomMsg->header.frame_id;
-        baseLinkFrame_ = odomMsg->child_frame_id;
+        odomFrame_ = localOdometryMsg.header.frame_id;
+        baseLinkFrame_ = localOdometryMsg.child_frame_id;
     }
 
-    rtabmap::Transform odometryPose = transformFromPoseMsg(odomMsg->pose.pose);
+    rtabmap::Transform odometryPose = transformFromPoseMsg(localOdometryMsg.pose.pose);
     rtabmap::Transform globalPose = globalToOdometry_ * odometryPose;
-    ros::Time stamp = odomMsg->header.stamp;
+    ros::Time stamp = localOdometryMsg.header.stamp;
     rtabmap::Time time(stamp.sec, stamp.nsec);
     rtabmap::SensorData sensorData = createSensorData(
-        scan3dMsg,
-        imageMsgs,
-        cameraInfoMsgs);
+        pointCloudMsg,
+        cameraInfoMsgs,
+        imageMsgs);
     addSensorDataToOccupancyGrid(sensorData, time, globalPose, temporaryMapping);
 
     publishOccupancyGridMaps(stamp);
@@ -216,8 +193,8 @@ void OccupancyGridMapWrapper::mappingPipeline(
 
 rtabmap::SensorData OccupancyGridMapWrapper::createSensorData(
     const sensor_msgs::PointCloud2& scan3dMsg,
-    const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-    const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs)
+    const std::vector<sensor_msgs::CameraInfoConstPtr>& cameraInfoMsgs,
+    const std::vector<sensor_msgs::ImageConstPtr>& imageMsgs)
 {
     rtabmap::LaserScan scan;
     if (scan3dMsg.data.size())

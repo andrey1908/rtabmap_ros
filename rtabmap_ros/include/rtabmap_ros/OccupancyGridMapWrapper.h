@@ -20,7 +20,7 @@
 #include <rtabmap/utilite/UStl.h>
 #include <rtabmap/utilite/UMutex.h>
 
-#include "rtabmap_ros/CommonDataSubscriber.h"
+#include <rtabmap_ros/DataSubscriber.h>
 
 #include <yaml-cpp/yaml.h>
 
@@ -44,30 +44,18 @@ private:
 
     void updatePoses(const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults);
 
-    void commonLaserScanCallback(
-        const nav_msgs::OdometryConstPtr& odomMsg,
-        const sensor_msgs::LaserScan& scanMsg,
-        const sensor_msgs::PointCloud2& scan3dMsg,
-        bool temporaryMapping);
-    void commonRGBCallback(
-        const nav_msgs::OdometryConstPtr& odomMsg,
-        const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-        const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
-        const sensor_msgs::LaserScan& scanMsg,
-        const sensor_msgs::PointCloud2& scan3dMsg,
-        bool temporaryMapping);
-
-    void mappingPipeline(
-        const nav_msgs::OdometryConstPtr& odomMsg,
-        const sensor_msgs::PointCloud2& scan3dMsg,
-        const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-        const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs,
+    void dataCallback(
+        const nav_msgs::Odometry& globalOdometryMsg,
+        const nav_msgs::Odometry& localOdometryMsg,
+        const sensor_msgs::PointCloud2& pointCloudMsg,
+        const std::vector<sensor_msgs::CameraInfoConstPtr>& cameraInfoMsgs,
+        const std::vector<sensor_msgs::ImageConstPtr>& imageMsgs,
         bool temporaryMapping);
 
     rtabmap::SensorData createSensorData(
         const sensor_msgs::PointCloud2& scan3dMsg,
-        const std::vector<cv_bridge::CvImageConstPtr>& imageMsgs,
-        const std::vector<sensor_msgs::CameraInfo>& cameraInfoMsgs);
+        const std::vector<sensor_msgs::CameraInfoConstPtr>& cameraInfoMsgs,
+        const std::vector<sensor_msgs::ImageConstPtr>& imageMsgs);
     void addSensorDataToOccupancyGrid(const rtabmap::SensorData& sensorData,
         const rtabmap::Time& time, const rtabmap::Transform& pose,
         bool temporary);
@@ -80,8 +68,8 @@ private:
         int index);
 
 private:
-    CommonDataSubscriber commonDataSubscriber_;
-    CommonDataSubscriber temporaryCommonDataSubscriber_;
+    DataSubscriber dataSubscriber_;
+    DataSubscriber temporaryDataSubscriber_;
 
     std::vector<ros::Publisher> occupancyGridPubs_;
     std::vector<ros::Publisher> coloredOccupancyGridPubs_;
