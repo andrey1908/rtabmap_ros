@@ -226,6 +226,11 @@ void OccupancyGridMapWrapper::mappingPipeline(
     trackedObjectsArray.markers.push_back(deleteAllMarkers);
     for (const auto& trackedObject : trackedObjects)
     {
+        if (trackedObject.trackedTimes < 3)
+        {
+            continue;
+        }
+
         visualization_msgs::Marker trackedObjectMarker;
         trackedObjectMarker.header.frame_id = mapFrame_;
         trackedObjectMarker.header.stamp = odomMsg->header.stamp;
