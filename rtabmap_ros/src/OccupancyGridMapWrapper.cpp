@@ -292,7 +292,6 @@ rtabmap::Signature OccupancyGridMapWrapper::createSignature(
             rgbs, cameraModels, tfListener_, 0.0);
         UASSERT(convertionOk);
     }
-    cameraModels[0].setImageSize(cv::Size(1242, 375));
 
     rtabmap::SensorData data;
     data.setStamp(time.sec, time.nsec);
