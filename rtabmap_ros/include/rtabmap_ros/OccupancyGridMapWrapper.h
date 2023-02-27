@@ -9,7 +9,10 @@
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 #include <colored_occupancy_grid_msgs/ColoredOccupancyGrid.h>
 #include <optimization_results_msgs/OptimizationResults.h>
 
@@ -17,6 +20,7 @@
 #include <rtabmap/core/LaserScan.h>
 #include <rtabmap/core/Transform.h>
 #include <rtabmap/core/SensorData.h>
+#include <rtabmap/core/ObjectTracking.h>
 #include <rtabmap/utilite/UStl.h>
 #include <rtabmap/utilite/UMutex.h>
 
@@ -60,7 +64,10 @@ private:
         const rtabmap::Time& time, const rtabmap::Transform& pose,
         bool temporary);
     void publishOccupancyGridMaps(const ros::Time& stamp);
-    void publishLastDilatedSemantic(const ros::Time& stamp, const std::string& frame_id);
+    void publishLastDilatedSemantic(const ros::Time& stamp,
+        const std::string& frame_id);
+    void publishTrackedObjects(const ros::Time& stamp,
+        const std::vector<rtabmap::ObjectTracking::TrackedObject>& trackedObjects);
 
     nav_msgs::OccupancyGrid getOccupancyGridMsg(const ros::Time& stamp, int index);
     void fillColorsInColoredOccupancyGridMsg(
@@ -74,6 +81,7 @@ private:
     std::vector<ros::Publisher> occupancyGridPubs_;
     std::vector<ros::Publisher> coloredOccupancyGridPubs_;
     ros::Publisher dilatedSemanticPub_;
+    ros::Publisher trackedObjectsPub_;
     ros::Subscriber optimizationResultsSub_;
 
     tf::TransformListener tfListener_;
