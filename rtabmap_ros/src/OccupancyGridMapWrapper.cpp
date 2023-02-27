@@ -216,58 +216,10 @@ void OccupancyGridMapWrapper::mappingPipeline(
     {
         publishLastDilatedSemantic(stamp, imageMsgs[0]->header.frame_id);
     }
-
-    ////////////////
-    visualization_msgs::MarkerArray trackedObjectsArray;
-    const std::vector<rtabmap::ObjectTracking::TrackedObject>& trackedObjects =
-        timedOccupancyGridMap_->trackedObjects();
-    visualization_msgs::Marker deleteAllMarkers;
-    deleteAllMarkers.action = visualization_msgs::Marker::DELETEALL;
-    trackedObjectsArray.markers.push_back(deleteAllMarkers);
-    for (const auto& trackedObject : trackedObjects)
+    if (timedOccupancyGridMap_->objectTrackingIsEnabled())
     {
-        if (trackedObject.trackedTimes < 3)
-        {
-            continue;
-        }
-
-        visualization_msgs::Marker trackedObjectMarker;
-        trackedObjectMarker.header.frame_id = mapFrame_;
-        trackedObjectMarker.header.stamp = odomMsg->header.stamp;
-        trackedObjectMarker.ns = "tracked_objects";
-        trackedObjectMarker.id = trackedObject.id;
-        trackedObjectMarker.type = visualization_msgs::Marker::ARROW;
-        trackedObjectMarker.action = visualization_msgs::Marker::ADD;
-
-        rtabmap::ObjectTracking::Point position = trackedObject.position;
-        rtabmap::ObjectTracking::Velocity velocity = trackedObject.velocity;
-        Eigen::Vector3f baseVector(1, 0, 0);
-        Eigen::Vector3f velocityVector;
-        velocityVector.x() = velocity.vx;
-        velocityVector.y() = velocity.vy;
-        velocityVector.z() = 0.0f;
-        Eigen::Quaternionf orientation;
-        orientation.setFromTwoVectors(baseVector, velocityVector);
-        rtabmap::Transform pose(
-            position.x, position.y, 0.0f,
-            orientation.x(), orientation.y(), orientation.z(), orientation.w());
-        rtabmap_ros::transformToPoseMsg(pose, trackedObjectMarker.pose);
-
-        double v = std::sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy);
-        trackedObjectMarker.scale.x = 1.0 * v;
-        trackedObjectMarker.scale.y = 0.2;
-        trackedObjectMarker.scale.z = 0.2;
-
-        std::mt19937 colorGenerator;
-        colorGenerator.seed(trackedObject.id);
-        rtabmap::Color color(colorGenerator());
-        trackedObjectMarker.color.r = color.r() / 255.0f;
-        trackedObjectMarker.color.g = color.g() / 255.0f;
-        trackedObjectMarker.color.b = color.b() / 255.0f;
-        trackedObjectMarker.color.a = 1.0f;
-        trackedObjectsArray.markers.push_back(trackedObjectMarker);
+        publishTrackedObjects(stamp, timedOccupancyGridMap_->trackedObjects());
     }
-    trackedObjectsPub_.publish(trackedObjectsArray);
 }
 
 rtabmap::Signature OccupancyGridMapWrapper::createSignature(
@@ -435,6 +387,60 @@ void OccupancyGridMapWrapper::publishLastDilatedSemantic(
     sensor_msgs::Image lastDilatedSemanticMsg;
     cv_bridge.toImageMsg(lastDilatedSemanticMsg);
     dilatedSemanticPub_.publish(lastDilatedSemanticMsg);
+}
+
+void OccupancyGridMapWrapper::publishTrackedObjects(
+    const ros::Time& stamp,
+    const std::vector<rtabmap::ObjectTracking::TrackedObject>& trackedObjects)
+{
+    visualization_msgs::MarkerArray trackedObjectsArray;
+    visualization_msgs::Marker deleteAllMarkers;
+    deleteAllMarkers.action = visualization_msgs::Marker::DELETEALL;
+    trackedObjectsArray.markers.push_back(deleteAllMarkers);
+    for (const auto& trackedObject : trackedObjects)
+    {
+        if (trackedObject.trackedTimes < 3)
+        {
+            continue;
+        }
+
+        visualization_msgs::Marker trackedObjectMarker;
+        trackedObjectMarker.header.frame_id = mapFrame_;
+        trackedObjectMarker.header.stamp = stamp;
+        trackedObjectMarker.ns = "tracked_objects";
+        trackedObjectMarker.id = trackedObject.id;
+        trackedObjectMarker.type = visualization_msgs::Marker::ARROW;
+        trackedObjectMarker.action = visualization_msgs::Marker::ADD;
+
+        rtabmap::ObjectTracking::Point position = trackedObject.position;
+        rtabmap::ObjectTracking::Velocity velocity = trackedObject.velocity;
+        Eigen::Vector3f baseVector(1, 0, 0);
+        Eigen::Vector3f velocityVector;
+        velocityVector.x() = velocity.vx;
+        velocityVector.y() = velocity.vy;
+        velocityVector.z() = 0.0f;
+        Eigen::Quaternionf orientation;
+        orientation.setFromTwoVectors(baseVector, velocityVector);
+        rtabmap::Transform pose(
+            position.x, position.y, 0.0f,
+            orientation.x(), orientation.y(), orientation.z(), orientation.w());
+        rtabmap_ros::transformToPoseMsg(pose, trackedObjectMarker.pose);
+
+        double v = std::sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy);
+        trackedObjectMarker.scale.x = 1.0 * v;
+        trackedObjectMarker.scale.y = 0.2;
+        trackedObjectMarker.scale.z = 0.2;
+
+        std::mt19937 colorGenerator;
+        colorGenerator.seed(trackedObject.id);
+        rtabmap::Color color(colorGenerator());
+        trackedObjectMarker.color.r = color.r() / 255.0f;
+        trackedObjectMarker.color.g = color.g() / 255.0f;
+        trackedObjectMarker.color.b = color.b() / 255.0f;
+        trackedObjectMarker.color.a = 1.0f;
+        trackedObjectsArray.markers.push_back(trackedObjectMarker);
+    }
+    trackedObjectsPub_.publish(trackedObjectsArray);
 }
 
 }

@@ -77,7 +77,10 @@ private:
     void addSignatureToOccupancyGrid(const rtabmap::Signature& signature,
         bool temporary = false);
     void publishOccupancyGridMaps(const ros::Time& stamp);
-    void publishLastDilatedSemantic(const ros::Time& stamp, const std::string& frame_id);
+    void publishLastDilatedSemantic(const ros::Time& stamp,
+        const std::string& frame_id);
+    void publishTrackedObjects(const ros::Time& stamp,
+        const std::vector<rtabmap::ObjectTracking::TrackedObject>& trackedObjects);
 
     nav_msgs::OccupancyGrid getOccupancyGridMsg(const ros::Time& stamp, int index);
     void fillColorsInColoredOccupancyGridMsg(
