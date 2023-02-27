@@ -79,8 +79,6 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
             pnh.advertise<colored_occupancy_grid_msgs::ColoredOccupancyGrid>(
                 "colored_grid_map" + postfix, 1));
     }
-    dilatedSemanticPub_ = pnh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
-    trackedObjectsPub_ = pnh.advertise<visualization_msgs::MarkerArray>("trackedObjects", 1);
     if (!loadMapPath_.empty())
     {
         timedOccupancyGridMap_->load(loadMapPath_);
@@ -108,6 +106,8 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
     }
     optimizationResultsSub_ = nh.subscribe(
         "optimization_results", 1, &OccupancyGridMapWrapper::updatePoses, this);
+    dilatedSemanticPub_ = pnh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
+    trackedObjectsPub_ = pnh.advertise<visualization_msgs::MarkerArray>("tracked_objects", 1);
 }
 
 OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
