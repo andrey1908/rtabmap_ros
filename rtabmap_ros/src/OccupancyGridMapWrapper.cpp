@@ -28,7 +28,6 @@ namespace rtabmap_ros {
 void OccupancyGridMapWrapper::readRosParameters(
     const ros::NodeHandle& pnh, const YAML::Node& params)
 {
-    mapFrame_ = params["map_frame"].as<std::string>("");
     updatedPosesFrame_ = params["updated_poses_frame"].as<std::string>("");
     pnh.param("load_map_path", loadMapPath_, std::string(""));
     pnh.param("save_map_path", saveMapPath_, std::string(""));
@@ -56,9 +55,7 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
     UASSERT(!configPath_.empty());
     YAML::Node config = YAML::LoadFile(configPath_);
     readRosParameters(pnh, config);
-    UASSERT(!mapFrame_.empty());
     UASSERT(!updatedPosesFrame_.empty());
-    UASSERT(!configPath_.empty());
     UASSERT(accumulativeMapping_ || temporaryMapping_);
 
     UASSERT(config["TimedOccupancyGridMap"]);
@@ -124,35 +121,47 @@ void OccupancyGridMapWrapper::updatePoses(
     UScopeMutex lock(mutex_);
     MEASURE_BLOCK_TIME(updatePoses);
     rtabmap::Trajectories trajectories;
-    for (const auto& trajectory_msg : optimizationResults->trajectories)
+    for (const auto& trajectoryMsg : optimizationResults->trajectories)
     {
-        UASSERT(trajectory_msg.child_frame_id.empty() ||
-            trajectory_msg.child_frame_id == updatedPosesFrame_);
+        UASSERT(trajectoryMsg.child_frame_id.empty() ||
+            updatedPosesFrame_ == trajectoryMsg.child_frame_id);
         rtabmap::Trajectory trajectory;
-        for (const auto& global_pose_msg : trajectory_msg.global_poses)
+        for (const auto& globalPoseMsg : trajectoryMsg.global_poses)
         {
-            UASSERT(global_pose_msg.header.frame_id == mapFrame_);
-            const ros::Time& stamp = global_pose_msg.header.stamp;
+            if (mapFrame_.empty())
+            {
+                mapFrame_ = globalPoseMsg.header.frame_id;
+            }
+            UASSERT(mapFrame_ == globalPoseMsg.header.frame_id);
+            const ros::Time& stamp = globalPoseMsg.header.stamp;
             rtabmap::Time time(stamp.sec, stamp.nsec);
-            rtabmap::Transform global_pose = transformFromPoseMsg(global_pose_msg.pose);
+            rtabmap::Transform global_pose = transformFromPoseMsg(globalPoseMsg.pose);
             trajectory.addPose(time, global_pose);
         }
         trajectories.addTrajectory(std::move(trajectory));
     }
-    if (optimizationResults->global_to_odometry.header.frame_id.size())
+
+    const auto& globalToOdometryMsg = optimizationResults->global_to_odometry;
+    if (globalToOdometryMsg.header.frame_id.size())
     {
-        UASSERT(optimizationResults->global_to_odometry.header.frame_id ==
-            mapFrame_);
-        UASSERT(odomFrame_.empty() ||
-            optimizationResults->global_to_odometry.child_frame_id ==
-                odomFrame_);
+        if (mapFrame_.empty())
+        {
+            mapFrame_ = globalToOdometryMsg.header.frame_id;
+        }
+        if (odomFrame_.empty())
+        {
+            odomFrame_ = globalToOdometryMsg.child_frame_id;
+        }
+        UASSERT(mapFrame_ == globalToOdometryMsg.header.frame_id);
+        UASSERT(odomFrame_ == globalToOdometryMsg.child_frame_id);
         globalToOdometry_ = transformFromGeometryMsg(
-            optimizationResults->global_to_odometry.transform);
+            globalToOdometryMsg.transform);
     }
     else
     {
         globalToOdometry_ = rtabmap::Transform::getIdentity();
     }
+
     timedOccupancyGridMap_->updatePoses(trajectories);
 }
 
@@ -166,15 +175,26 @@ void OccupancyGridMapWrapper::dataCallback(
 {
     UScopeMutex lock(mutex_);
     MEASURE_BLOCK_TIME(dataCallback);
+
     UASSERT(pointCloudMsg.data.size());
-    UASSERT(odomFrame_.empty() ||
-            (odomFrame_ == localOdometryMsg.header.frame_id &&
-                baseLinkFrame_ == localOdometryMsg.child_frame_id));
+
+    if (mapFrame_.empty())
+    {
+        mapFrame_ = globalOdometryMsg.header.frame_id;
+    }
     if (odomFrame_.empty())
     {
         odomFrame_ = localOdometryMsg.header.frame_id;
+    }
+    if (baseLinkFrame_.empty())
+    {
         baseLinkFrame_ = localOdometryMsg.child_frame_id;
     }
+    UASSERT(mapFrame_ == globalOdometryMsg.header.frame_id);
+    UASSERT(odomFrame_ == localOdometryMsg.header.frame_id);
+    UASSERT(globalOdometryMsg.child_frame_id ==
+        localOdometryMsg.child_frame_id);
+    UASSERT(baseLinkFrame_ == localOdometryMsg.child_frame_id);
 
     rtabmap::Transform odometryPose = transformFromPoseMsg(localOdometryMsg.pose.pose);
     rtabmap::Transform globalPose = globalToOdometry_ * odometryPose;
