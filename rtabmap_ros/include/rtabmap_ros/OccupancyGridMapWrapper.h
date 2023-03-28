@@ -99,6 +99,7 @@ private:
     std::string configPath_;
     std::string loadMapPath_;
     std::string saveMapPath_;
+    std::string saveTrackingResultsPath_;
 
     bool needsLocalization_;
     bool accumulativeMapping_;

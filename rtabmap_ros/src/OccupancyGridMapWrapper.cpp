@@ -31,6 +31,7 @@ void OccupancyGridMapWrapper::readRosParameters(
     updatedPosesFrame_ = params["updated_poses_frame"].as<std::string>("");
     pnh.param("load_map_path", loadMapPath_, std::string(""));
     pnh.param("save_map_path", saveMapPath_, std::string(""));
+    pnh.param("save_tracking_results_path", saveTrackingResultsPath_, std::string(""));
     needsLocalization_ = params["needs_localization"].as<bool>(true);
     accumulativeMapping_ = params["accumulative_mapping"].as<bool>(true);
     temporaryMapping_ = params["temporary_mapping"].as<bool>(false);
@@ -112,6 +113,19 @@ OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
     if (!saveMapPath_.empty())
     {
         timedOccupancyGridMap_->save(saveMapPath_);
+    }
+    if (!saveTrackingResultsPath_.empty() &&
+        timedOccupancyGridMap_->objectTrackingIsEnabled())
+    {
+        const std::list<rtabmap::ObjectTracking::MOT16TrackedObject>& mot16objects =
+            timedOccupancyGridMap_->mot16TrackedObjectsCache();
+        std::ofstream output(saveTrackingResultsPath_);
+        UASSERT(output.is_open());
+        for (const auto& mot16object : mot16objects)
+        {
+            output << mot16object.toMOT16Entry() << std::endl;
+        }
+        output.close();
     }
 }
 
