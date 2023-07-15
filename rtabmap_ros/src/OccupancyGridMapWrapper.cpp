@@ -176,6 +176,8 @@ void OccupancyGridMapWrapper::updatePoses(
         globalToOdometry_ = rtabmap::Transform::getIdentity();
     }
 
+    skipOdometryUpto_ = optimizationResults->skip_odometry_upto;
+
     timedOccupancyGridMap_->updatePoses(trajectories);
 }
 
@@ -209,6 +211,11 @@ void OccupancyGridMapWrapper::dataCallback(
     UASSERT(globalOdometryMsg.child_frame_id ==
         localOdometryMsg.child_frame_id);
     UASSERT(baseLinkFrame_ == localOdometryMsg.child_frame_id);
+
+    if (globalOdometryMsg.header.stamp <= skipOdometryUpto_)
+    {
+        return;
+    }
 
     rtabmap::Transform odometryPose = transformFromPoseMsg(localOdometryMsg.pose.pose);
     rtabmap::Transform globalPose = globalToOdometry_ * odometryPose;

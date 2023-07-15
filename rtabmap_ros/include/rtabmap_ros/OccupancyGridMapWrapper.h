@@ -88,6 +88,7 @@ private:
 
     std::unique_ptr<rtabmap::TimedOccupancyGridMap> timedOccupancyGridMap_;
     rtabmap::Transform globalToOdometry_;
+    ros::Time skipOdometryUpto_;
 
     UMutex mutex_;
 
