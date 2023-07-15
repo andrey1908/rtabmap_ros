@@ -130,12 +130,12 @@ OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
 }
 
 void OccupancyGridMapWrapper::updatePoses(
-    const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults)
+    const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResultsMsg)
 {
     UScopeMutex lock(mutex_);
     MEASURE_BLOCK_TIME(updatePoses);
     rtabmap::Trajectories trajectories;
-    for (const auto& trajectoryMsg : optimizationResults->trajectories)
+    for (const auto& trajectoryMsg : optimizationResultsMsg->trajectories)
     {
         UASSERT(trajectoryMsg.child_frame_id.empty() ||
             updatedPosesFrame_ == trajectoryMsg.child_frame_id);
@@ -155,7 +155,7 @@ void OccupancyGridMapWrapper::updatePoses(
         trajectories.addTrajectory(std::move(trajectory));
     }
 
-    const auto& globalToOdometryMsg = optimizationResults->global_to_odometry;
+    const auto& globalToOdometryMsg = optimizationResultsMsg->global_to_odometry;
     if (globalToOdometryMsg.header.frame_id.size())
     {
         if (mapFrame_.empty())
@@ -176,7 +176,7 @@ void OccupancyGridMapWrapper::updatePoses(
         globalToOdometry_ = rtabmap::Transform::getIdentity();
     }
 
-    skipOdometryUpto_ = optimizationResults->skip_odometry_upto;
+    skipOdometryUpto_ = optimizationResultsMsg->skip_odometry_upto;
 
     timedOccupancyGridMap_->updatePoses(trajectories);
 }
