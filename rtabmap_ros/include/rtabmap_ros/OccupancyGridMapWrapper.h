@@ -105,6 +105,8 @@ private:
     bool needsLocalization_;
     bool accumulativeMapping_;
     bool temporaryMapping_;
+
+    static constexpr double WAIT_FOR_TF = 0.3;
 };
 
 }

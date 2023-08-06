@@ -55,6 +55,10 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
         }
     }
 
+    std::cout << "Wait for transforms for " << WAIT_FOR_TF << " seconds...\n";
+    ros::Duration(WAIT_FOR_TF).sleep();  // wait for tf to accumulate
+    std::cout << "Done.\n";
+
     optimizationResultsSub_ = nh.subscribe(
         "optimization_results", 1, &OccupancyGridMapWrapper::updatePoses, this);
     if (accumulativeMapping_)
@@ -248,7 +252,8 @@ rtabmap::SensorData OccupancyGridMapWrapper::createSensorData(
     rtabmap::LaserScan scan;
     if (scan3dMsg.data.size())
     {
-        bool convertionOk = convertScan3dMsg(scan3dMsg, baseLinkFrame_, "", ros::Time(0), scan, tfListener_, 0.0);
+        bool convertionOk = convertScan3dMsg(scan3dMsg, baseLinkFrame_, "",
+            ros::Time(0), scan, tfListener_, 0.1);
         UASSERT(convertionOk);
     }
 
@@ -256,8 +261,8 @@ rtabmap::SensorData OccupancyGridMapWrapper::createSensorData(
     std::vector<rtabmap::CameraModel> cameraModels;
     if (imageMsgs.size())
     {
-        bool convertionOk = convertRGBMsgs(imageMsgs, cameraInfoMsgs, baseLinkFrame_, "", ros::Time(0),
-            rgbs, cameraModels, tfListener_, 0.0);
+        bool convertionOk = convertRGBMsgs(imageMsgs, cameraInfoMsgs, baseLinkFrame_, "",
+            ros::Time(0), rgbs, cameraModels, tfListener_, 0.1);
         UASSERT(convertionOk);
     }
 
