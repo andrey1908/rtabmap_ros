@@ -25,28 +25,6 @@
 
 namespace rtabmap_ros {
 
-void OccupancyGridMapWrapper::readRosParameters(
-    const ros::NodeHandle& pnh, const YAML::Node& params)
-{
-    updatedPosesFrame_ = params["updated_poses_frame"].as<std::string>("");
-    pnh.param("load_map_path", loadMapPath_, std::string(""));
-    pnh.param("save_map_path", saveMapPath_, std::string(""));
-    pnh.param("save_tracking_results_path", saveTrackingResultsPath_, std::string(""));
-    needsLocalization_ = params["needs_localization"].as<bool>(true);
-    accumulativeMapping_ = params["accumulative_mapping"].as<bool>(true);
-    temporaryMapping_ = params["temporary_mapping"].as<bool>(false);
-}
-
-std::string OccupancyGridMapWrapper::occupancyGridTopicPostfix(
-    int index, int numBuilders)
-{
-    if (numBuilders == 1)
-    {
-        return "";
-    }
-    return "_" + std::to_string(index + 1);
-}
-
 OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
 {
     ros::NodeHandle nh;
@@ -67,16 +45,6 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
         std::make_unique<rtabmap::TimedOccupancyGridMap>(parameters);
     globalToOdometry_ = rtabmap::Transform::getIdentity();
 
-    int numBuilders = timedOccupancyGridMap_->numBuilders();
-    for (int i = 0; i < numBuilders; i++)
-    {
-        std::string postfix = occupancyGridTopicPostfix(i, numBuilders);
-        occupancyGridPubs_.push_back(
-            pnh.advertise<nav_msgs::OccupancyGrid>("grid_map" + postfix, 1));
-        coloredOccupancyGridPubs_.push_back(
-            pnh.advertise<colored_occupancy_grid_msgs::ColoredOccupancyGrid>(
-                "colored_grid_map" + postfix, 1));
-    }
     if (!loadMapPath_.empty())
     {
         timedOccupancyGridMap_->load(loadMapPath_);
@@ -86,6 +54,9 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
                 rtabmap::Trajectories());
         }
     }
+
+    optimizationResultsSub_ = nh.subscribe(
+        "optimization_results", 1, &OccupancyGridMapWrapper::updatePoses, this);
     if (accumulativeMapping_)
     {
         dataSubscriber_.setDataCallback(std::bind(
@@ -102,10 +73,41 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
             std::placeholders::_4, std::placeholders::_5, true));
         temporaryDataSubscriber_.setupCallback(nh, pnh, "temp");
     }
-    optimizationResultsSub_ = nh.subscribe(
-        "optimization_results", 1, &OccupancyGridMapWrapper::updatePoses, this);
+
+    int numBuilders = timedOccupancyGridMap_->numBuilders();
+    for (int i = 0; i < numBuilders; i++)
+    {
+        std::string postfix = occupancyGridTopicPostfix(i, numBuilders);
+        occupancyGridPubs_.push_back(
+            pnh.advertise<nav_msgs::OccupancyGrid>("grid_map" + postfix, 1));
+        coloredOccupancyGridPubs_.push_back(
+            pnh.advertise<colored_occupancy_grid_msgs::ColoredOccupancyGrid>(
+                "colored_grid_map" + postfix, 1));
+    }
     dilatedSemanticPub_ = pnh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
     trackedObjectsPub_ = pnh.advertise<visualization_msgs::MarkerArray>("tracked_objects", 1);
+}
+
+void OccupancyGridMapWrapper::readRosParameters(
+    const ros::NodeHandle& pnh, const YAML::Node& params)
+{
+    updatedPosesFrame_ = params["updated_poses_frame"].as<std::string>("");
+    pnh.param("load_map_path", loadMapPath_, std::string(""));
+    pnh.param("save_map_path", saveMapPath_, std::string(""));
+    pnh.param("save_tracking_results_path", saveTrackingResultsPath_, std::string(""));
+    needsLocalization_ = params["needs_localization"].as<bool>(true);
+    accumulativeMapping_ = params["accumulative_mapping"].as<bool>(true);
+    temporaryMapping_ = params["temporary_mapping"].as<bool>(false);
+}
+
+std::string OccupancyGridMapWrapper::occupancyGridTopicPostfix(
+    int index, int numBuilders)
+{
+    if (numBuilders == 1)
+    {
+        return "";
+    }
+    return "_" + std::to_string(index + 1);
 }
 
 OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
