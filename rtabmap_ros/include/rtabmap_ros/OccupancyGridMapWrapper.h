@@ -23,6 +23,7 @@
 #include <rtabmap/core/ObjectTracking.h>
 #include <rtabmap/utilite/UStl.h>
 #include <rtabmap/utilite/UMutex.h>
+#include <rtabmap/core/Serialization.h>
 
 #include <rtabmap_ros/DataSubscriber.h>
 
@@ -90,6 +91,8 @@ private:
     rtabmap::Transform globalToOdometry_;
     ros::Time skipOdometryUpto_;
 
+    std::unique_ptr<rtabmap::RawDataSerialization> rawDataWriter_;
+
     UMutex mutex_;
 
     std::string mapFrame_;
@@ -101,6 +104,7 @@ private:
     std::string loadMapPath_;
     std::string saveMapPath_;
     std::string saveTrackingResultsPath_;
+    std::string saveRawDataPath_;
 
     bool needsLocalization_;
     bool accumulativeMapping_;

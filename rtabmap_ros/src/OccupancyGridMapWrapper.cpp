@@ -16,6 +16,9 @@
 #include <rtabmap/utilite/UMath.h>
 #include <rtabmap/core/util3d_transforms.h>
 
+#include <rtabmap/proto/PointCloud.pb.h>
+#include <rtabmap/proto/RawData.pb.h>
+
 #include <rtabmap_ros/MsgConversion.h>
 
 #include <time_measurer/time_measurer.h>
@@ -53,6 +56,11 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
             timedOccupancyGridMap_->updatePoses(
                 rtabmap::Trajectories());
         }
+    }
+
+    if (!saveRawDataPath_.empty())
+    {
+        rawDataWriter_ = std::make_unique<rtabmap::RawDataSerialization>(saveRawDataPath_);
     }
 
     std::cout << "Wait for transforms for " << WAIT_FOR_TF << " seconds...\n";
@@ -99,6 +107,7 @@ void OccupancyGridMapWrapper::readRosParameters(
     pnh.param("load_map_path", loadMapPath_, std::string(""));
     pnh.param("save_map_path", saveMapPath_, std::string(""));
     pnh.param("save_tracking_results_path", saveTrackingResultsPath_, std::string(""));
+    pnh.param("save_raw_data_path", saveRawDataPath_, std::string(""));
     needsLocalization_ = params["needs_localization"].as<bool>(true);
     accumulativeMapping_ = params["accumulative_mapping"].as<bool>(true);
     temporaryMapping_ = params["temporary_mapping"].as<bool>(false);
@@ -132,6 +141,10 @@ OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
             output << mot16object.toMOT16Entry() << std::endl;
         }
         output.close();
+    }
+    if (rawDataWriter_)
+    {
+        rawDataWriter_->close();
     }
 }
 
@@ -241,6 +254,33 @@ void OccupancyGridMapWrapper::dataCallback(
     if (timedOccupancyGridMap_->objectTrackingIsEnabled())
     {
         publishTrackedObjects(stamp, timedOccupancyGridMap_->trackedObjects());
+    }
+
+    if (rawDataWriter_)
+    {
+        MEASURE_BLOCK_TIME(writeRawData);
+        rtabmap::proto::RawData proto;
+
+        *proto.mutable_time() = toProto(time);
+        *proto.mutable_global_pose() = toProto(transformFromPoseMsg(globalOdometryMsg.pose.pose));
+        *proto.mutable_local_pose() = toProto(odometryPose);
+
+        rtabmap::proto::PointCloud pointCloudProto;
+        const rtabmap::LaserScan& laserScan = sensorData.laserScan();
+        *pointCloudProto.mutable_to_sensor() = toProto(laserScan.localTransform());
+        pointCloudProto.mutable_points_in_sensor()->Reserve(laserScan.size() * 3);
+        for (int i = 0; i < laserScan.size(); i++)
+        {
+            float x = laserScan.data().ptr<float>(0, i)[0];
+            float y = laserScan.data().ptr<float>(0, i)[1];
+            float z = laserScan.data().ptr<float>(0, i)[2];
+            pointCloudProto.add_points_in_sensor(x);
+            pointCloudProto.add_points_in_sensor(y);
+            pointCloudProto.add_points_in_sensor(z);
+        }
+        *proto.mutable_point_cloud() = std::move(pointCloudProto);
+
+        rawDataWriter_->write(proto);
     }
 }
 
