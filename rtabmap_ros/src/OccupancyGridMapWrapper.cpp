@@ -16,7 +16,6 @@
 #include <rtabmap/utilite/UMath.h>
 #include <rtabmap/core/util3d_transforms.h>
 
-#include <rtabmap/proto/PointCloud.pb.h>
 #include <rtabmap/proto/RawData.pb.h>
 
 #include <rtabmap_ros/MsgConversion.h>
@@ -198,6 +197,14 @@ void OccupancyGridMapWrapper::updatePoses(
     skipOdometryUpto_ = optimizationResultsMsg->skip_odometry_upto;
 
     timedOccupancyGridMap_->updatePoses(trajectories);
+
+    if (rawDataWriter_)
+    {
+        MEASURE_BLOCK_TIME(writeRawData__optimizationResults);
+        rtabmap::proto::RawData proto;
+        *proto.mutable_optimization_results() = toProto(trajectories);
+        rawDataWriter_->write(proto);
+    }
 }
 
 void OccupancyGridMapWrapper::dataCallback(
@@ -255,33 +262,6 @@ void OccupancyGridMapWrapper::dataCallback(
     {
         publishTrackedObjects(stamp, timedOccupancyGridMap_->trackedObjects());
     }
-
-    if (rawDataWriter_)
-    {
-        MEASURE_BLOCK_TIME(writeRawData);
-        rtabmap::proto::RawData proto;
-
-        *proto.mutable_time() = toProto(time);
-        *proto.mutable_global_pose() = toProto(transformFromPoseMsg(globalOdometryMsg.pose.pose));
-        *proto.mutable_local_pose() = toProto(odometryPose);
-
-        rtabmap::proto::PointCloud pointCloudProto;
-        const rtabmap::LaserScan& laserScan = sensorData.laserScan();
-        *pointCloudProto.mutable_to_sensor() = toProto(laserScan.localTransform());
-        pointCloudProto.mutable_points_in_sensor()->Reserve(laserScan.size() * 3);
-        for (int i = 0; i < laserScan.size(); i++)
-        {
-            float x = laserScan.data().ptr<float>(0, i)[0];
-            float y = laserScan.data().ptr<float>(0, i)[1];
-            float z = laserScan.data().ptr<float>(0, i)[2];
-            pointCloudProto.add_points_in_sensor(x);
-            pointCloudProto.add_points_in_sensor(y);
-            pointCloudProto.add_points_in_sensor(z);
-        }
-        *proto.mutable_point_cloud() = std::move(pointCloudProto);
-
-        rawDataWriter_->write(proto);
-    }
 }
 
 rtabmap::SensorData OccupancyGridMapWrapper::createSensorData(
@@ -331,6 +311,21 @@ void OccupancyGridMapWrapper::addSensorDataToOccupancyGrid(
     {
         timedOccupancyGridMap_->addSensorData(
             sensorData, time, pose, fromUpdatedPose);
+    }
+
+    if (rawDataWriter_)
+    {
+        MEASURE_BLOCK_TIME(writeRawData__inputData);
+        rtabmap::proto::RawData::InputData inputDataProto;
+        *inputDataProto.mutable_sensor_data() = toProto(sensorData);
+        *inputDataProto.mutable_time() = toProto(time);
+        *inputDataProto.mutable_pose() = toProto(pose);
+        *inputDataProto.mutable_from_updated_pose() = toProto(fromUpdatedPose);
+        inputDataProto.set_temporary(temporary);
+
+        rtabmap::proto::RawData proto;
+        *proto.mutable_input_data() = std::move(inputDataProto);
+        rawDataWriter_->write(proto);
     }
 }
 
