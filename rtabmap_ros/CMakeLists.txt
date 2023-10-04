@@ -22,7 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
              image_transport tf tf_conversions tf2_ros eigen_conversions laser_geometry pcl_conversions 
              pcl_ros nodelet dynamic_reconfigure message_filters class_loader rosgraph_msgs
              genmsg stereo_msgs move_base_msgs image_geometry pluginlib
-             rtabmap_ros_msgs colored_occupancy_grid_msgs optimization_results_msgs
+             rtabmap_ros_msgs colored_occupancy_grid_msgs slam_communication_msgs
 )
 
 # Optional components

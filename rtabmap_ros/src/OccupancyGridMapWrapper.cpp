@@ -148,7 +148,7 @@ OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
 }
 
 void OccupancyGridMapWrapper::updatePoses(
-    const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResultsMsg)
+    const slam_communication_msgs::OptimizationResults::ConstPtr& optimizationResultsMsg)
 {
     UScopeMutex lock(mutex_);
     MEASURE_BLOCK_TIME(updatePoses);

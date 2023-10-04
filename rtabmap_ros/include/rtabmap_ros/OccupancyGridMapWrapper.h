@@ -14,7 +14,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <colored_occupancy_grid_msgs/ColoredOccupancyGrid.h>
-#include <optimization_results_msgs/OptimizationResults.h>
+#include <slam_communication_msgs/OptimizationResults.h>
 
 #include <rtabmap/core/TimedOccupancyGridMap.h>
 #include <rtabmap/core/LaserScan.h>
@@ -47,7 +47,7 @@ private:
     void readRosParameters(const ros::NodeHandle& pnh, const YAML::Node& params);
     std::string occupancyGridTopicPostfix(int index, int numBuilders);
 
-    void updatePoses(const optimization_results_msgs::OptimizationResults::ConstPtr& optimizationResults);
+    void updatePoses(const slam_communication_msgs::OptimizationResults::ConstPtr& optimizationResults);
 
     void dataCallback(
         const nav_msgs::Odometry& globalOdometryMsg,
