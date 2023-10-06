@@ -93,8 +93,6 @@ private:
 
     std::unique_ptr<rtabmap::RawDataSerialization> rawDataWriter_;
 
-    UMutex mutex_;
-
     std::string mapFrame_;
     std::string odomFrame_;
     std::string baseLinkFrame_;

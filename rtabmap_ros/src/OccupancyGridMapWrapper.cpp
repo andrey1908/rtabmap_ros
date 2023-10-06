@@ -150,7 +150,6 @@ OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
 void OccupancyGridMapWrapper::updatePoses(
     const slam_communication_msgs::OptimizationResults::ConstPtr& optimizationResultsMsg)
 {
-    UScopeMutex lock(mutex_);
     MEASURE_BLOCK_TIME(updatePoses);
     rtabmap::Trajectories trajectories;
     for (const auto& trajectoryMsg : optimizationResultsMsg->trajectories)
@@ -215,7 +214,6 @@ void OccupancyGridMapWrapper::dataCallback(
     const std::vector<sensor_msgs::ImageConstPtr>& imageMsgs,
     bool temporaryMapping)
 {
-    UScopeMutex lock(mutex_);
     MEASURE_BLOCK_TIME(dataCallback);
 
     UASSERT(pointCloudMsg.data.size());
