@@ -15,6 +15,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <colored_occupancy_grid_msgs/ColoredOccupancyGrid.h>
 #include <slam_communication_msgs/OptimizationResults.h>
+#include <slam_communication_msgs/NodesToRemove.h>
 
 #include <rtabmap/core/TimedOccupancyGridMap.h>
 #include <rtabmap/core/LaserScan.h>
@@ -83,7 +84,9 @@ private:
     std::vector<ros::Publisher> coloredOccupancyGridPubs_;
     ros::Publisher dilatedSemanticPub_;
     ros::Publisher trackedObjectsPub_;
+
     ros::Subscriber optimizationResultsSub_;
+    ros::Publisher nodesToRemovePub_;
 
     tf::TransformListener tfListener_;
 

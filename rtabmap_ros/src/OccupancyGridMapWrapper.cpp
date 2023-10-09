@@ -9,8 +9,10 @@
 #include <sensor_msgs/image_encodings.h>
 #include <cv_bridge/cv_bridge.h>
 
+#include <rtabmap/core/Time.h>
 #include <rtabmap/core/Trajectory.h>
 #include <rtabmap/core/SensorData.h>
+#include <rtabmap/core/TrajectoriesTrimmer.h>
 #include <rtabmap/utilite/UFile.h>
 #include <rtabmap/utilite/ULogger.h>
 #include <rtabmap/utilite/UMath.h>
@@ -68,6 +70,8 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
 
     optimizationResultsSub_ = nh.subscribe(
         "optimization_results", 1, &OccupancyGridMapWrapper::updatePoses, this);
+    nodesToRemovePub_ = nh.advertise<slam_communication_msgs::NodesToRemove>(
+        "nodes_to_remove", 1);
     if (accumulativeMapping_)
     {
         dataSubscriber_.setDataCallback(std::bind(
@@ -195,7 +199,27 @@ void OccupancyGridMapWrapper::updatePoses(
 
     skipOdometryUpto_ = optimizationResultsMsg->skip_odometry_upto;
 
-    timedOccupancyGridMap_->updatePoses(trajectories);
+    if (timedOccupancyGridMap_->trajectoriesTrimmerEnabled())
+    {
+        std::set<rtabmap::Time> posesToTrim =
+            timedOccupancyGridMap_->trimTrajectories(trajectories);
+        slam_communication_msgs::NodesToRemove nodesToRemoveMsg;
+        nodesToRemoveMsg.nodes_to_remove.reserve(posesToTrim.size());
+        for (const rtabmap::Time& poseToTrim : posesToTrim)
+        {
+            ros::Time time(poseToTrim.sec, poseToTrim.nsec);
+            nodesToRemoveMsg.nodes_to_remove.push_back(time);
+        }
+        nodesToRemovePub_.publish(nodesToRemoveMsg);
+
+        rtabmap::Trajectories trajectoriesTrimmed =
+            rtabmap::TrajectoriesTrimmer::getTrimmedTrajectories(trajectories, posesToTrim);
+        timedOccupancyGridMap_->updatePoses(trajectoriesTrimmed);
+    }
+    else
+    {
+        timedOccupancyGridMap_->updatePoses(trajectories);
+    }
 
     if (rawDataWriter_)
     {
