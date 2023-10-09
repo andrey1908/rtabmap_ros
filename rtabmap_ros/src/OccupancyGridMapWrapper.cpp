@@ -133,7 +133,7 @@ OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
         timedOccupancyGridMap_->save(saveMapPath_);
     }
     if (!saveTrackingResultsPath_.empty() &&
-        timedOccupancyGridMap_->objectTrackingIsEnabled())
+        timedOccupancyGridMap_->objectTrackingEnabled())
     {
         const std::list<rtabmap::ObjectTracking::MOT16TrackedObject>& mot16objects =
             timedOccupancyGridMap_->mot16TrackedObjectsCache();
@@ -280,7 +280,7 @@ void OccupancyGridMapWrapper::dataCallback(
     {
         publishLastDilatedSemantic(stamp, imageMsgs[0]->header.frame_id);
     }
-    if (timedOccupancyGridMap_->objectTrackingIsEnabled())
+    if (timedOccupancyGridMap_->objectTrackingEnabled())
     {
         publishTrackedObjects(stamp, timedOccupancyGridMap_->trackedObjects());
     }
