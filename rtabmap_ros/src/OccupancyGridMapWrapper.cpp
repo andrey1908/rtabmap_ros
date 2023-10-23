@@ -22,7 +22,7 @@
 
 #include <rtabmap_ros/MsgConversion.h>
 
-#include <time_measurer/time_measurer.h>
+#include <kas_metrics/time_measurer.h>
 
 #include <functional>
 #include <random>

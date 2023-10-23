@@ -35,7 +35,7 @@ find_package(find_object_2d)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(RTABMap 0.20.13 REQUIRED)
-find_package(time_measurer REQUIRED)
+find_package(kas_metrics REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
@@ -126,7 +126,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
-  ${time_measurer_INCLUDE_DIRS}
+  ${kas_metrics_INCLUDE_DIRS}
   ${YAML_INCLUDE_DIRS}
 )
 
@@ -136,7 +136,7 @@ SET(Libraries
    ${PCL_LIBRARIES}
    ${catkin_LIBRARIES}
    ${RTABMap_LIBRARIES}
-   ${time_measurer_LIBRARIES}
+   ${kas_metrics_LIBRARIES}
    ${YAML_CPP_LIBRARIES}
 )
 
