@@ -101,7 +101,7 @@ private:
     std::string baseLinkFrame_;
     std::string updatedPosesFrame_;
 
-    std::string configPath_;
+    std::vector<std::string> configPaths_;
     std::string loadMapPath_;
     std::string saveMapPath_;
     std::string saveTrackingResultsPath_;

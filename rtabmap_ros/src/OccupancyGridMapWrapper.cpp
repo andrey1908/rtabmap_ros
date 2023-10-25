@@ -26,6 +26,43 @@
 
 #include <functional>
 #include <random>
+#include <boost/algorithm/string.hpp>
+
+static void merge_yaml(YAML::Node& target, const YAML::Node& source)
+{
+    if (target.IsNull())
+    {
+        target = YAML::Clone(source);
+        return;
+    }
+
+    UASSERT(target.Type() == source.Type());
+    switch (target.Type())
+    {
+    case YAML::NodeType::Map:
+        for (auto it = source.begin(); it != source.end(); ++it)
+        {
+            const std::string& key = it->first.as<std::string>();
+            const YAML::Node& val = it->second;
+            if (!target[key])
+            {
+                target[key] = YAML::Clone(val);
+            }
+            else
+            {
+                YAML::Node next_target = target[key];
+                merge_yaml(next_target, val);
+            }
+        }
+        break;
+    case YAML::NodeType::Scalar:
+    case YAML::NodeType::Sequence:
+        target = YAML::Clone(source);
+        break;
+    default:
+        UASSERT(false);
+    }
+}
 
 namespace rtabmap_ros {
 
@@ -34,9 +71,19 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
     ros::NodeHandle nh;
     ros::NodeHandle pnh("~");
 
-    pnh.param("config_path", configPath_, std::string(""));
-    UASSERT(!configPath_.empty());
-    YAML::Node config = YAML::LoadFile(configPath_);
+    std::string configPathsStr;
+    pnh.param("config_paths", configPathsStr, std::string(""));
+    UASSERT(!configPathsStr.empty());
+    boost::split(configPaths_, configPathsStr, boost::is_any_of(","));
+    UASSERT(configPaths_.size());
+
+    YAML::Node config;
+    for (const std::string& configPath : configPaths_)
+    {
+        YAML::Node updateConfig = YAML::LoadFile(configPath);
+        merge_yaml(config, updateConfig);
+    }
+
     readRosParameters(pnh, config);
     UASSERT(!updatedPosesFrame_.empty());
     UASSERT(accumulativeMapping_ || temporaryMapping_);
