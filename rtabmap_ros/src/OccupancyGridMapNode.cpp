@@ -22,6 +22,12 @@ int main(int argc, char** argv)
     }
 
     rtabmap_ros::OccupancyGridMapWrapper occupancyGridMapWrapper(argc, argv);
+
+    constexpr double WAIT_FOR_TF = 0.3;
+    std::cout << "Wait for transforms for " << WAIT_FOR_TF << " seconds...\n";
+    ros::Duration(WAIT_FOR_TF).sleep();  // wait for tf to accumulate
+    std::cout << "Done.\n";
+
     ros::spin();
     return 0;
 }

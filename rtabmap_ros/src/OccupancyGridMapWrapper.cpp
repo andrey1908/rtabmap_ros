@@ -64,10 +64,6 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
         rawDataWriter_ = std::make_unique<rtabmap::RawDataSerialization>(saveRawDataPath_);
     }
 
-    std::cout << "Wait for transforms for " << WAIT_FOR_TF << " seconds...\n";
-    ros::Duration(WAIT_FOR_TF).sleep();  // wait for tf to accumulate
-    std::cout << "Done.\n";
-
     optimizationResultsSub_ = nh.subscribe(
         "optimization_results", 1, &OccupancyGridMapWrapper::updatePoses, this);
     nodesToRemovePub_ = nh.advertise<slam_communication_msgs::NodesToRemove>(
