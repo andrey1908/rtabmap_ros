@@ -100,16 +100,16 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
 }
 
 void OccupancyGridMapWrapper::readRosParameters(
-    const ros::NodeHandle& pnh, const YAML::Node& params)
+    const ros::NodeHandle& pnh, const YAML::Node& config)
 {
-    updatedPosesFrame_ = params["updated_poses_frame"].as<std::string>("");
+    updatedPosesFrame_ = config["updated_poses_frame"].as<std::string>("");
     pnh.param("load_map_path", loadMapPath_, std::string(""));
     pnh.param("save_map_path", saveMapPath_, std::string(""));
     pnh.param("save_tracking_results_path", saveTrackingResultsPath_, std::string(""));
     pnh.param("save_raw_data_path", saveRawDataPath_, std::string(""));
-    needsLocalization_ = params["needs_localization"].as<bool>(true);
-    accumulativeMapping_ = params["accumulative_mapping"].as<bool>(true);
-    temporaryMapping_ = params["temporary_mapping"].as<bool>(false);
+    needsLocalization_ = config["needs_localization"].as<bool>(true);
+    accumulativeMapping_ = config["accumulative_mapping"].as<bool>(true);
+    temporaryMapping_ = config["temporary_mapping"].as<bool>(false);
 }
 
 std::string OccupancyGridMapWrapper::occupancyGridTopicPostfix(

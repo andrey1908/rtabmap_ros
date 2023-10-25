@@ -45,7 +45,7 @@ public:
     ~OccupancyGridMapWrapper();
 
 private:
-    void readRosParameters(const ros::NodeHandle& pnh, const YAML::Node& params);
+    void readRosParameters(const ros::NodeHandle& pnh, const YAML::Node& config);
     std::string occupancyGridTopicPostfix(int index, int numBuilders);
 
     void updatePoses(const slam_communication_msgs::OptimizationResults::ConstPtr& optimizationResults);
