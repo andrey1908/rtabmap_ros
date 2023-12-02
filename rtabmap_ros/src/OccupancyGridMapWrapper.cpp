@@ -12,7 +12,7 @@
 #include <rtabmap/core/Time.h>
 #include <rtabmap/core/Trajectory.h>
 #include <rtabmap/core/SensorData.h>
-#include <rtabmap/core/TrajectoriesTrimmer.h>
+#include <rtabmap/core/NodesTrimmer.h>
 #include <rtabmap/utilite/UFile.h>
 #include <rtabmap/utilite/ULogger.h>
 #include <rtabmap/utilite/UMath.h>
@@ -243,10 +243,10 @@ void OccupancyGridMapWrapper::updatePoses(
 
     skipOdometryUpto_ = optimizationResultsMsg->skip_odometry_upto;
 
-    if (timedOccupancyGridMap_->trajectoriesTrimmerEnabled())
+    if (timedOccupancyGridMap_->nodesTrimmerEnabled())
     {
         std::set<rtabmap::Time> posesToTrim =
-            timedOccupancyGridMap_->trimTrajectories(trajectories);
+            timedOccupancyGridMap_->trimPoses(trajectories);
         slam_communication_msgs::NodesToRemove nodesToRemoveMsg;
         nodesToRemoveMsg.nodes_to_remove.reserve(posesToTrim.size());
         for (const rtabmap::Time& poseToTrim : posesToTrim)
@@ -257,7 +257,7 @@ void OccupancyGridMapWrapper::updatePoses(
         nodesToRemovePub_.publish(nodesToRemoveMsg);
 
         rtabmap::Trajectories trajectoriesTrimmed =
-            rtabmap::TrajectoriesTrimmer::getTrimmedTrajectories(trajectories, posesToTrim);
+            rtabmap::NodesTrimmer::removePosesFromTrajectories(trajectories, posesToTrim);
         timedOccupancyGridMap_->updatePoses(trajectoriesTrimmed);
     }
     else
