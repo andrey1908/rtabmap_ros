@@ -144,6 +144,7 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
     }
     dilatedSemanticPub_ = pnh.advertise<sensor_msgs::Image>("dilated_semantic_image", 1);
     trackedObjectsPub_ = pnh.advertise<visualization_msgs::MarkerArray>("tracked_objects", 1);
+    sensorIgnoreAreasPub_ = pnh.advertise<visualization_msgs::MarkerArray>("sensor_ignore_areas", 1);
 }
 
 void OccupancyGridMapWrapper::readRosParameters(
@@ -326,6 +327,12 @@ void OccupancyGridMapWrapper::dataCallback(
     if (timedOccupancyGridMap_->objectTrackingEnabled())
     {
         publishTrackedObjects(stamp, timedOccupancyGridMap_->trackedObjects());
+    }
+    const std::vector<rtabmap::LocalMapBuilder::Area>& sensorIgnoreAreas =
+        timedOccupancyGridMap_->sensorIgnoreAreas();
+    if (sensorIgnoreAreas.size())
+    {
+        publishSensorIgnoreAreas(stamp, pointCloudMsg.header.frame_id, sensorIgnoreAreas);
     }
 }
 
@@ -558,6 +565,117 @@ void OccupancyGridMapWrapper::publishTrackedObjects(
         trackedObjectsArray.markers.push_back(trackedObjectMarker);
     }
     trackedObjectsPub_.publish(trackedObjectsArray);
+}
+
+void OccupancyGridMapWrapper::publishSensorIgnoreAreas(const ros::Time& stamp,
+    const std::string& sensorFrame,
+    const std::vector<rtabmap::LocalMapBuilder::Area>& sensorIgnoreAreas)
+{
+    visualization_msgs::MarkerArray sensorIgnoreAreasArray;
+    visualization_msgs::Marker deleteAllMarkers;
+    deleteAllMarkers.action = visualization_msgs::Marker::DELETEALL;
+    sensorIgnoreAreasArray.markers.push_back(deleteAllMarkers);
+    int i = 0;
+    for (const rtabmap::LocalMapBuilder::Area& area : sensorIgnoreAreas)
+    {
+        visualization_msgs::Marker areaMarker;
+        areaMarker.header.frame_id = sensorFrame;
+        areaMarker.header.stamp = stamp;
+        areaMarker.ns = "sensor_ignore_areas";
+        areaMarker.id = i;
+        areaMarker.type = visualization_msgs::Marker::LINE_LIST;
+        areaMarker.action = visualization_msgs::Marker::ADD;
+
+        rtabmap::Transform pose(
+            area.x, area.y, area.z,
+            area.roll, area.pitch, area.yaw);
+        rtabmap_ros::transformToPoseMsg(pose, areaMarker.pose);
+
+        areaMarker.points = createCube(area.length, area.width, area.height);
+
+        areaMarker.scale.x = 0.03;
+        if (area.transparent)
+        {
+            areaMarker.color.g = 1.0f;
+        }
+        else
+        {
+            areaMarker.color.r = 1.0f;
+        }
+        areaMarker.color.a = 1.0f;
+
+        sensorIgnoreAreasArray.markers.push_back(areaMarker);
+        i++;
+    }
+    sensorIgnoreAreasPub_.publish(sensorIgnoreAreasArray);
+}
+
+std::vector<geometry_msgs::Point> OccupancyGridMapWrapper::createCube(
+    float length, float width, float height)
+{
+    float x = length / 2;
+    float y = width / 2;
+    float z = height / 2;
+
+    std::vector<geometry_msgs::Point> vertices;
+    vertices.reserve(8);
+    for (int i = 0; i < 8; i++)
+    {
+        int xSign = (i % 2) * 2 - 1;
+        int ySign = ((i / 2) % 2) * 2 - 1;
+        int zSign = ((i / 4) % 2) * 2 - 1;
+
+        geometry_msgs::Point vertex;
+        vertex.x = xSign * x;
+        vertex.y = ySign * y;
+        vertex.z = zSign * z;
+        vertices.push_back(vertex);
+    }
+
+    // vertices:
+    // -x, -y, -z - 0
+    // +x, -y, -z - 1
+    // -x, +y, -z - 2
+    // +x, +y, -z - 3
+    // -x, -y, +z - 4
+    // +x, -y, +z - 5
+    // -x, +y, +z - 6
+    // +x, +y, +z - 7
+
+    // cude:
+    // 0 - 1
+    // 4 - 5
+    // 0 - 4
+    //
+    // 1 - 3
+    // 5 - 7
+    // 1 - 5
+    //
+    // 2 - 0
+    // 6 - 4
+    // 2 - 6
+    //
+    // 3 - 2
+    // 7 - 6
+    // 3 - 7
+
+    std::vector<geometry_msgs::Point> cube;
+    for (int i = 0; i < 4; i++)
+    {
+        // some magic
+        int j = (1 - i / 2) + (i % 2) * 2;
+
+        cube.push_back(vertices[i]);
+        cube.push_back(vertices[j]);
+
+        cube.push_back(vertices[i + 4]);
+        cube.push_back(vertices[j + 4]);
+
+        cube.push_back(vertices[i]);
+        cube.push_back(vertices[i + 4]);
+    }
+
+    return cube;
 }
 
 }

@@ -22,6 +22,7 @@
 #include <rtabmap/core/Transform.h>
 #include <rtabmap/core/SensorData.h>
 #include <rtabmap/core/ObjectTracking.h>
+#include <rtabmap/core/LocalMapBuilder.h>
 #include <rtabmap/utilite/UStl.h>
 #include <rtabmap/utilite/UMutex.h>
 #include <rtabmap/core/Serialization.h>
@@ -70,6 +71,9 @@ private:
         const std::string& frame_id);
     void publishTrackedObjects(const ros::Time& stamp,
         const std::vector<rtabmap::ObjectTracking::TrackedObject>& trackedObjects);
+    void publishSensorIgnoreAreas(const ros::Time& stamp, const std::string& sensorFrame,
+        const std::vector<rtabmap::LocalMapBuilder::Area>& sensorIgnoreAreas);
+    static std::vector<geometry_msgs::Point> createCube(float length, float width, float height);
 
     nav_msgs::OccupancyGrid getOccupancyGridMsg(const ros::Time& stamp, int index);
     void fillColorsInColoredOccupancyGridMsg(
@@ -84,6 +88,7 @@ private:
     std::vector<ros::Publisher> coloredOccupancyGridPubs_;
     ros::Publisher dilatedSemanticPub_;
     ros::Publisher trackedObjectsPub_;
+    ros::Publisher sensorIgnoreAreasPub_;
 
     ros::Subscriber optimizationResultsSub_;
     ros::Publisher nodesToRemovePub_;
