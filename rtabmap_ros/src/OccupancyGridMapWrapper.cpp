@@ -88,20 +88,18 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
     UASSERT(!updatedPosesFrame_.empty());
     UASSERT(accumulativeMapping_ || temporaryMapping_);
 
-    UASSERT(config["TimedOccupancyGridMap"]);
-    rtabmap::TimedOccupancyGridMap::Parameters parameters =
-        rtabmap::TimedOccupancyGridMap::Parameters::createParameters(
-            config["TimedOccupancyGridMap"]);
-    timedOccupancyGridMap_ =
-        std::make_unique<rtabmap::TimedOccupancyGridMap>(parameters);
+    UASSERT(config["OccupancyGridMap"]);
+    rtabmap::OccupancyGridMap::Parameters parameters =
+        rtabmap::OccupancyGridMap::Parameters::createParameters(config["OccupancyGridMap"]);
+    occupancyGridMap_ = std::make_unique<rtabmap::OccupancyGridMap>(parameters);
     globalToOdometry_ = rtabmap::Transform::getIdentity();
 
     if (!loadMapPath_.empty())
     {
-        timedOccupancyGridMap_->load(loadMapPath_);
+        occupancyGridMap_->load(loadMapPath_);
         if (needsLocalization_)
         {
-            timedOccupancyGridMap_->updatePoses(
+            occupancyGridMap_->updatePoses(
                 rtabmap::Trajectories());
         }
     }
@@ -132,7 +130,7 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
         temporaryDataSubscriber_.setupCallback(nh, pnh, "temp");
     }
 
-    int numBuilders = timedOccupancyGridMap_->numBuilders();
+    int numBuilders = occupancyGridMap_->numBuilders();
     for (int i = 0; i < numBuilders; i++)
     {
         std::string postfix = occupancyGridTopicPostfix(i, numBuilders);
@@ -174,13 +172,13 @@ OccupancyGridMapWrapper::~OccupancyGridMapWrapper()
 {
     if (!saveMapPath_.empty())
     {
-        timedOccupancyGridMap_->save(saveMapPath_);
+        occupancyGridMap_->save(saveMapPath_);
     }
     if (!saveTrackingResultsPath_.empty() &&
-        timedOccupancyGridMap_->objectTrackingEnabled())
+        occupancyGridMap_->objectTrackingEnabled())
     {
         const std::list<rtabmap::ObjectTracking::MOT16TrackedObject>& mot16objects =
-            timedOccupancyGridMap_->mot16TrackedObjectsCache();
+            occupancyGridMap_->mot16TrackedObjectsCache();
         std::ofstream output(saveTrackingResultsPath_);
         UASSERT(output.is_open());
         for (const auto& mot16object : mot16objects)
@@ -243,10 +241,10 @@ void OccupancyGridMapWrapper::updatePoses(
 
     skipOdometryUpto_ = optimizationResultsMsg->skip_odometry_upto;
 
-    if (timedOccupancyGridMap_->nodesTrimmerEnabled())
+    if (occupancyGridMap_->nodesTrimmerEnabled())
     {
         std::set<rtabmap::Time> posesToTrim =
-            timedOccupancyGridMap_->trimPoses(trajectories);
+            occupancyGridMap_->trimPoses(trajectories);
         slam_communication_msgs::NodesToRemove nodesToRemoveMsg;
         nodesToRemoveMsg.nodes_to_remove.reserve(posesToTrim.size());
         for (const rtabmap::Time& poseToTrim : posesToTrim)
@@ -258,11 +256,11 @@ void OccupancyGridMapWrapper::updatePoses(
 
         rtabmap::Trajectories trajectoriesTrimmed =
             rtabmap::NodesTrimmer::removePosesFromTrajectories(trajectories, posesToTrim);
-        timedOccupancyGridMap_->updatePoses(trajectoriesTrimmed);
+        occupancyGridMap_->updatePoses(trajectoriesTrimmed);
     }
     else
     {
-        timedOccupancyGridMap_->updatePoses(trajectories);
+        occupancyGridMap_->updatePoses(trajectories);
     }
 
     if (rawDataWriter_)
@@ -324,12 +322,12 @@ void OccupancyGridMapWrapper::dataCallback(
     {
         publishLastDilatedSemantic(stamp, imageMsgs[0]->header.frame_id);
     }
-    if (timedOccupancyGridMap_->objectTrackingEnabled())
+    if (occupancyGridMap_->objectTrackingEnabled())
     {
-        publishTrackedObjects(stamp, timedOccupancyGridMap_->trackedObjects());
+        publishTrackedObjects(stamp, occupancyGridMap_->trackedObjects());
     }
     const std::vector<rtabmap::LocalMapBuilder::Area>& sensorIgnoreAreas =
-        timedOccupancyGridMap_->sensorIgnoreAreas();
+        occupancyGridMap_->sensorIgnoreAreas();
     if (sensorIgnoreAreas.size())
     {
         publishSensorIgnoreAreas(stamp, pointCloudMsg.header.frame_id, sensorIgnoreAreas);
@@ -376,12 +374,12 @@ void OccupancyGridMapWrapper::addSensorDataToOccupancyGrid(
         rtabmap_ros::transformFromTF(fromUpdatedPoseTF);
     if (temporary)
     {
-        timedOccupancyGridMap_->addTemporarySensorData(
+        occupancyGridMap_->addTemporarySensorData(
             sensorData, time, pose, fromUpdatedPose);
     }
     else
     {
-        timedOccupancyGridMap_->addSensorData(
+        occupancyGridMap_->addSensorData(
             sensorData, time, pose, fromUpdatedPose);
     }
 
@@ -408,7 +406,7 @@ void OccupancyGridMapWrapper::publishOccupancyGridMaps(const ros::Time& stamp)
     std::vector<int> subscribedIndices;
     std::vector<int> coloredSubscribedIndices;
     std::map<int, nav_msgs::OccupancyGrid> occupancyGridMsgs;
-    for (int i = 0; i < timedOccupancyGridMap_->numBuilders(); i++)
+    for (int i = 0; i < occupancyGridMap_->numBuilders(); i++)
     {
         bool occupancyGridSubscribed = (occupancyGridPubs_[i].getNumSubscribers() > 0);
         bool coloredOccupancyGridSubscribed = (coloredOccupancyGridPubs_[i].getNumSubscribers() > 0);
@@ -448,15 +446,15 @@ nav_msgs::OccupancyGrid OccupancyGridMapWrapper::getOccupancyGridMsg(
 {
     float xMin, yMin;
     rtabmap::OccupancyGrid occupancyGrid =
-        timedOccupancyGridMap_->getOccupancyGrid(index);
-    xMin = occupancyGrid.limits.minX() * timedOccupancyGridMap_->cellSize();
-    yMin = occupancyGrid.limits.minY() * timedOccupancyGridMap_->cellSize();
+        occupancyGridMap_->getOccupancyGrid(index);
+    xMin = occupancyGrid.limits.minX() * occupancyGridMap_->cellSize();
+    yMin = occupancyGrid.limits.minY() * occupancyGridMap_->cellSize();
     UASSERT(occupancyGrid.grid.size());
 
     nav_msgs::OccupancyGrid occupancyGridMsg;
     occupancyGridMsg.header.stamp = stamp;
     occupancyGridMsg.header.frame_id = mapFrame_;
-    occupancyGridMsg.info.resolution = timedOccupancyGridMap_->cellSize();
+    occupancyGridMsg.info.resolution = occupancyGridMap_->cellSize();
     occupancyGridMsg.info.origin.position.x = 0.0;
     occupancyGridMsg.info.origin.position.y = 0.0;
     occupancyGridMsg.info.origin.position.z = 0.0;
@@ -479,7 +477,7 @@ void OccupancyGridMapWrapper::fillColorsInColoredOccupancyGridMsg(
     colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
     int index)
 {
-    rtabmap::ColorGrid colorGrid = timedOccupancyGridMap_->getColorGrid(index);
+    rtabmap::ColorGrid colorGrid = occupancyGridMap_->getColorGrid(index);
     for (int h = 0; h < colorGrid.grid.rows(); h++)
     {
         for (int w = 0; w < colorGrid.grid.cols(); w++)
@@ -499,7 +497,7 @@ void OccupancyGridMapWrapper::fillColorsInColoredOccupancyGridMsg(
 void OccupancyGridMapWrapper::publishLastDilatedSemantic(
     const ros::Time& stamp, const std::string& frame_id)
 {
-    const cv::Mat& lastDilatedSemantic = timedOccupancyGridMap_->lastDilatedSemantic();
+    const cv::Mat& lastDilatedSemantic = occupancyGridMap_->lastDilatedSemantic();
     if (lastDilatedSemantic.empty())
     {
         return;

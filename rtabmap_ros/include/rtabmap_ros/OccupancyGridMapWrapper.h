@@ -17,7 +17,7 @@
 #include <slam_communication_msgs/OptimizationResults.h>
 #include <slam_communication_msgs/NodesToRemove.h>
 
-#include <rtabmap/core/TimedOccupancyGridMap.h>
+#include <rtabmap/core/OccupancyGridMap.h>
 #include <rtabmap/core/LaserScan.h>
 #include <rtabmap/core/Transform.h>
 #include <rtabmap/core/SensorData.h>
@@ -95,7 +95,7 @@ private:
 
     tf::TransformListener tfListener_;
 
-    std::unique_ptr<rtabmap::TimedOccupancyGridMap> timedOccupancyGridMap_;
+    std::unique_ptr<rtabmap::OccupancyGridMap> occupancyGridMap_;
     rtabmap::Transform globalToOdometry_;
     ros::Time skipOdometryUpto_;
 
