@@ -23,46 +23,13 @@
 #include <rtabmap_ros/MsgConversion.h>
 
 #include <kas_utils/time_measurer.h>
+#include <kas_utils/yaml_utils.h>
 
 #include <functional>
 #include <random>
 #include <boost/algorithm/string.hpp>
 
-static void merge_yaml(YAML::Node& target, const YAML::Node& source)
-{
-    if (target.IsNull())
-    {
-        target = YAML::Clone(source);
-        return;
-    }
-
-    UASSERT(target.Type() == source.Type());
-    switch (target.Type())
-    {
-    case YAML::NodeType::Map:
-        for (auto it = source.begin(); it != source.end(); ++it)
-        {
-            const std::string& key = it->first.as<std::string>();
-            const YAML::Node& val = it->second;
-            if (!target[key])
-            {
-                target[key] = YAML::Clone(val);
-            }
-            else
-            {
-                YAML::Node next_target = target[key];
-                merge_yaml(next_target, val);
-            }
-        }
-        break;
-    case YAML::NodeType::Scalar:
-    case YAML::NodeType::Sequence:
-        target = YAML::Clone(source);
-        break;
-    default:
-        UASSERT(false);
-    }
-}
+using kas_utils::mergeYaml;
 
 namespace rtabmap_ros {
 
@@ -81,7 +48,8 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
     for (const std::string& configPath : configPaths_)
     {
         YAML::Node updateConfig = YAML::LoadFile(configPath);
-        merge_yaml(config, updateConfig);
+        bool ret = mergeYaml(config, updateConfig);
+        UASSERT(ret);
     }
 
     readRosParameters(pnh, config);
