@@ -64,7 +64,8 @@ private:
         const std::vector<sensor_msgs::CameraInfoConstPtr>& cameraInfoMsgs,
         const std::vector<sensor_msgs::ImageConstPtr>& imageMsgs);
     void addSensorDataToOccupancyGrid(const rtabmap::SensorData& sensorData,
-        const rtabmap::Time& time, const rtabmap::Transform& pose,
+        const rtabmap::Time& time,
+        const rtabmap::Transform& localPose, const rtabmap::Transform& globalPose,
         bool temporary);
     void publishOccupancyGridMaps(const ros::Time& stamp);
     void publishLastDilatedSemantic(const ros::Time& stamp,
@@ -96,8 +97,6 @@ private:
     tf::TransformListener tfListener_;
 
     std::unique_ptr<rtabmap::OccupancyGridMap> occupancyGridMap_;
-    rtabmap::Transform globalToOdometry_;
-    ros::Time skipOdometryUpto_;
 
     std::unique_ptr<rtabmap::RawDataSerialization> rawDataWriter_;
 

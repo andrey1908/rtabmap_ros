@@ -60,7 +60,6 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
     rtabmap::OccupancyGridMap::Parameters parameters =
         rtabmap::OccupancyGridMap::Parameters::createParameters(config["OccupancyGridMap"]);
     occupancyGridMap_ = std::make_unique<rtabmap::OccupancyGridMap>(parameters);
-    globalToOdometry_ = rtabmap::Transform::getIdentity();
 
     if (!loadMapPath_.empty())
     {
@@ -186,6 +185,7 @@ void OccupancyGridMapWrapper::updatePoses(
         trajectories.addTrajectory(std::move(trajectory));
     }
 
+    std::optional<rtabmap::Transform> globalToLocal;
     const auto& globalToOdometryMsg = optimizationResultsMsg->global_to_odometry;
     if (globalToOdometryMsg.header.frame_id.size())
     {
@@ -199,15 +199,12 @@ void OccupancyGridMapWrapper::updatePoses(
         }
         UASSERT(mapFrame_ == globalToOdometryMsg.header.frame_id);
         UASSERT(odomFrame_ == globalToOdometryMsg.child_frame_id);
-        globalToOdometry_ = transformFromGeometryMsg(
-            globalToOdometryMsg.transform);
-    }
-    else
-    {
-        globalToOdometry_ = rtabmap::Transform::getIdentity();
+        globalToLocal = transformFromGeometryMsg(globalToOdometryMsg.transform);
     }
 
-    skipOdometryUpto_ = optimizationResultsMsg->skip_odometry_upto;
+    rtabmap::Time skipLocalMapsUpto(
+        optimizationResultsMsg->skip_odometry_upto.sec,
+        optimizationResultsMsg->skip_odometry_upto.nsec);
 
     if (occupancyGridMap_->posesTrimmerEnabled())
     {
@@ -224,18 +221,28 @@ void OccupancyGridMapWrapper::updatePoses(
 
         rtabmap::Trajectories trajectoriesTrimmed =
             rtabmap::PosesTrimmer::removePosesFromTrajectories(trajectories, posesToTrim);
-        occupancyGridMap_->updatePoses(trajectoriesTrimmed);
+        occupancyGridMap_->updatePoses(
+            trajectoriesTrimmed, globalToLocal, skipLocalMapsUpto);
     }
     else
     {
-        occupancyGridMap_->updatePoses(trajectories);
+        occupancyGridMap_->updatePoses(
+            trajectories, globalToLocal, skipLocalMapsUpto);
     }
 
     if (rawDataWriter_)
     {
         MEASURE_BLOCK_TIME(writeRawData__optimizationResults);
+        rtabmap::proto::RawData::UpdatePosesData updatePosesDataProto;
+        *updatePosesDataProto.mutable_trajectories() = toProto(trajectories);
+        if (globalToLocal)
+        {
+            *updatePosesDataProto.mutable_global_to_local() = toProto(*globalToLocal);
+        }
+        *updatePosesDataProto.mutable_skip_local_maps_upto() = toProto(skipLocalMapsUpto);
+
         rtabmap::proto::RawData proto;
-        *proto.mutable_optimization_results() = toProto(trajectories);
+        *proto.mutable_update_poses_data() = std::move(updatePosesDataProto);
         rawDataWriter_->write(proto);
     }
 }
@@ -270,20 +277,15 @@ void OccupancyGridMapWrapper::dataCallback(
         localOdometryMsg.child_frame_id);
     UASSERT(baseLinkFrame_ == localOdometryMsg.child_frame_id);
 
-    if (globalOdometryMsg.header.stamp <= skipOdometryUpto_)
-    {
-        return;
-    }
-
-    rtabmap::Transform odometryPose = transformFromPoseMsg(localOdometryMsg.pose.pose);
-    rtabmap::Transform globalPose = globalToOdometry_ * odometryPose;
+    rtabmap::Transform localPose = transformFromPoseMsg(localOdometryMsg.pose.pose);
+    rtabmap::Transform globalPose = transformFromPoseMsg(globalOdometryMsg.pose.pose);
     ros::Time stamp = localOdometryMsg.header.stamp;
     rtabmap::Time time(stamp.sec, stamp.nsec);
     rtabmap::SensorData sensorData = createSensorData(
         pointCloudMsg,
         cameraInfoMsgs,
         imageMsgs);
-    addSensorDataToOccupancyGrid(sensorData, time, globalPose, temporaryMapping);
+    addSensorDataToOccupancyGrid(sensorData, time, localPose, globalPose, temporaryMapping);
 
     publishOccupancyGridMaps(stamp);
     if (imageMsgs.size())
@@ -332,32 +334,33 @@ rtabmap::SensorData OccupancyGridMapWrapper::createSensorData(
 
 void OccupancyGridMapWrapper::addSensorDataToOccupancyGrid(
     const rtabmap::SensorData& sensorData,
-    const rtabmap::Time& time, const rtabmap::Transform& pose,
+    const rtabmap::Time& time,
+    const rtabmap::Transform& localPose, const rtabmap::Transform& globalPose,
     bool temporary)
 {
     tf::StampedTransform fromUpdatedPoseTF;
     tfListener_.lookupTransform(updatedPosesFrame_, baseLinkFrame_,
         ros::Time(time.sec, time.nsec), fromUpdatedPoseTF);
-    rtabmap::Transform fromUpdatedPose =
-        rtabmap_ros::transformFromTF(fromUpdatedPoseTF);
+    rtabmap::Transform fromUpdatedPose = rtabmap_ros::transformFromTF(fromUpdatedPoseTF);
+    std::shared_ptr<rtabmap::LocalMap> localMap =
+        occupancyGridMap_->createLocalMap(sensorData, time, fromUpdatedPose);
     if (temporary)
     {
-        occupancyGridMap_->addTemporarySensorData(
-            sensorData, time, pose, fromUpdatedPose);
+        occupancyGridMap_->addTemporaryLocalMap(localPose, globalPose, localMap);
     }
     else
     {
-        occupancyGridMap_->addSensorData(
-            sensorData, time, pose, fromUpdatedPose);
+        occupancyGridMap_->addLocalMap(localPose, globalPose, localMap);
     }
 
     if (rawDataWriter_)
     {
         MEASURE_BLOCK_TIME(writeRawData__inputData);
         rtabmap::proto::RawData::InputData inputDataProto;
+        *inputDataProto.mutable_local_pose() = toProto(localPose);
+        *inputDataProto.mutable_global_pose() = toProto(globalPose);
         *inputDataProto.mutable_sensor_data() = toProto(sensorData);
         *inputDataProto.mutable_time() = toProto(time);
-        *inputDataProto.mutable_pose() = toProto(pose);
         *inputDataProto.mutable_from_updated_pose() = toProto(fromUpdatedPose);
         inputDataProto.set_temporary(temporary);
 
@@ -381,14 +384,17 @@ void OccupancyGridMapWrapper::publishOccupancyGridMaps(const ros::Time& stamp)
         if (occupancyGridSubscribed || coloredOccupancyGridSubscribed)
         {
             occupancyGridMsgs[i] = getOccupancyGridMsg(stamp, i);
-        }
-        if (occupancyGridSubscribed)
-        {
-            subscribedIndices.push_back(i);
-        }
-        if (coloredOccupancyGridSubscribed)
-        {
-            coloredSubscribedIndices.push_back(i);
+            if (occupancyGridMsgs[i].header.frame_id.size())
+            {
+                if (occupancyGridSubscribed)
+                {
+                    subscribedIndices.push_back(i);
+                }
+                if (coloredOccupancyGridSubscribed)
+                {
+                    coloredSubscribedIndices.push_back(i);
+                }
+            }
         }
     }
 
@@ -413,8 +419,12 @@ nav_msgs::OccupancyGrid OccupancyGridMapWrapper::getOccupancyGridMsg(
     const ros::Time& stamp, int index)
 {
     float xMin, yMin;
-    rtabmap::OccupancyGrid occupancyGrid =
-        occupancyGridMap_->getOccupancyGrid(index);
+    rtabmap::OccupancyGrid occupancyGrid = occupancyGridMap_->getOccupancyGrid(index);
+    if (!occupancyGrid.limits.valid())
+    {
+        return nav_msgs::OccupancyGrid();
+    }
+
     xMin = occupancyGrid.limits.minX() * occupancyGridMap_->cellSize();
     yMin = occupancyGrid.limits.minY() * occupancyGridMap_->cellSize();
     UASSERT(occupancyGrid.grid.size());
