@@ -186,20 +186,20 @@ void OccupancyGridMapWrapper::updatePoses(
     }
 
     std::optional<rtabmap::Transform> globalToLocal;
-    const auto& globalToOdometryMsg = optimizationResultsMsg->global_to_odometry;
-    if (globalToOdometryMsg.header.frame_id.size())
+    const auto& mapToOdometryMsg = optimizationResultsMsg->map_to_odometry;
+    if (mapToOdometryMsg.header.frame_id.size())
     {
         if (mapFrame_.empty())
         {
-            mapFrame_ = globalToOdometryMsg.header.frame_id;
+            mapFrame_ = mapToOdometryMsg.header.frame_id;
         }
         if (odomFrame_.empty())
         {
-            odomFrame_ = globalToOdometryMsg.child_frame_id;
+            odomFrame_ = mapToOdometryMsg.child_frame_id;
         }
-        UASSERT(mapFrame_ == globalToOdometryMsg.header.frame_id);
-        UASSERT(odomFrame_ == globalToOdometryMsg.child_frame_id);
-        globalToLocal = transformFromGeometryMsg(globalToOdometryMsg.transform);
+        UASSERT(mapFrame_ == mapToOdometryMsg.header.frame_id);
+        UASSERT(odomFrame_ == mapToOdometryMsg.child_frame_id);
+        globalToLocal = transformFromGeometryMsg(mapToOdometryMsg.transform);
     }
 
     rtabmap::Time skipLocalMapsUpto(
