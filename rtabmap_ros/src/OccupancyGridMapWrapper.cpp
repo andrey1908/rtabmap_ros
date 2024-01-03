@@ -66,8 +66,7 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
         occupancyGridMap_->load(loadMapPath_);
         if (needsLocalization_)
         {
-            occupancyGridMap_->updatePoses(
-                rtabmap::Trajectories());
+            occupancyGridMap_->updatePoses(rtabmap::Trajectories(), std::nullopt);
         }
     }
 
