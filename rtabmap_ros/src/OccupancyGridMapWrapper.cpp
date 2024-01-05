@@ -295,11 +295,16 @@ void OccupancyGridMapWrapper::dataCallback(
         imageMsgs);
     addSensorDataToOccupancyGrid(sensorData, time, localPose, globalPose, temporaryMapping);
 
-    publishOccupancyGridMaps(stamp);
     if (imageMsgs.size())
     {
         publishLastDilatedSemantic(stamp, imageMsgs[0]->header.frame_id);
     }
+    if (temporaryMapping_ && !temporaryMapping)
+    {
+        return;
+    }
+
+    publishOccupancyGridMaps(stamp);
     if (occupancyGridMap_->objectTrackingEnabled())
     {
         publishTrackedObjects(stamp, occupancyGridMap_->trackedObjects());
