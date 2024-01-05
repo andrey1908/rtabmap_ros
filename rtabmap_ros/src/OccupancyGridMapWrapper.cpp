@@ -254,7 +254,7 @@ void OccupancyGridMapWrapper::dataCallback(
     const std::vector<sensor_msgs::ImageConstPtr>& imageMsgs,
     bool temporaryMapping)
 {
-    MEASURE_BLOCK_TIME(dataCallback);
+    MEASURE_TIME_FROM_HERE(dataCallback);
 
     UASSERT(pointCloudMsg.data.size());
 
@@ -276,10 +276,19 @@ void OccupancyGridMapWrapper::dataCallback(
         localOdometryMsg.child_frame_id);
     UASSERT(baseLinkFrame_ == localOdometryMsg.child_frame_id);
 
-    rtabmap::Transform localPose = transformFromPoseMsg(localOdometryMsg.pose.pose);
-    rtabmap::Transform globalPose = transformFromPoseMsg(globalOdometryMsg.pose.pose);
     ros::Time stamp = localOdometryMsg.header.stamp;
     rtabmap::Time time(stamp.sec, stamp.nsec);
+    if (!temporaryMapping)
+    {
+        bool localMapCanBeAdded = occupancyGridMap_->localMapCanBeAdded(time);
+        if (!localMapCanBeAdded)
+        {
+            return;
+        }
+    }
+
+    rtabmap::Transform localPose = transformFromPoseMsg(localOdometryMsg.pose.pose);
+    rtabmap::Transform globalPose = transformFromPoseMsg(globalOdometryMsg.pose.pose);
     rtabmap::SensorData sensorData = createSensorData(
         pointCloudMsg,
         cameraInfoMsgs,
@@ -301,6 +310,8 @@ void OccupancyGridMapWrapper::dataCallback(
     {
         publishSensorIgnoreAreas(stamp, pointCloudMsg.header.frame_id, sensorIgnoreAreas);
     }
+
+    STOP_TIME_MEASUREMENT(dataCallback);
 }
 
 rtabmap::SensorData OccupancyGridMapWrapper::createSensorData(
