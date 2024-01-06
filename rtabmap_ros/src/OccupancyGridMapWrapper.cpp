@@ -54,7 +54,7 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
 
     readRosParameters(pnh, config);
     UASSERT(!updatedPosesFrame_.empty());
-    UASSERT(accumulativeMapping_ || temporaryMapping_);
+    UASSERT(temporaryMapping_ || accumulativeMapping_);
 
     UASSERT(config["OccupancyGridMap"]);
     rtabmap::OccupancyGridMap::Parameters parameters =
@@ -79,14 +79,6 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
         "optimization_results", 1, &OccupancyGridMapWrapper::updatePoses, this);
     nodesToRemovePub_ = nh.advertise<slam_communication_msgs::NodesToRemove>(
         "nodes_to_remove", 1);
-    if (accumulativeMapping_)
-    {
-        dataSubscriber_.setDataCallback(std::bind(
-            &OccupancyGridMapWrapper::dataCallback,
-            this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
-            std::placeholders::_4, std::placeholders::_5, false));
-        dataSubscriber_.setupCallback(nh, pnh, "accum");
-    }
     if (temporaryMapping_)
     {
         temporaryDataSubscriber_.setDataCallback(std::bind(
@@ -94,6 +86,14 @@ OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
             this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
             std::placeholders::_4, std::placeholders::_5, true));
         temporaryDataSubscriber_.setupCallback(nh, pnh, "temp");
+    }
+    if (accumulativeMapping_)
+    {
+        dataSubscriber_.setDataCallback(std::bind(
+            &OccupancyGridMapWrapper::dataCallback,
+            this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+            std::placeholders::_4, std::placeholders::_5, false));
+        dataSubscriber_.setupCallback(nh, pnh, "accum");
     }
 
     int numBuilders = occupancyGridMap_->numBuilders();
@@ -120,8 +120,8 @@ void OccupancyGridMapWrapper::readRosParameters(
     pnh.param("save_tracking_results_path", saveTrackingResultsPath_, std::string(""));
     pnh.param("save_raw_data_path", saveRawDataPath_, std::string(""));
     needsLocalization_ = config["needs_localization"].as<bool>(true);
-    accumulativeMapping_ = config["accumulative_mapping"].as<bool>(true);
     temporaryMapping_ = config["temporary_mapping"].as<bool>(false);
+    accumulativeMapping_ = config["accumulative_mapping"].as<bool>(true);
 }
 
 std::string OccupancyGridMapWrapper::occupancyGridTopicPostfix(

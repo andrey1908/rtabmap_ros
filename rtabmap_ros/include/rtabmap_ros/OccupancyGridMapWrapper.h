@@ -82,8 +82,8 @@ private:
         int index);
 
 private:
-    DataSubscriber dataSubscriber_;
     DataSubscriber temporaryDataSubscriber_;
+    DataSubscriber dataSubscriber_;
 
     std::vector<ros::Publisher> occupancyGridPubs_;
     std::vector<ros::Publisher> coloredOccupancyGridPubs_;
@@ -112,8 +112,8 @@ private:
     std::string saveRawDataPath_;
 
     bool needsLocalization_;
-    bool accumulativeMapping_;
     bool temporaryMapping_;
+    bool accumulativeMapping_;
 };
 
 }
