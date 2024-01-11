@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ros/ros.h>
-#include <tf/transform_listener.h>
+#include <tf2_ros/transform_listener.h>
 #include <std_msgs/Empty.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/Odometry.h>
@@ -18,7 +18,6 @@
 #include <slam_communication_msgs/NodesToRemove.h>
 
 #include <rtabmap/core/OccupancyGridMap.h>
-#include <rtabmap/core/LaserScan.h>
 #include <rtabmap/core/Transform.h>
 #include <rtabmap/core/SensorData.h>
 #include <rtabmap/core/ObjectTracking.h>
@@ -67,7 +66,7 @@ private:
         const rtabmap::Time& time,
         const rtabmap::Transform& localPose, const rtabmap::Transform& globalPose,
         bool temporary);
-    void publishOccupancyGridMaps(const ros::Time& stamp);
+    void publishOccupancyGridMaps(const rtabmap::Time& time);
     void publishLastDilatedSemantic(const ros::Time& stamp,
         const std::string& frame_id);
     void publishTrackedObjects(const ros::Time& stamp,
@@ -75,11 +74,6 @@ private:
     void publishSensorIgnoreAreas(const ros::Time& stamp, const std::string& sensorFrame,
         const std::vector<rtabmap::LocalMapBuilder::Area>& sensorIgnoreAreas);
     static std::vector<geometry_msgs::Point> createCube(float length, float width, float height);
-
-    nav_msgs::OccupancyGrid getOccupancyGridMsg(const ros::Time& stamp, int index);
-    void fillColorsInColoredOccupancyGridMsg(
-        colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
-        int index);
 
 private:
     DataSubscriber temporaryDataSubscriber_;
@@ -94,7 +88,8 @@ private:
     ros::Subscriber optimizationResultsSub_;
     ros::Publisher nodesToRemovePub_;
 
-    tf::TransformListener tfListener_;
+    tf2_ros::Buffer tfBuffer_;
+    tf2_ros::TransformListener tfListener_;
 
     std::unique_ptr<rtabmap::OccupancyGridMap> occupancyGridMap_;
 

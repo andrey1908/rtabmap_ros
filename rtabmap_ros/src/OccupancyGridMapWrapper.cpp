@@ -33,7 +33,9 @@ using kas_utils::mergeYaml;
 
 namespace rtabmap_ros {
 
-OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv)
+OccupancyGridMapWrapper::OccupancyGridMapWrapper(int argc, char** argv) :
+    tfBuffer_(),
+    tfListener_(tfBuffer_)
 {
     ros::NodeHandle nh;
     ros::NodeHandle pnh("~");
@@ -178,7 +180,7 @@ void OccupancyGridMapWrapper::updatePoses(
             UASSERT(mapFrame_ == globalPoseMsg.header.frame_id);
             const ros::Time& stamp = globalPoseMsg.header.stamp;
             rtabmap::Time time(stamp.sec, stamp.nsec);
-            rtabmap::Transform global_pose = transformFromPoseMsg(globalPoseMsg.pose);
+            rtabmap::Transform global_pose = fromRos(globalPoseMsg.pose);
             trajectory.addPose(time, global_pose);
         }
         trajectories.addTrajectory(std::move(trajectory));
@@ -198,7 +200,7 @@ void OccupancyGridMapWrapper::updatePoses(
         }
         UASSERT(mapFrame_ == mapToOdometryMsg.header.frame_id);
         UASSERT(odomFrame_ == mapToOdometryMsg.child_frame_id);
-        globalToLocal = transformFromGeometryMsg(mapToOdometryMsg.transform);
+        globalToLocal = fromRos(mapToOdometryMsg.transform);
     }
 
     rtabmap::Time skipLocalMapsUpto(
@@ -240,7 +242,7 @@ void OccupancyGridMapWrapper::updatePoses(
         }
         *updatePosesDataProto.mutable_skip_local_maps_upto() = toProto(skipLocalMapsUpto);
 
-        rtabmap::proto::RawData proto;
+        rtabmap::proto::RawData::RawData proto;
         *proto.mutable_update_poses_data() = std::move(updatePosesDataProto);
         rawDataWriter_->write(proto);
     }
@@ -277,7 +279,7 @@ void OccupancyGridMapWrapper::dataCallback(
     UASSERT(baseLinkFrame_ == localOdometryMsg.child_frame_id);
 
     ros::Time stamp = localOdometryMsg.header.stamp;
-    rtabmap::Time time(stamp.sec, stamp.nsec);
+    rtabmap::Time time = fromRos(stamp);
     if (!temporaryMapping)
     {
         bool localMapCanBeAdded = occupancyGridMap_->localMapCanBeAdded(time);
@@ -287,8 +289,8 @@ void OccupancyGridMapWrapper::dataCallback(
         }
     }
 
-    rtabmap::Transform localPose = transformFromPoseMsg(localOdometryMsg.pose.pose);
-    rtabmap::Transform globalPose = transformFromPoseMsg(globalOdometryMsg.pose.pose);
+    rtabmap::Transform localPose = fromRos(localOdometryMsg.pose.pose);
+    rtabmap::Transform globalPose = fromRos(globalOdometryMsg.pose.pose);
     rtabmap::SensorData sensorData = createSensorData(
         pointCloudMsg,
         cameraInfoMsgs,
@@ -304,7 +306,7 @@ void OccupancyGridMapWrapper::dataCallback(
         return;
     }
 
-    publishOccupancyGridMaps(stamp);
+    publishOccupancyGridMaps(time);
     if (occupancyGridMap_->objectTrackingEnabled())
     {
         publishTrackedObjects(stamp, occupancyGridMap_->trackedObjects());
@@ -324,26 +326,27 @@ rtabmap::SensorData OccupancyGridMapWrapper::createSensorData(
     const std::vector<sensor_msgs::CameraInfoConstPtr>& cameraInfoMsgs,
     const std::vector<sensor_msgs::ImageConstPtr>& imageMsgs)
 {
-    rtabmap::LaserScan scan;
-    if (scan3dMsg.data.size())
-    {
-        bool convertionOk = convertScan3dMsg(scan3dMsg, baseLinkFrame_, "",
-            ros::Time(0), scan, tfListener_, 0.1);
-        UASSERT(convertionOk);
-    }
-
-    std::vector<cv::Mat> rgbs;
-    std::vector<rtabmap::CameraModel> cameraModels;
-    if (imageMsgs.size())
-    {
-        bool convertionOk = convertRGBMsgs(imageMsgs, cameraInfoMsgs, baseLinkFrame_, "",
-            ros::Time(0), rgbs, cameraModels, tfListener_, 0.1);
-        UASSERT(convertionOk);
-    }
-
     rtabmap::SensorData sensorData;
-    sensorData.setLaserScan(std::move(scan));
-    sensorData.setImages(cameraModels, rgbs);
+
+    rtabmap::SensorData::LidarData lidarData = fromRos(
+        scan3dMsg,
+        tfBuffer_,
+        baseLinkFrame_,
+        ros::Duration(0.1));
+    sensorData.addLidarData(std::move(lidarData));
+
+    UASSERT(cameraInfoMsgs.size() == imageMsgs.size());
+    for (int i = 0; i < cameraInfoMsgs.size(); i++)
+    {
+        rtabmap::SensorData::CameraData cameraData = fromRos(
+            *cameraInfoMsgs[i],
+            *imageMsgs[i],
+            tfBuffer_,
+            baseLinkFrame_,
+            ros::Duration(0.1));
+        sensorData.addCameraData(std::move(cameraData));
+    }
+
     return sensorData;
 }
 
@@ -353,10 +356,9 @@ void OccupancyGridMapWrapper::addSensorDataToOccupancyGrid(
     const rtabmap::Transform& localPose, const rtabmap::Transform& globalPose,
     bool temporary)
 {
-    tf::StampedTransform fromUpdatedPoseTF;
-    tfListener_.lookupTransform(updatedPosesFrame_, baseLinkFrame_,
-        ros::Time(time.sec, time.nsec), fromUpdatedPoseTF);
-    rtabmap::Transform fromUpdatedPose = rtabmap_ros::transformFromTF(fromUpdatedPoseTF);
+    geometry_msgs::TransformStamped fromUpdatedPoseMsg =
+        tfBuffer_.lookupTransform(updatedPosesFrame_, baseLinkFrame_, toRosTime(time));
+    rtabmap::Transform fromUpdatedPose = fromRos(fromUpdatedPoseMsg.transform);
     std::shared_ptr<rtabmap::LocalMap> localMap =
         occupancyGridMap_->createLocalMap(sensorData, time, fromUpdatedPose);
     if (temporary)
@@ -379,111 +381,54 @@ void OccupancyGridMapWrapper::addSensorDataToOccupancyGrid(
         *inputDataProto.mutable_from_updated_pose() = toProto(fromUpdatedPose);
         inputDataProto.set_temporary(temporary);
 
-        rtabmap::proto::RawData proto;
+        rtabmap::proto::RawData::RawData proto;
         *proto.mutable_input_data() = std::move(inputDataProto);
         rawDataWriter_->write(proto);
     }
 }
 
-void OccupancyGridMapWrapper::publishOccupancyGridMaps(const ros::Time& stamp)
+void OccupancyGridMapWrapper::publishOccupancyGridMaps(const rtabmap::Time& time)
 {
     MEASURE_BLOCK_TIME(publishOccupancyGridMaps);
 
+    std::map<int, rtabmap::OccupancyGrid> grids;
+    std::map<int, rtabmap::ColorGrid> colors;
     std::vector<int> subscribedIndices;
     std::vector<int> coloredSubscribedIndices;
-    std::map<int, nav_msgs::OccupancyGrid> occupancyGridMsgs;
     for (int i = 0; i < occupancyGridMap_->numBuilders(); i++)
     {
-        bool occupancyGridSubscribed = (occupancyGridPubs_[i].getNumSubscribers() > 0);
-        bool coloredOccupancyGridSubscribed = (coloredOccupancyGridPubs_[i].getNumSubscribers() > 0);
-        if (occupancyGridSubscribed || coloredOccupancyGridSubscribed)
+        bool subscribed = (occupancyGridPubs_[i].getNumSubscribers() > 0);
+        bool coloredSubscribed = (coloredOccupancyGridPubs_[i].getNumSubscribers() > 0);
+        if (subscribed || coloredSubscribed)
         {
-            occupancyGridMsgs[i] = getOccupancyGridMsg(stamp, i);
-            if (occupancyGridMsgs[i].header.frame_id.size())
-            {
-                if (occupancyGridSubscribed)
-                {
-                    subscribedIndices.push_back(i);
-                }
-                if (coloredOccupancyGridSubscribed)
-                {
-                    coloredSubscribedIndices.push_back(i);
-                }
-            }
+            grids[i] = occupancyGridMap_->getOccupancyGrid(i);
+        }
+        if (coloredSubscribed)
+        {
+            colors[i] = occupancyGridMap_->getColorGrid(i);
+        }
+
+        if (subscribed)
+        {
+            subscribedIndices.push_back(i);
+        }
+        if (coloredSubscribed)
+        {
+            coloredSubscribedIndices.push_back(i);
         }
     }
 
-    for (int index : subscribedIndices)
+    float cellSize = occupancyGridMap_->cellSize();
+    for (int i : subscribedIndices)
     {
-        occupancyGridPubs_[index].publish(occupancyGridMsgs[index]);
+        nav_msgs::OccupancyGrid msg = toRos(grids.at(i), time, mapFrame_, cellSize);
+        occupancyGridPubs_[i].publish(msg);
     }
-
-    for (int index : coloredSubscribedIndices)
+    for (int i : coloredSubscribedIndices)
     {
-        colored_occupancy_grid_msgs::ColoredOccupancyGrid coloredOccupancyGridMsg;
-        const nav_msgs::OccupancyGrid& occupancyGridMsg = occupancyGridMsgs[index];
-        coloredOccupancyGridMsg.header = occupancyGridMsg.header;
-        coloredOccupancyGridMsg.info = occupancyGridMsg.info;
-        coloredOccupancyGridMsg.data = occupancyGridMsg.data;
-        fillColorsInColoredOccupancyGridMsg(coloredOccupancyGridMsg, index);
-        coloredOccupancyGridPubs_[index].publish(coloredOccupancyGridMsg);
-    }
-}
-
-nav_msgs::OccupancyGrid OccupancyGridMapWrapper::getOccupancyGridMsg(
-    const ros::Time& stamp, int index)
-{
-    float xMin, yMin;
-    rtabmap::OccupancyGrid occupancyGrid = occupancyGridMap_->getOccupancyGrid(index);
-    if (!occupancyGrid.limits.valid())
-    {
-        return nav_msgs::OccupancyGrid();
-    }
-
-    xMin = occupancyGrid.limits.minX() * occupancyGridMap_->cellSize();
-    yMin = occupancyGrid.limits.minY() * occupancyGridMap_->cellSize();
-    UASSERT(occupancyGrid.grid.size());
-
-    nav_msgs::OccupancyGrid occupancyGridMsg;
-    occupancyGridMsg.header.stamp = stamp;
-    occupancyGridMsg.header.frame_id = mapFrame_;
-    occupancyGridMsg.info.resolution = occupancyGridMap_->cellSize();
-    occupancyGridMsg.info.origin.position.x = 0.0;
-    occupancyGridMsg.info.origin.position.y = 0.0;
-    occupancyGridMsg.info.origin.position.z = 0.0;
-    occupancyGridMsg.info.origin.orientation.x = 0.0;
-    occupancyGridMsg.info.origin.orientation.y = 0.0;
-    occupancyGridMsg.info.origin.orientation.z = 0.0;
-    occupancyGridMsg.info.origin.orientation.w = 1.0;
-
-    occupancyGridMsg.info.width = occupancyGrid.grid.cols();
-    occupancyGridMsg.info.height = occupancyGrid.grid.rows();
-    occupancyGridMsg.info.origin.position.x = xMin;
-    occupancyGridMsg.info.origin.position.y = yMin;
-    occupancyGridMsg.data.resize(occupancyGrid.grid.size());
-
-    memcpy(occupancyGridMsg.data.data(), occupancyGrid.grid.data(), occupancyGrid.grid.size());
-    return occupancyGridMsg;
-}
-
-void OccupancyGridMapWrapper::fillColorsInColoredOccupancyGridMsg(
-    colored_occupancy_grid_msgs::ColoredOccupancyGrid& coloredOccupancyGridMsg,
-    int index)
-{
-    rtabmap::ColorGrid colorGrid = occupancyGridMap_->getColorGrid(index);
-    for (int h = 0; h < colorGrid.grid.rows(); h++)
-    {
-        for (int w = 0; w < colorGrid.grid.cols(); w++)
-        {
-            int color = colorGrid.grid(h, w);
-            if (color == rtabmap::Color::missingColor.data())
-            {
-                color = 0;
-            }
-            coloredOccupancyGridMsg.b.push_back(color & 0xFF);
-            coloredOccupancyGridMsg.g.push_back((color >> 8) & 0xFF);
-            coloredOccupancyGridMsg.r.push_back((color >> 16) & 0xFF);
-        }
+        colored_occupancy_grid_msgs::ColoredOccupancyGrid msg = toRos(
+            grids.at(i), colors.at(i), time, mapFrame_, cellSize);
+        coloredOccupancyGridPubs_[i].publish(msg);
     }
 }
 
@@ -539,7 +484,7 @@ void OccupancyGridMapWrapper::publishTrackedObjects(
         rtabmap::Transform pose(
             position.x, position.y, 0.0f,
             orientation.x(), orientation.y(), orientation.z(), orientation.w());
-        rtabmap_ros::transformToPoseMsg(pose, trackedObjectMarker.pose);
+        trackedObjectMarker.pose = toRosPose(pose);
 
         double v = std::sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy);
         trackedObjectMarker.scale.x = 1.0 * v;
@@ -580,7 +525,7 @@ void OccupancyGridMapWrapper::publishSensorIgnoreAreas(const ros::Time& stamp,
         rtabmap::Transform pose(
             area.x, area.y, area.z,
             area.roll, area.pitch, area.yaw);
-        rtabmap_ros::transformToPoseMsg(pose, areaMarker.pose);
+        areaMarker.pose = toRosPose(pose);
 
         areaMarker.points = createCube(area.length, area.width, area.height);
 
