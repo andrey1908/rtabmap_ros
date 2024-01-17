@@ -16,7 +16,6 @@
 #include <rtabmap/utilite/UFile.h>
 #include <rtabmap/utilite/ULogger.h>
 #include <rtabmap/utilite/UMath.h>
-#include <rtabmap/core/util3d_transforms.h>
 
 #include <rtabmap/proto/RawData.pb.h>
 
