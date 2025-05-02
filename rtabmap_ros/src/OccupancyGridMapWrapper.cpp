@@ -358,7 +358,7 @@ void OccupancyGridMapWrapper::addSensorDataToOccupancyGrid(
     geometry_msgs::TransformStamped fromUpdatedPoseMsg =
         tfBuffer_.lookupTransform(updatedPosesFrame_, baseLinkFrame_, toRosTime(time));
     rtabmap::Transform fromUpdatedPose = fromRos(fromUpdatedPoseMsg.transform);
-    std::shared_ptr<rtabmap::LocalMap> localMap =
+    std::shared_ptr<rtabmap::LocalMap2d> localMap =
         occupancyGridMap_->createLocalMap(sensorData, time, fromUpdatedPose);
     if (temporary)
     {
