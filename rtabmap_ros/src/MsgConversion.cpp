@@ -205,8 +205,8 @@ nav_msgs::OccupancyGrid toRos(
     UASSERT(grid.grid.size());
     msg.info.width = grid.grid.cols();
     msg.info.height = grid.grid.rows();
-    msg.info.origin.position.x = grid.limits.min()[0] * cellSize;
-    msg.info.origin.position.y = grid.limits.min()[1] * cellSize;
+    msg.info.origin.position.x = grid.limits.min()[1] * cellSize;
+    msg.info.origin.position.y = grid.limits.min()[0] * cellSize;
     msg.info.origin.position.z = 0.0;
 
     msg.data.resize(grid.grid.size());
@@ -242,8 +242,8 @@ colored_occupancy_grid_msgs::ColoredOccupancyGrid toRos(
     UASSERT(colors.grid.size());
     msg.info.width = grid.grid.cols();
     msg.info.height = grid.grid.rows();
-    msg.info.origin.position.x = grid.limits.min()[0] * cellSize;
-    msg.info.origin.position.y = grid.limits.min()[1] * cellSize;
+    msg.info.origin.position.x = grid.limits.min()[1] * cellSize;
+    msg.info.origin.position.y = grid.limits.min()[0] * cellSize;
     msg.info.origin.position.z = 0.0;
 
     msg.data.resize(grid.grid.size());
