@@ -310,7 +310,7 @@ void OccupancyGridMapWrapper::dataCallback(
     {
         publishTrackedObjects(stamp, occupancyGridMap_->trackedObjects());
     }
-    const std::vector<rtabmap::LocalMapBuilder::Area>& sensorIgnoreAreas =
+    const std::vector<rtabmap::LocalMapBuilder2d::Area>& sensorIgnoreAreas =
         occupancyGridMap_->sensorIgnoreAreas();
     if (sensorIgnoreAreas.size())
     {
@@ -504,14 +504,14 @@ void OccupancyGridMapWrapper::publishTrackedObjects(
 
 void OccupancyGridMapWrapper::publishSensorIgnoreAreas(const ros::Time& stamp,
     const std::string& sensorFrame,
-    const std::vector<rtabmap::LocalMapBuilder::Area>& sensorIgnoreAreas)
+    const std::vector<rtabmap::LocalMapBuilder2d::Area>& sensorIgnoreAreas)
 {
     visualization_msgs::MarkerArray sensorIgnoreAreasArray;
     visualization_msgs::Marker deleteAllMarkers;
     deleteAllMarkers.action = visualization_msgs::Marker::DELETEALL;
     sensorIgnoreAreasArray.markers.push_back(deleteAllMarkers);
     int i = 0;
-    for (const rtabmap::LocalMapBuilder::Area& area : sensorIgnoreAreas)
+    for (const rtabmap::LocalMapBuilder2d::Area& area : sensorIgnoreAreas)
     {
         visualization_msgs::Marker areaMarker;
         areaMarker.header.frame_id = sensorFrame;

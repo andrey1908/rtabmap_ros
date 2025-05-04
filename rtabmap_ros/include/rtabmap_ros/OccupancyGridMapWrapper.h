@@ -72,7 +72,7 @@ private:
     void publishTrackedObjects(const ros::Time& stamp,
         const std::vector<rtabmap::ObjectTracking::TrackedObject>& trackedObjects);
     void publishSensorIgnoreAreas(const ros::Time& stamp, const std::string& sensorFrame,
-        const std::vector<rtabmap::LocalMapBuilder::Area>& sensorIgnoreAreas);
+        const std::vector<rtabmap::LocalMapBuilder2d::Area>& sensorIgnoreAreas);
     static std::vector<geometry_msgs::Point> createCube(float length, float width, float height);
 
 private:
